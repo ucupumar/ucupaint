@@ -132,7 +132,46 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
     for channel in yp.channels:
         if specific_channel and channel != specific_channel: continue
 
-        if channel.type in {'RGB', 'VALUE'}:
+        if channel.special_type == 'HEIGHT':
+            
+            normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
+            # Process height input
+            if channel.use_height_normalize:
+                lib_name = lib.HEIGHT_PROCESS
+                start_height_process = replace_new_node(
+                    group_tree, channel, 'start_height_process', 'ShaderNodeGroup', 'Input Height Process',
+                    lib_name, hard_replace=True
+                )
+
+                end_height_normalize = replace_new_node(
+                    group_tree, channel, 'end_height_normalize', 'ShaderNodeGroup', 'Height Normalize',
+                    lib.HEIGHT_NORMALIZE, hard_replace=True
+                )
+
+            else:
+                remove_node(group_tree, channel, 'start_height_process')
+                remove_node(group_tree, channel, 'end_height_normalize')
+
+            if channel.use_height_as_bump and normal_ch and channel == height_ch:
+                end_bump_process = replace_new_node(
+                    group_tree, channel, 'end_bump_process', 'ShaderNodeBump', 'Height Process', hard_replace=True
+                )
+                if 'Distance' in end_bump_process.inputs: end_bump_process.inputs['Distance'].default_value = 1.0
+            else:
+                remove_node(group_tree, channel, 'end_bump_process')
+
+            # NOTE: Remove old node from old files
+            remove_node(group_tree, channel, 'end_linear')
+
+        elif channel.special_type == 'NORMAL':
+            lib_name = lib.CHECK_INPUT_NORMAL
+
+            start_normal_filter = replace_new_node(
+                group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter', lib_name
+            )
+
+        elif channel.type in {'RGB', 'VALUE'}:
 
             # Create start linear
             if not yp.use_linear_blending and channel.colorspace != 'LINEAR' and any_layers_using_channel(channel):
@@ -154,7 +193,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 else:
                     remove_node(group_tree, channel, 'end_linear')
 
-                if channel.use_clamp and any_layers_using_channel(channel):
+                if channel.special_type != 'VDISP' and channel.use_clamp and any_layers_using_channel(channel):
                     clamp = group_tree.nodes.get(channel.clamp)
                     if not clamp:
                         clamp = new_mix_node(group_tree, channel, 'clamp', 'Clamp')
@@ -174,168 +213,13 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 else:
                     remove_node(group_tree, channel, 'end_linear')
 
-        elif channel.type == 'NORMAL':
-
-            any_bumps = any_layers_using_bump_map(channel)
-
-            # Remember height tweak prop from node
-            end_max_height_tweak = group_tree.nodes.get(channel.end_max_height_tweak)
-            if end_max_height_tweak:
-                if 'Height Tweak' in end_max_height_tweak.inputs: channel.height_tweak = end_max_height_tweak.inputs['Height Tweak'].default_value
-
-                # Rename fcurve datapath
-                for fcs in get_action_and_driver_fcurves(group_tree):
-                    for fc in fcs:
-                        match = re.match(r'^nodes\["' + channel.end_max_height_tweak + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
-                        if match:
-                            index = int(match.group(1))
-                            if end_max_height_tweak.inputs[index].name == 'Height Tweak':
-                                fc.data_path = channel.path_from_id() + '.height_tweak'
-
-            if not is_bl_newer_than(3) and channel.enable_subdiv_setup:
-                if not is_bl_newer_than(2, 80):
-                    lib_name = lib.CHECK_INPUT_NORMAL_MIXED_BL27
-                else: lib_name = lib.CHECK_INPUT_NORMAL_MIXED
-            elif not channel.enable_smooth_bump and channel.enable_subdiv_setup: # and ypup.eevee_next_displacement:
-                lib_name = lib.CHECK_INPUT_NORMAL_GEOMETRY
-            else: lib_name = lib.CHECK_INPUT_NORMAL
-
-            # NOTE: Start normal filter is no longer necessary when there are only bump layers in Blender 5.0+
-            if not is_bl_newer_than(5) or channel.enable_subdiv_setup or not any_bumps or any_layers_using_normal_map(channel) or channel.enable_smooth_bump:
-                start_normal_filter = replace_new_node(
-                    group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter', lib_name
-                )
-            else: remove_node(group_tree, channel, 'start_normal_filter')
-
-            if is_normal_height_input_connected(channel):
-                #if channel.enable_smooth_bump:
-                #    start_bump_process = replace_new_node(group_tree, channel, 'start_bump_process', 
-                #                                            'ShaderNodeGroup', 'Start Bump Process', lib.START_FINE_BUMP_PROCESS, hard_replace=True)
-                #else:
-                start_bump_process = replace_new_node(
-                    group_tree, channel, 'start_bump_process', 
-                    'ShaderNodeGroup', 'Start Bump Process', lib.START_BUMP_PROCESS, hard_replace=True
-                )
-            else:
-                remove_node(group_tree, channel, 'start_bump_process')
-
-            process_lib_name = ''
-
-            if (any_layers_using_channel(channel) and any_bumps) or is_normal_height_input_connected(channel):
-
-                # Add end linear for converting displacement map to grayscale
-                if channel.enable_smooth_bump:
-                    if is_normal_height_input_connected(channel):
-                        if channel.enable_subdiv_setup: # and ypup.eevee_next_displacement:
-                            process_lib_name = lib.FINE_BUMP_PROCESS_START_BUMP_SUBDIV_ON
-                        else: process_lib_name = lib.FINE_BUMP_PROCESS_START_BUMP
-                    else: 
-                        process_lib_name = lib.FINE_BUMP_PROCESS
-                else:
-                    if channel.enable_subdiv_setup: # and ypup.eevee_next_displacement:
-                        process_lib_name = lib.BUMP_PROCESS_SUBDIV_ON
-                    else: process_lib_name = lib.BUMP_PROCESS
-
-                # Create a node to do height tweak
-                if channel.enable_height_tweak:
-                    if channel.enable_smooth_bump:
-                        lib_name = lib.MAX_HEIGHT_TWEAK_SMOOTH
-                    else: lib_name = lib.MAX_HEIGHT_TWEAK
-
-                    end_max_height_tweak = replace_new_node(
-                        group_tree, channel, 'end_max_height_tweak', 
-                        'ShaderNodeGroup', 'Max Height Tweak', lib_name, hard_replace=True
-                    )
-
-                    # Set height tweak prop to node
-                    end_max_height_tweak.inputs['Height Tweak'].default_value = channel.height_tweak
-
-                    # Rename fcurve datapath
-                    for fcs in get_action_and_driver_fcurves(group_tree):
-                        for fc in fcs:
-                            if fc.data_path == channel.path_from_id() + '.height_tweak':
-                                index = [i for i, inp in enumerate(end_max_height_tweak.inputs) if inp.name == 'Height Tweak'][0]
-                                fc.data_path = 'nodes["' + end_max_height_tweak.name + '"].inputs[' + str(index) + '].default_value'
-
-                else:
-                    remove_node(group_tree, channel, 'end_max_height_tweak')
-            else:
-                remove_node(group_tree, channel, 'end_linear')
-                #remove_node(group_tree, channel, 'end_max_height')
-                remove_node(group_tree, channel, 'end_max_height_tweak')
-
-            # Engine filter is needed if subdiv is on and channel is baked
-            if yp.use_baked and channel.enable_subdiv_setup and (any_layers_using_disp(channel) or any_layers_using_vdisp(channel)):
-
-                lib_name = lib.ENGINE_FILTER if is_bl_newer_than(2, 80) else lib.ENGINE_FILTER_LEGACY
-                end_normal_engine_filter = replace_new_node(
-                    group_tree, channel, 'end_normal_engine_filter', 'ShaderNodeGroup', 'End Engine Filter', lib_name
-                )
-                for inp in end_normal_engine_filter.inputs:
-                    inp.default_value = (0.5, 0.5, 1.0, 1.0)
-            else:
-                remove_node(group_tree, channel, 'end_normal_engine_filter')
-
-
-            # Remember smooth normal tweak prop from node when certain case met
-            end_linear = group_tree.nodes.get(channel.end_linear)
-            if end_linear and 'Normal Tweak' in end_linear.inputs and(
-                    (not channel.enable_smooth_bump and channel.enable_smooth_normal_tweak) 
-                    or (channel.enable_smooth_bump and not channel.enable_smooth_normal_tweak)
-                    or (channel.enable_smooth_bump and channel.enable_smooth_normal_tweak and process_lib_name != '' and end_linear.node_tree.name != process_lib_name)
-                    ):
-
-                channel.smooth_normal_tweak = end_linear.inputs['Normal Tweak'].default_value
-
-                # Rename fcurve datapath
-                for fcs in get_action_and_driver_fcurves(group_tree):
-                    for fc in fcs:
-                        match = re.match(r'^nodes\["' + channel.end_linear + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
-                        if match:
-                            index = int(match.group(1))
-                            if end_linear.inputs[index].name == 'Normal Tweak':
-                                fc.data_path = channel.path_from_id() + '.smooth_normal_tweak'
-
-            if process_lib_name != '':
-
-                end_linear = replace_new_node(
-                    group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Bump Process',
-                    process_lib_name, hard_replace=True
-                )
-
-                # Smooth normal tweak
-                if channel.enable_smooth_bump and channel.enable_smooth_normal_tweak:
-
-                    end_linear.inputs['Normal Tweak'].default_value = channel.smooth_normal_tweak
-
-                    # Rename fcurve datapath
-                    for fcs in get_action_and_driver_fcurves(group_tree):
-                        for fc in fcs:
-                            if fc.data_path == channel.path_from_id() + '.smooth_normal_tweak':
-                                index = [i for i, inp in enumerate(end_linear.inputs) if inp.name == 'Normal Tweak'][0]
-                                fc.data_path = 'nodes["' + end_linear.name + '"].inputs[' + str(index) + '].default_value'
-
-                elif 'Normal Tweak' in end_linear.inputs:
-
-                    # Rename fcurve datapath
-                    for fcs in get_action_and_driver_fcurves(group_tree):
-                        for fc in fcs:
-                            match = re.match(r'^nodes\["' + channel.end_linear + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
-                            if match:
-                                index = int(match.group(1))
-                                if end_linear.inputs[index].name == 'Normal Tweak':
-                                    fc.data_path = channel.path_from_id() + '.smooth_normal_tweak'
-
-                    # Set normal tweak value to 1.0 if it's disabled
-                    end_linear.inputs['Normal Tweak'].default_value = 1.0
-
 def set_float_factor_inputs_hack(tree, float_factor_input_names):
     if not is_bl_newer_than(5, 1): return
     for inp in tree.interface.items_tree:
         if inp.name in float_factor_input_names and inp.subtype != 'FACTOR':
             inp.subtype = 'FACTOR'
 
-def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_io=False, hard_reset=False, yp_node=None):
+def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_output=False, hard_reset=False, yp_node=None, do_process_layers=True):
 
     #print("Checking YP IO. Specific Layer: " + str(specific_layer))
 
@@ -348,12 +232,18 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     valid_outputs = []
     float_factor_input_names = []
 
-    # Get alpha and color pair channel
+    # Get active preview mode channel
+    try: active_preview_ch = yp.channels[yp.preview_mode_channel_index]
+    except: active_preview_ch = None
+
+    # Get channel pairs
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+    normal_ch, height_ch = get_normal_height_ch_pairs(yp)
 
     for ch in yp.channels:
 
         is_alpha_ch = ch.enable_alpha or (alpha_ch and ch == alpha_ch)
+        is_bump_only = ch == height_ch and height_ch.use_height_as_bump
 
         if ch.type == 'VALUE':
             create_input(
@@ -366,15 +256,17 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
                 valid_inputs, input_index, default_value=(1, 1, 1, 1)
             )
-        elif ch.type == 'NORMAL':
-            # Use 999 as normal z value so it will fallback to use geometry normal at checking process
+        elif ch.type == 'VECTOR':
+            default_value = (999, 999, 999) if ch.special_type == 'NORMAL' else (0, 0, 0)
+            hide_value = ch.special_type == 'NORMAL'
             create_input(
                 group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
-                valid_inputs, input_index, default_value=(999, 999, 999), hide_value=True, node=yp_node
+                valid_inputs, input_index, default_value=default_value, hide_value=hide_value, node=yp_node
             )
 
-        create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
-                valid_outputs, output_index)
+        if not is_bump_only or force_height_output or (is_channel_preview_mode_enabled(yp) and ch == active_preview_ch):
+            create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
+                    valid_outputs, output_index)
 
         if ch.io_index != input_index:
             ch.io_index = input_index
@@ -413,47 +305,43 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
             remove_node(group_tree, ch, 'end_backface')
 
         # Displacement IO
-        if ch.type == 'NORMAL' and (ch.enable_subdiv_setup or force_height_io):
+        if ch.special_type == 'HEIGHT':
 
-            name = ch.name + io_suffix['HEIGHT']
+            # Check if the bake target is normalized
+            is_baked_normalize = is_baked_channel_normalized(ch)
 
-            height_default_value = 0.0
-            create_input(
-                group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, 
-                min_value=0.0, max_value=1.0, default_value=height_default_value, hide_value=True
-            )
-            float_factor_input_names.append(name)
-            if group_node and group_node.node_tree == group_tree:
-                group_node.inputs[name].default_value = height_default_value
-            input_index += 1
+            if ch.use_height_normalize or is_baked_normalize:
+                name = ch.name + io_suffix['MIDLEVEL']
 
-            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
-            output_index += 1
+                if ch.use_height_normalize:
+                    if create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, default_value=0.0, min_value=0.0, max_value=1.0):
+                        # Set node default value
+                        if group_node and group_node.node_tree == group_tree:
+                            group_node.inputs[name].default_value = ch.ori_midlevel_value
+                    input_index += 1
 
-            name = ch.name + io_suffix['MAX_HEIGHT']
+                if not is_bump_only:
+                    create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
+                    output_index += 1
 
-            if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=0.1):
-                # Set node default value
-                if group_node and group_node.node_tree == group_tree:
-                    group_node.inputs[name].default_value = ch.ori_max_height_value
-            input_index += 1
+                name = ch.name + io_suffix['SCALE']
 
-            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
-            output_index += 1
+                if ch.use_height_normalize:
+                    if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=1.0):
+                        # Set node default value
+                        if group_node and group_node.node_tree == group_tree:
+                            group_node.inputs[name].default_value = ch.ori_max_height_value
+                    input_index += 1
 
-            name = ch.name + io_suffix['VDISP']
-
-            create_input(group_tree, name, 'NodeSocketVector', valid_inputs, input_index, default_value=(0, 0, 0), hide_value=True)
-            input_index += 1
-
-            create_output(group_tree, name, 'NodeSocketVector', valid_outputs, output_index)
-            output_index += 1
+                if not is_bump_only:
+                    create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
+                    output_index += 1
 
     # Check start and end nodes
     check_start_end_root_ch_nodes(group_tree)
 
     specific_channel = None
-    if yp.layer_preview_mode:
+    if is_layer_preview_mode_enabled(yp):
         create_output(group_tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index)
         output_index += 1
 
@@ -472,11 +360,6 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                     node_inp = group_node.inputs.get(inp.name)
                     if node_inp: ch.ori_alpha_value = node_inp.default_value
 
-                if ch.type == 'NORMAL':
-                    if group_node and inp.name == ch.name + io_suffix['MAX_HEIGHT']:
-                        node_inp = group_node.inputs.get(inp.name)
-                        if node_inp: ch.ori_max_height_value = node_inp.default_value
-
             remove_tree_input(group_tree, inp)
 
     for outp in get_tree_outputs(group_tree):
@@ -489,20 +372,22 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     # NOTE HACK: Blender 5.1 Alpha can only set the socket subtype here
     set_float_factor_inputs_hack(group_tree, float_factor_input_names)
 
-    # Update layer IO
-    for layer in yp.layers:
-        if specific_layer and layer != specific_layer: continue
-        specific_ch = None
-        if yp.layer_preview_mode and yp.active_channel_index < len(layer.channels):
-            specific_ch = layer.channels[yp.active_channel_index]
-        check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=remove_props, hard_reset=hard_reset)
-
-    if reconnect:
-        # Rearrange layers
+    if do_process_layers:
+        # Update layer IO
         for layer in yp.layers:
             if specific_layer and layer != specific_layer: continue
-            reconnect_layer_nodes(layer)
-            rearrange_layer_nodes(layer)
+            specific_ch = None
+            if is_layer_preview_mode_enabled(yp) and yp.preview_mode_channel_index < len(layer.channels):
+                specific_ch = layer.channels[yp.preview_mode_channel_index]
+            check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=remove_props, hard_reset=hard_reset)
+
+    if reconnect:
+        if do_process_layers:
+            # Rearrange layers
+            for layer in yp.layers:
+                if specific_layer and layer != specific_layer: continue
+                reconnect_layer_nodes(layer)
+                rearrange_layer_nodes(layer)
 
         # Rearrange nodes
         reconnect_yp_nodes(group_tree)
@@ -561,14 +446,8 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
         # Update layer ch blend type
         check_blend_type_nodes(root_ch, layer, ch)
 
-        if root_ch.type != 'NORMAL': # Because normal map related nodes should already created
-            # Check mask mix nodes
-            check_mask_mix_nodes(layer, tree, specific_ch=ch)
-
-        else:
-            # Check flip y
-            if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                check_entity_image_flip_y(ch)
+        # Check mask mix nodes
+        check_mask_mix_nodes(layer, tree, specific_ch=ch)
 
     # Mask nodes
     for mask in layer.masks:
@@ -593,8 +472,13 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
         for child in children: 
             other_layers.append(child)
 
-        # Check background layers
         layer_idx = get_layer_index(layer)
+
+        # Check "Previous Layers" layers
+        pls = [l for i, l in enumerate(yp.layers) if i < layer_idx and l.type == 'PREV_LAYERS']
+        other_layers.extend(pls)
+
+        # Check background layers
         bgs = [l for i, l in enumerate(yp.layers) if i < layer_idx and l.type == 'BACKGROUND']
         other_layers.extend(bgs)
 
@@ -711,8 +595,9 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     
     trans_bump_ch = get_transition_bump_channel(layer)
 
-    # Get alpha and color pair channel
+    # Get channel pairs
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
 
     # Rename fcurve and driver data path before rearranging the inputs
     if root_tree.animation_data:
@@ -794,38 +679,27 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 dirty = create_prop_input(ch, 'override_1_color', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
-            if root_ch.type == 'NORMAL':
-
-                if layer.type != 'GROUP':
-
+            if layer.type != 'GROUP':
+                if root_ch.special_type == 'HEIGHT':
                     # Height/bump distance input
-                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                        dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
-                        input_index += 1
+                    dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
 
                     # Height/bump midlevel input
-                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                        dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty, float_factor_input_names)
-                        input_index += 1
+                    dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
+
+                if root_ch.special_type == 'NORMAL':
 
                     # Normal map strength input
-                    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                        dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty, float_factor_input_names)
-                        input_index += 1
-                    elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                        dirty = create_prop_input(ch, 'vdisp_strength', valid_inputs, input_index, dirty, float_factor_input_names)
-                        input_index += 1
+                    dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
 
-                    # Smooth bump multiplier input:
-                    if root_ch.enable_smooth_bump:
-                        if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                            dirty = create_prop_input(ch, 'bump_smooth_multiplier', valid_inputs, input_index, dirty, float_factor_input_names)
-                            input_index += 1
+                if root_ch.special_type == 'VDISP':
+                    dirty = create_prop_input(ch, 'vdisp_strength', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
 
-                # Normal height/bump distance input
-                #if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                #    dirty = create_prop_input( ch, 'normal_bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
-                #    input_index += 1
+            if root_ch.special_type == 'HEIGHT':
 
                 # Transition bump inputs
                 if ch.enable_transition_bump:
@@ -920,9 +794,9 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch))
+        channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch)) or (ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal)
 
-        force_normal_input = root_ch.type == 'NORMAL' and need_prev_normal and layer_enabled
+        force_normal_input = root_ch.special_type in {'NORMAL', 'HEIGHT'} and need_prev_normal and layer_enabled
 
         if channel_enabled or force_normal_input:
             dirty = create_input(tree, root_ch.name, channel_socket_input_bl_idnames[root_ch.type], 
@@ -948,92 +822,17 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 output_index += 1
 
         # Displacement IO
-        if root_ch.type == 'NORMAL':
+        if root_ch.special_type == 'HEIGHT':
 
-
-            name = root_ch.name + io_suffix['HEIGHT']
-
-            if channel_enabled or force_normal_input:
-                dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-                input_index += 1
-
-            if channel_enabled:
-                dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
-                output_index += 1
-
-            if root_ch.enable_smooth_bump:
-
-                for letter in nsew_letters:
-
-                    name = root_ch.name + ' Height ' + letter.upper()
-                    
-                    if channel_enabled or force_normal_input:
-                        dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                        input_index += 1
-
-                    if channel_enabled:
-                        dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
-                        output_index += 1
-                        pass
-
-            if has_parent or (is_normal_height_input_connected(root_ch) and root_ch.enable_smooth_bump):
-
-                name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
-
-                if channel_enabled or force_normal_input:
-                    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-                    input_index += 1
-
-                if channel_enabled:
-                    dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
-                    output_index += 1
-
-                if root_ch.enable_smooth_bump:
-
-                    for letter in nsew_letters:
-                        name = root_ch.name + ' Height ' + letter.upper() + io_suffix['ALPHA']
-
-                        if channel_enabled or force_normal_input:
-                            dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                            input_index += 1
-
-                        if channel_enabled:
-                            dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
-                            output_index += 1
-
-            name = root_ch.name + io_suffix['MAX_HEIGHT']
-
-            if channel_enabled or force_normal_input:
+            #if channel_enabled and (root_ch.use_height_normalize or root_ch.use_height_as_bump):
+            if (channel_enabled and root_ch.use_height_normalize) or force_normal_input or is_parent_using_transition_bump(layer):
+                name = root_ch.name + io_suffix['SCALE']
 
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
                 input_index += 1
 
-            if channel_enabled:
                 dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
                 output_index += 1
-
-            name = root_ch.name + io_suffix['VDISP']
-
-            if channel_enabled or force_normal_input:
-
-                dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                input_index += 1
-
-            if channel_enabled:
-                dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
-                output_index += 1
-
-            if has_parent:
-                name = root_ch.name + io_suffix['VDISP'] + io_suffix['ALPHA']
-
-                if channel_enabled: # or force_normal_input:
-
-                    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-                    input_index += 1
-
-                if channel_enabled:
-                    dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
-                    output_index += 1
 
     # Tree background inputs
     if layer.type in {'BACKGROUND', 'GROUP'}:
@@ -1049,67 +848,28 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
             root_ch = yp.channels[i]
 
-            if root_ch.type != 'NORMAL' or (layer.type == 'GROUP' and is_layer_using_normal_map(layer, root_ch)):
+            name = root_ch.name + io_suffix[layer.type]
+            dirty = create_input(
+                tree, name, channel_socket_input_bl_idnames[root_ch.type],
+                valid_inputs, input_index, dirty
+            )
+            input_index += 1
 
-                name = root_ch.name + io_suffix[layer.type]
+            # Alpha Input
+            if ch != color_ch and (root_ch.enable_alpha or layer.type == 'GROUP'):
+
+                name = root_ch.name + io_suffix['ALPHA'] + io_suffix[layer.type]
                 dirty = create_input(
-                    tree, name, channel_socket_input_bl_idnames[root_ch.type],
+                    tree, name, 'NodeSocketFloatFactor',
                     valid_inputs, input_index, dirty
                 )
                 input_index += 1
 
-                # Alpha Input
-                if ch != color_ch and (root_ch.enable_alpha or layer.type == 'GROUP'):
-
-                    name = root_ch.name + io_suffix['ALPHA'] + io_suffix[layer.type]
-                    dirty = create_input(
-                        tree, name, 'NodeSocketFloatFactor',
-                        valid_inputs, input_index, dirty
-                    )
-                    input_index += 1
-
             # Displacement Input
-            if root_ch.type == 'NORMAL' and layer.type == 'GROUP':
-
-                if is_height_process_needed(layer):
-
-                    name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP']
-                    dirty = create_input(tree, name, 'NodeSocketFloat',
-                            valid_inputs, input_index, dirty)
-                    input_index += 1
-
-                    if root_ch.enable_smooth_bump:
-
-                        for letter in nsew_letters:
-                            name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['GROUP']
-                            dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                            input_index += 1
-
-                    name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP']
-                    dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                    input_index += 1
-
-                    if root_ch.enable_smooth_bump:
-
-                        for letter in nsew_letters:
-                            name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['ALPHA'] + io_suffix['GROUP']
-                            dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                            input_index += 1
-
-                    name = root_ch.name + io_suffix['MAX_HEIGHT'] + io_suffix['GROUP']
-                    dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                    input_index += 1
-
-                if is_vdisp_process_needed(layer):
-
-                    name = root_ch.name + io_suffix['VDISP'] + io_suffix['GROUP']
-                    dirty = create_input(tree, name, 'NodeSocketVector',
-                            valid_inputs, input_index, dirty)
-                    input_index += 1
-
-                    name = root_ch.name + io_suffix['VDISP'] + io_suffix['ALPHA'] + io_suffix['GROUP']
-                    dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                    input_index += 1
+            if root_ch.special_type == 'HEIGHT' and layer.type == 'GROUP' and (root_ch.use_height_normalize or ch.enable_transition_bump):
+                name = root_ch.name + io_suffix['SCALE'] + io_suffix['GROUP']
+                dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                input_index += 1
 
     # Create UV inputs
     for uv in yp.uvs:
@@ -1144,7 +904,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
         input_index += 1
 
-    if yp.layer_preview_mode:
+    if is_layer_preview_mode_enabled(yp):
         dirty = create_output(tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index, dirty)
         output_index += 1
 

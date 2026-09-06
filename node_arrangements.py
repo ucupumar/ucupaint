@@ -2,13 +2,6 @@ from mathutils import *
 from .common import *
 
 NO_MODIFIER_Y_OFFSET = 200
-FINE_BUMP_Y_OFFSET = 300
-
-default_y_offsets = {
-    'RGB' : 165,
-    'VALUE' : 220,
-    'NORMAL' : 155,
-}
 
 mod_y_offsets = {
     'INVERT' : 330,
@@ -187,19 +180,6 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
         # Normal process
 
-        #if root_ch.type == 'NORMAL':
-
-            #frame = get_frame(tree, '__normal_process__', str(i), root_ch.name + ' Process')
-
-            #check_set_node_parent(tree, ch.spread_alpha, frame)
-            #check_set_node_parent(tree, ch.spread_alpha_n, frame)
-            #check_set_node_parent(tree, ch.spread_alpha_s, frame)
-            #check_set_node_parent(tree, ch.spread_alpha_e, frame)
-            #check_set_node_parent(tree, ch.spread_alpha_w, frame)
-            #check_set_node_parent(tree, ch.normal_process, frame)
-            #check_set_node_parent(tree, ch.normal_flip, frame)
-            #check_set_node_parent(tree, ch.height_process, frame)
-
         # Blend
         frame = get_frame(tree, '__blend__', str(i), root_ch.name + ' Blend')
         check_set_node_parent(tree, ch.decal_alpha, frame)
@@ -213,41 +193,20 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, ch.vdisp_blend, frame)
         check_set_node_parent(tree, ch.blend, frame)
 
-        if root_ch.type == 'NORMAL':
-            check_set_node_parent(tree, ch.spread_alpha, frame)
-            #check_set_node_parent(tree, ch.spread_alpha_n, frame)
-            #check_set_node_parent(tree, ch.spread_alpha_s, frame)
-            #check_set_node_parent(tree, ch.spread_alpha_e, frame)
-            #check_set_node_parent(tree, ch.spread_alpha_w, frame)
-            
+        if root_ch.special_type == 'HEIGHT':
             check_set_node_parent(tree, ch.bump_distance_ignorer, frame)
             check_set_node_parent(tree, ch.tb_distance_flipper, frame)
             check_set_node_parent(tree, ch.tb_delta_calc, frame)
             check_set_node_parent(tree, ch.height_proc, frame)
-
-            check_set_node_parent(tree, ch.height_blend, frame)
-            #check_set_node_parent(tree, ch.height_blend_n, frame)
-            #check_set_node_parent(tree, ch.height_blend_s, frame)
-            #check_set_node_parent(tree, ch.height_blend_e, frame)
-            #check_set_node_parent(tree, ch.height_blend_w, frame)
-
             check_set_node_parent(tree, ch.max_height_calc, frame)
 
-            check_set_node_parent(tree, ch.normal_map_proc, frame)
+        if root_ch.special_type == 'NORMAL':
             check_set_node_parent(tree, ch.normal_proc, frame)
-            check_set_node_parent(tree, ch.normal_flip, frame)
+            check_set_node_parent(tree, ch.normal_overlay, frame)
 
-            check_set_node_parent(tree, ch.vdisp_intensity, frame)
+        if root_ch.special_type == 'VDISP':
             check_set_node_parent(tree, ch.vdisp_flip_yz, frame)
             check_set_node_parent(tree, ch.vdisp_proc, frame)
-
-            #check_set_node_parent(tree, ch.blend_height, frame)
-            #check_set_node_parent(tree, ch.intensity_height, frame)
-            #check_set_node_parent(tree, ch.height_process_temp, frame)
-            #for d in neighbor_directions:
-            #    check_set_node_parent(tree, getattr(ch, 'blend_height_' + d), frame)
-            #    check_set_node_parent(tree, getattr(ch, 'intensity_height_' + d), frame)
-            #    check_set_node_parent(tree, getattr(ch, 'height_process_' + d), frame)
 
         #check_set_node_parent(tree, ch.normal_flip, frame)
         #check_set_node_parent(tree, ch.intensity_multiplier, frame)
@@ -840,17 +799,6 @@ def rearrange_layer_nodes(layer, tree=None):
     if start: loc.y = -(len(start.outputs) * 40)
     else: loc.y = 0
 
-    # Arrange pack unpack height group
-    if layer.type == 'GROUP':
-        for i, ch in enumerate(layer.channels):
-            root_ch = yp.channels[i] 
-            if root_ch.type == 'NORMAL':
-
-                if check_set_node_loc(tree, ch.height_group_unpack, loc):
-                    loc.y -= 250
-                if check_set_node_loc(tree, ch.height_alpha_group_unpack, loc):
-                    loc.y -= 250
-
     if layer.source_group != '' and check_set_node_loc(tree, layer.source_group, loc, hide=True):
         rearrange_source_tree_nodes(layer)
         loc.y -= 40
@@ -983,6 +931,9 @@ def rearrange_layer_nodes(layer, tree=None):
     if check_set_node_loc(tree, ONE_VALUE, loc):
         loc.y -= 90
 
+    if check_set_node_loc(tree, HALF_VALUE, loc):
+        loc.y -= 90
+
     if check_set_node_loc(tree, ZERO_VALUE, loc):
         loc.y -= 90
 
@@ -1044,7 +995,7 @@ def rearrange_layer_nodes(layer, tree=None):
 
         root_ch = yp.channels[i]
 
-        if root_ch.type == 'NORMAL':
+        if root_ch.special_type == 'HEIGHT':
             chain = min(len(layer.masks), ch.transition_bump_chain)
         elif bump_ch:
             chain = min(len(layer.masks), bump_ch.transition_bump_chain)
@@ -1133,10 +1084,6 @@ def rearrange_layer_nodes(layer, tree=None):
         #    rearrange_normal_process_nodes(tree, ch, loc)
 
         if loc.x > farthest_x: farthest_x = loc.x
-
-        if root_ch.type == 'NORMAL':
-            if offset_y < FINE_BUMP_Y_OFFSET:
-                offset_y = FINE_BUMP_Y_OFFSET
 
         loc.y -= offset_y
 
@@ -1289,7 +1236,7 @@ def rearrange_layer_nodes(layer, tree=None):
             ch = layer.channels[j]
             root_ch = yp.channels[j]
 
-            if root_ch.type == 'NORMAL':
+            if root_ch.special_type == 'HEIGHT':
                 chain = min(len(layer.masks), ch.transition_bump_chain)
             elif bump_ch:
                 chain = min(len(layer.masks), bump_ch.transition_bump_chain)
@@ -1326,13 +1273,7 @@ def rearrange_layer_nodes(layer, tree=None):
                     loc.y -= 40
 
             if check_set_node_loc(tree, c.mix, loc):
-                if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-                    if layer.type == 'GROUP' and mask.blend_type in limited_mask_blend_types:
-                        loc.y -= 540.0
-                    else:
-                        loc.y -= 430.0
-                else:
-                    loc.y -= 240.0
+                loc.y -= 240.0
 
             if check_set_node_loc(tree, c.mix_limit, loc, True):
                 loc.y -= 40
@@ -1372,14 +1313,6 @@ def rearrange_layer_nodes(layer, tree=None):
             else:
                 loc.y = bookmark_y1
 
-            #if i == len(layer.masks)-1:
-
-            #    if root_ch.type == 'NORMAL':
-            #        loc.y = bookmark_y
-
-            #        rearrange_normal_process_nodes(tree, ch, loc)
-            #        loc.y -= 300
-
             if loc.x > farthest_x: farthest_x = loc.x
 
     loc.x = farthest_x
@@ -1410,31 +1343,6 @@ def rearrange_layer_nodes(layer, tree=None):
     #loc.y = y_mid
     loc.y = 0
 
-    # Start node
-    #check_set_node_loc(tree, TREE_START, loc)
-
-    #start = tree.nodes.get(TREE_START)
-    #check_set_node_width(start, 250)
-
-    #loc.x += 300
-    #loc.y = 0
-
-    #bookmark_x = loc.x
-
-    #for i, ch in enumerate(layer.channels):
-
-    #    root_ch = yp.channels[i]
-
-    #    if root_ch.type == 'NORMAL':
-
-    #        rearrange_normal_process_nodes(tree, ch, loc)
-    #        loc.y -= 300
-    #        loc.x += 30
-    #    else:
-    #        loc.y -= y_step
-
-    #    if loc.x > farthest_x: farthest_x = loc.x
-
     loc.y = 0
     bookmark_x = loc.x
 
@@ -1462,58 +1370,19 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.x += 200
                 y_offset += 90
 
-        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and layer.texcoord_type == 'Decal':
-
-            ori_y = loc.y
-
-            if check_set_node_loc(tree, ch.decal_alpha, loc, True):
-                loc.y -= 40
-
-            if check_set_node_loc(tree, ch.decal_alpha_n, loc, True):
-                loc.y -= 40
-
-            if check_set_node_loc(tree, ch.decal_alpha_s, loc, True):
-                loc.y -= 40
-
-            if check_set_node_loc(tree, ch.decal_alpha_e, loc, True):
-                loc.y -= 40
-
-            if check_set_node_loc(tree, ch.decal_alpha_w, loc, True):
-                loc.y -= 40
-            
-            loc.x += 200
-            loc.y = ori_y
-
-        elif check_set_node_loc(tree, ch.decal_alpha, loc):
+        if check_set_node_loc(tree, ch.decal_alpha, loc):
             loc.x += 200
 
         if check_set_node_loc(tree, ch.layer_intensity, loc):
             loc.x += 200
 
-        if root_ch.type == 'NORMAL':
-            save_y = loc.y
-            #spread_alpha = tree.nodes.get(ch.spread_alpha)
-            #spread_alpha_n = tree.nodes.get(ch.spread_alpha_n)
+        if check_set_node_loc(tree, ch.intensity, loc):
+            loc.x += 200
 
-            #if spread_alpha_n:
-            #    if check_set_node_loc(tree, ch.spread_alpha, loc, True):
-            #        loc.y -= 40
+        if check_set_node_loc(tree, ch.group_alpha_multiply, loc):
+            loc.x += 200
 
-            #    if check_set_node_loc(tree, ch.spread_alpha_n, loc, True):
-            #        loc.y -= 40
-
-            #    if check_set_node_loc(tree, ch.spread_alpha_s, loc, True):
-            #        loc.y -= 40
-
-            #    if check_set_node_loc(tree, ch.spread_alpha_e, loc, True):
-            #        loc.y -= 40
-
-            #    if check_set_node_loc(tree, ch.spread_alpha_w, loc, True):
-            #        loc.y -= 40
-
-            #    loc.y = save_y
-            #    loc.x += 200
-
+        if root_ch.special_type == 'HEIGHT':
             if check_set_node_loc(tree, ch.bump_distance_ignorer, loc):
                 loc.x += 200
 
@@ -1523,68 +1392,25 @@ def rearrange_layer_nodes(layer, tree=None):
             if check_set_node_loc(tree, ch.tb_delta_calc, loc):
                 loc.x += 200
 
-            #elif spread_alpha:
-            if check_set_node_loc(tree, ch.spread_alpha, loc):
-                loc.x += 200
-
             if check_set_node_loc(tree, ch.height_proc, loc):
-                loc.x += 200
-
-            #if check_set_node_loc(tree, ch.height_blend, loc):
-            #    loc.x += 200
-            save_y = loc.y
-            #height_blend = tree.nodes.get(ch.height_blend)
-            #height_blend_n = tree.nodes.get(ch.height_blend_n)
-
-            #if height_blend_n:
-            #    if check_set_node_loc(tree, ch.height_blend, loc, True):
-            #        loc.y -= 40
-
-            #    if check_set_node_loc(tree, ch.height_blend_n, loc, True):
-            #        loc.y -= 40
-
-            #    if check_set_node_loc(tree, ch.height_blend_s, loc, True):
-            #        loc.y -= 40
-
-            #    if check_set_node_loc(tree, ch.height_blend_e, loc, True):
-            #        loc.y -= 40
-
-            #    if check_set_node_loc(tree, ch.height_blend_w, loc, True):
-            #        loc.y -= 40
-
-            #    loc.y = save_y
-            #    loc.x += 200
-
-            #elif height_blend:
-            if check_set_node_loc(tree, ch.height_blend, loc):
                 loc.x += 200
 
             if check_set_node_loc(tree, ch.max_height_calc, loc):
                 loc.x += 200
 
-            if check_set_node_loc(tree, ch.normal_map_proc, loc):
-                loc.x += 200
-
+        elif root_ch.special_type == 'NORMAL':
             if check_set_node_loc(tree, ch.normal_proc, loc):
                 loc.x += 200
 
-            if check_set_node_loc(tree, ch.normal_flip, loc):
+            if check_set_node_loc(tree, ch.normal_overlay, loc):
                 loc.x += 200
 
-            if check_set_node_loc(tree, ch.vdisp_intensity, loc):
-                loc.x += 200
-
+        elif root_ch.special_type == 'VDISP':
             if check_set_node_loc(tree, ch.vdisp_flip_yz, loc):
                 loc.x += 200
 
             if check_set_node_loc(tree, ch.vdisp_proc, loc):
                 loc.x += 200
-
-        if check_set_node_loc(tree, ch.intensity, loc):
-            loc.x += 200
-
-        if check_set_node_loc(tree, ch.group_alpha_multiply, loc):
-            loc.x += 200
 
         bookmark_x1 = loc.x
 
@@ -1991,8 +1817,13 @@ def rearrange_yp_nodes(group_tree):
         if check_set_node_loc(group_tree, channel.start_bump_process, loc):
             loc.y -= 250
 
+        if check_set_node_loc(group_tree, channel.start_height_process, loc):
+            loc.y -= 290
+
         if i == num_channels-1:
             if check_set_node_loc(group_tree, ONE_VALUE, loc):
+                loc.y -= 90
+            if check_set_node_loc(group_tree, HALF_VALUE, loc):
                 loc.y -= 90
             if check_set_node_loc(group_tree, ZERO_VALUE, loc):
                 loc.y -= 90
@@ -2078,8 +1909,14 @@ def rearrange_yp_nodes(group_tree):
                 loc.y -= 110
             elif channel.type == 'VALUE':
                 loc.y -= 170
-            elif channel.type == 'NORMAL':
+            elif channel.type == 'VECTOR':
                 loc.y -= 300
+
+        if check_set_node_loc(group_tree, channel.end_bump_process, loc):
+            loc.y -= 240
+
+        if check_set_node_loc(group_tree, channel.end_height_normalize, loc):
+            loc.y -= 180
 
         if check_set_node_loc(group_tree, channel.clamp, loc):
             loc.y -= 240
@@ -2095,87 +1932,93 @@ def rearrange_yp_nodes(group_tree):
 
     farthest_x = ori_x = loc.x
 
+    for bt in yp.bake_targets:
+
+        loc.x = ori_x
+
+        if check_set_node_loc(group_tree, bt.max_value_node, loc):
+            loc.y -= 80
+
+        # Deprecated
+        if check_set_node_loc(group_tree, bt.image_node, loc):
+            loc.x += 270
+
+        if check_set_node_loc(group_tree, bt.baked_node, loc):
+            loc.x += 270
+
+        if check_set_node_loc(group_tree, bt.separate_xyz, loc):
+            loc.x += 200
+
+        if bt.invert_r != '' or bt.invert_g != '' or bt.invert_b != '' or bt.invert_a != '':
+            if check_set_node_loc(group_tree, bt.invert_r, loc, True):
+                loc.y -= 40
+            if check_set_node_loc(group_tree, bt.invert_g, loc, True):
+                loc.y -= 40
+            if check_set_node_loc(group_tree, bt.invert_b, loc, True):
+                loc.y -= 40
+            if check_set_node_loc(group_tree, bt.invert_a, loc, True):
+                loc.y -= 40
+            loc.x += 200
+
+        loc.y -= 270
+
+        if loc.x > farthest_x: farthest_x = loc.x
+
+    loc.x = ori_x = farthest_x
+    loc.y = 0
+
     for i, ch in enumerate(yp.channels):
 
         loc.x = ori_x
 
-        if check_set_node_loc(group_tree, ch.baked, loc):
-            loc.x += 270
+        any_node = False
 
-        if yp.use_baked and check_set_node_loc(group_tree, channel.end_normal_engine_filter, loc):
+        if check_set_node_loc(group_tree, ch.baked_combine_xyz, loc):
+            any_node = True
             loc.x += 200
 
+        #if check_set_node_loc(group_tree, ch.baked, loc):
+        #    loc.x += 270
+
+        #if yp.use_baked and check_set_node_loc(group_tree, channel.end_normal_engine_filter, loc):
+        #    loc.x += 200
+
         if check_set_node_loc(group_tree, ch.baked_normal_prep, loc):
+            any_node = True
             loc.x += 200
 
         if check_set_node_loc(group_tree, ch.baked_normal, loc):
+            any_node = True
             loc.x += 200
 
         #if check_set_node_loc(group_tree, ch.baked_normal_flip, loc):
         #    loc.x += 200
 
-        loc.y -= 270
-        save_x = loc.x
-
-        loc.x = ori_x
-
-        if check_set_node_loc(group_tree, ch.baked_normal_overlay, loc):
+        if any_node:
             loc.y -= 270
+        #save_x = loc.x
 
-        if check_set_node_loc(group_tree, ch.baked_disp, loc):
-            loc.y -= 270
+        #loc.x = ori_x
 
-        if check_set_node_loc(group_tree, ch.end_max_height, loc):
-            loc.y -= 110
+        #if check_set_node_loc(group_tree, ch.baked_normal_overlay, loc):
+        #    loc.y -= 270
 
-        if check_set_node_loc(group_tree, ch.baked_vdisp, loc):
-            loc.y -= 270
+        #if check_set_node_loc(group_tree, ch.baked_normal_no_disp, loc):
+        #    loc.y -= 270
 
-        if check_set_node_loc(group_tree, ch.baked_vcol, loc):
-            loc.y -= 270
+        #if check_set_node_loc(group_tree, ch.baked_disp, loc):
+        #    loc.y -= 270
 
-        loc.x = save_x
+        #if check_set_node_loc(group_tree, ch.end_max_height, loc):
+        #    loc.y -= 110
 
-        if loc.x > farthest_x: farthest_x = loc.x
+        #if check_set_node_loc(group_tree, ch.baked_vdisp, loc):
+        #    loc.y -= 270
 
-        #if i == num_channels-1:
-        #    loc.x = ori_x
+        #if check_set_node_loc(group_tree, ch.baked_vcol, loc):
+        #    loc.y -= 270
 
-        #    check_set_node_loc(group_tree, BAKED_PARALLAX, loc)
-        #    loc.y -= 190
-
-        #    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
-        #    if baked_parallax:
-        #        rearrange_parallax_layer_nodes(yp, baked_parallax)
-
-            #check_set_node_loc(group_tree, BAKED_UV, loc)
-            #loc.y -= 120
-
-            #check_set_node_loc(group_tree, BAKED_TANGENT_FLIP, loc)
-            #loc.y -= 170
-
-            #check_set_node_loc(group_tree, BAKED_TANGENT, loc)
-            #loc.y -= 170
-
-            #check_set_node_loc(group_tree, BAKED_BITANGENT_FLIP, loc)
-            #loc.y -= 120
-
-            #check_set_node_loc(group_tree, BAKED_BITANGENT, loc)
-            #loc.y -= 170
-
-            #check_set_node_loc(group_tree, BAKED_NORMAL_FLIP, loc)
-            #if check_set_node_loc(group_tree, BAKED_UV, loc):
-                #loc.y -= 120
-                #loc.x += 200
-
-    for bt in yp.bake_targets:
-
-        loc.x = ori_x
-
-        if check_set_node_loc(group_tree, bt.image_node, loc):
-            loc.x += 200
-
-        loc.y -= 270
+        #loc.x = save_x
 
         if loc.x > farthest_x: farthest_x = loc.x
 

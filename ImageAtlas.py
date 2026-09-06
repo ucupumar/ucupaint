@@ -298,12 +298,6 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
     bl_description = "New Image Atlas segment test"
     bl_options = {'REGISTER', 'UNDO'}
 
-    #image_atlas_name : StringProperty(
-    #        name = 'Image Atlas',
-    #        description = 'Image atlas name',
-    #        default='')
-
-    #image_atlas_coll : CollectionProperty(type=bpy.types.PropertyGroup)
     color : EnumProperty(
         name = 'Altas Base Color',
         items = (
@@ -792,28 +786,23 @@ class YImageAtlas(bpy.types.PropertyGroup):
 
     segments : CollectionProperty(type=YImageAtlasSegment)
 
+classes = (
+    #YUVTransformTest,
+    YNewImageAtlasSegmentTest,
+    YRefreshTransformedLayerUV,
+    YBackToOriginalUV,
+    YConvertToImageAtlas,
+    YConvertToStandardImage,
+    #YImageSegmentOtherObject,
+    #YImageSegmentBakeInfoProps,
+    YImageAtlasSegment,
+    YImageAtlas,
+)
+
 def register():
-    #bpy.utils.register_class(YUVTransformTest)
-    bpy.utils.register_class(YNewImageAtlasSegmentTest)
-    bpy.utils.register_class(YRefreshTransformedLayerUV)
-    bpy.utils.register_class(YBackToOriginalUV)
-    bpy.utils.register_class(YConvertToImageAtlas)
-    bpy.utils.register_class(YConvertToStandardImage)
-    #bpy.utils.register_class(YImageSegmentOtherObject)
-    #bpy.utils.register_class(YImageSegmentBakeInfoProps)
-    bpy.utils.register_class(YImageAtlasSegment)
-    bpy.utils.register_class(YImageAtlas)
+    for cls in classes: bpy.utils.register_class(cls)
 
     bpy.types.Image.yia = PointerProperty(type=YImageAtlas)
 
 def unregister():
-    #bpy.utils.unregister_class(YUVTransformTest)
-    bpy.utils.unregister_class(YNewImageAtlasSegmentTest)
-    bpy.utils.unregister_class(YRefreshTransformedLayerUV)
-    bpy.utils.unregister_class(YBackToOriginalUV)
-    bpy.utils.unregister_class(YConvertToImageAtlas)
-    bpy.utils.unregister_class(YConvertToStandardImage)
-    #bpy.utils.unregister_class(YImageSegmentOtherObject)
-    #bpy.utils.unregister_class(YImageSegmentBakeInfoProps)
-    bpy.utils.unregister_class(YImageAtlasSegment)
-    bpy.utils.unregister_class(YImageAtlas)
+    for cls in classes: bpy.utils.unregister_class(cls)

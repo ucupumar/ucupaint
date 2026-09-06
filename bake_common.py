@@ -1,13 +1,15 @@
 import bpy, time, os, numpy, tempfile, bmesh
 from bpy.props import *
 from .common import *
+from .subtree import *
 from .input_outputs import *
 from .node_connections import *
-from . import lib, Layer, ImageAtlas, UDIM, image_ops, Mask, vector_displacement, vector_displacement_lib
+from . import lib, layer_common, ImageAtlas, UDIM, image_ops, mask_common, vector_displacement, vector_displacement_lib, displacement_common
 
 BL28_HACK = True
 
 TEMP_VCOL = '__temp__vcol__'
+TEMP_VCOL_1 = '__temp__vcol__1'
 TEMP_WIRE_UV = '__temp__wire_uv__'
 TEMP_WIRE_SCALE_UV = '__temp__wire_scale_uv__'
 TEMP_CURV_VCOL = '__temp__curvature_vcol__'
@@ -650,7 +652,7 @@ def prepare_other_objs_channels(yp, other_objs):
         for o in other_objs:
 
             # Normal channel will always use any objects
-            if ch.type == 'NORMAL':
+            if ch.special_type == 'NORMAL':
                 objs.append(o)
                 continue
 
@@ -1934,6 +1936,37 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
 
     return image
 
+# To avoid duplicate code, define the function here
+def bake_alpha_to_vcol(obj, vcol_name):
+    temp_vcol_alpha_name = '__temp__ucupaint_vertex_color_for_alpha_bake'
+    # Creates temp vertex color for baking alpha
+    temp_vcol = new_vertex_color(obj, temp_vcol_alpha_name)
+    set_active_vertex_color(obj, temp_vcol)
+
+    bake_object_op()
+    
+    vcols = get_vertex_colors(obj)
+    temp_vcol = vcols.get(temp_vcol_alpha_name)
+    target_vcol = vcols.get(vcol_name)
+    
+    # Speed up the process with numpy
+    dim_rgba = 4
+    temp_nvcol = numpy.zeros(len(temp_vcol.data) * dim_rgba, dtype=numpy.float32)
+    target_nvcol = numpy.zeros(len(target_vcol.data) * dim_rgba, dtype=numpy.float32)
+    
+    temp_vcol.data.foreach_get('color', temp_nvcol)
+    target_vcol.data.foreach_get('color', target_nvcol)
+    temp_nvcol2D = temp_nvcol.reshape(-1, dim_rgba)
+    target_nvcol2D = target_nvcol.reshape(-1, dim_rgba)
+
+    # Moves the alpha of the temp vertex color to the target vertex color
+    target_nvcol2D[:, 3] = temp_nvcol2D[:, 0]
+    target_vcol.data.foreach_set('color', target_nvcol)   
+
+    # Deletes the temp vertex color and resets the active vertex color
+    vcols.remove(temp_vcol)
+    set_active_vertex_color(obj, target_vcol)
+
 def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=1.0, bake_alpha=False, vcol_name=''):
 
     yp = node.node_tree.yp
@@ -1941,7 +1974,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
     # Create setup nodes
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
-    if root_ch.type == 'NORMAL':
+    if root_ch.special_type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
         if is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
@@ -1957,7 +1990,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
 
     # Links to bake
     rgb = node.outputs[root_ch.name]
-    if root_ch.type == 'NORMAL':
+    if root_ch.special_type == 'NORMAL':
         rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
 
     if extra_channel:
@@ -2036,7 +2069,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, emit)
-    if root_ch.type == 'NORMAL':
+    if root_ch.special_type == 'NORMAL':
         simple_remove_node(mat.node_tree, norm)
 
     if extra_channel:
@@ -2063,6 +2096,15 @@ def is_baked_normal_without_bump_needed(root_ch):
         (not is_overlay_normal_empty(root_ch) and (any_layers_using_disp(root_ch) or any_layers_using_vdisp(root_ch))) or
         (root_ch.enable_subdiv_setup and (any_layers_using_disp(root_ch) or any_layers_using_vdisp(root_ch)))
     )
+
+def safely_set_use_height_as_bump(root_ch, value, ori_halt_update=False):
+    # NOTE: Enabling use height as bump without halt_update enabled will create unecessary displacement node
+    yp = root_ch.id_data.yp
+
+    yp.halt_update = True
+    root_ch.use_height_as_bump = value
+    yp.halt_update = ori_halt_update
+    check_all_channel_ios(yp)
 
 def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
 
@@ -2105,14 +2147,15 @@ def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
         # Use high margin to make sure all pixels are covered
         scene.render.bake.margin = high_margin
 
-    # Check for height socket
-    forced_height_ios = False
-    if 'Height' not in node.outputs:
-        check_all_channel_ios(yp, reconnect=True, force_height_io=True)
-        forced_height_ios = True
+    # Make sure height scale socket is available
+    ori_use_height_as_bump = root_ch.use_height_as_bump
+    ori_use_height_normalize = root_ch.use_height_normalize
+    if root_ch.use_height_as_bump:
+        safely_set_use_height_as_bump(root_ch, False)
+        root_ch.use_height_normalize = True
 
     # Create target image
-    if UDIM.is_udim_supported():
+    if is_udim_supported():
         img = bpy.data.images.new(
             name='____MAXHEIGHT_TEMP', width=100, height=100, 
             alpha=False, tiled=False, float_buffer=True
@@ -2127,7 +2170,7 @@ def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
     tex.image = img
 
     # Connect max height output to emit node
-    create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
+    create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['SCALE']], 
             emit.inputs[0])
 
     # Bake
@@ -2156,6 +2199,12 @@ def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
     else:
         # Recover margin
         scene.render.bake.margin = ori_margin
+
+    # Recover props
+    if root_ch.use_height_as_bump != ori_use_height_as_bump:
+        safely_set_use_height_as_bump(root_ch, ori_use_height_as_bump)
+    if root_ch.use_height_normalize != ori_use_height_normalize:
+        root_ch.use_height_normalize = ori_use_height_normalize
 
     return max_height_value
 
@@ -2202,6 +2251,7 @@ def get_bake_properties_from_self(self):
         'denoise',
         'channel_idx',
         'blend_type',
+        'height_blend_type',
         'normal_blend_type',
         'normal_map_type',
         'hdr',
@@ -2229,18 +2279,18 @@ def get_bake_properties_from_self(self):
     return bprops
 
 def any_object_space_normal(yp):
-    # NOTE: Height and normal channel are currently the same thing
-    norm_root_ch = get_root_height_channel(yp)
-    if not norm_root_ch: return False
+    normal_root_ch = get_root_normal_channel(yp)
+    if not normal_root_ch: return False
 
     for layer in yp.layers:
         if not layer.enable or layer.type == 'GROUP': continue
 
-        norm_ch = get_height_channel(layer)
+        norm_ch = get_normal_channel(layer)
         if not norm_ch: continue
-        if not get_channel_enabled(norm_ch, layer, norm_root_ch): continue
+        if not get_channel_enabled(norm_ch, layer, normal_root_ch): continue
 
-        if norm_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and norm_ch.normal_space == 'OBJECT':
+        #if norm_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and norm_ch.normal_space == 'OBJECT':
+        if norm_ch.normal_space == 'OBJECT':
             return True
 
     return False
@@ -2265,13 +2315,899 @@ def recover_rested_armature_objects(armature_objs):
     for armature_obj in armature_objs:
         armature_obj.data.pose_position = 'POSE'
 
+def prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons=False):
+
+    obook = dotdict()
+
+    obook.temp_objs = []
+    obook.ori_objs = []
+    obook.ori_mat_ids = {}
+    obook.ori_loop_locs = {}
+
+    any_uv_geonodes = False
+
+    for ob in objs:
+
+        # NOTE: This code can freeze blender if there are too many polygons, but it's needed for Blender 2.83 and lower
+        obook.ori_mat_ids[ob.name] = []
+        obook.ori_loop_locs[ob.name] = []
+        if not is_bl_newer_than(2, 90) and len(ob.data.materials) > 1:
+            active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat]
+            if active_mat_id: active_mat_id = active_mat_id[0]
+            else: continue
+
+            # Get uv map
+            uv_layers = get_uv_layers(ob)
+            uvl = uv_layers.get(uv_map)
+
+            for p in ob.data.polygons:
+
+                # Set uv location to (0,0) if not using current material
+                if uvl and not force_bake_all_polygons:
+                    uv_locs = []
+                    for li in p.loop_indices:
+                        uv_locs.append(uvl.data[li].uv.copy())
+                        if p.material_index != active_mat_id:
+                            uvl.data[li].uv = Vector((0.0, 0.0))
+
+                    obook.ori_loop_locs[ob.name].append(uv_locs)
+
+                # Set active mat
+                obook.ori_mat_ids[ob.name].append(p.material_index)
+                p.material_index = active_mat_id
+
+        # Check if any objects use geometry nodes to output uv
+        if any(get_output_uv_names_from_geometry_nodes(ob)):
+            any_uv_geonodes = True
+
+    # Join objects if the number of objects is higher than one 
+    # or if there are uvs generated by geometry nodes
+    if (len(objs) > 1 or any_uv_geonodes) and not is_join_objects_problematic(yp, mat):
+
+        # Make sure there's no missing vertex color on any objects
+        fix_missing_object_vcols(yp, objs, enabled_only=True)
+
+        obook.ori_objs = objs
+        objs = obook.temp_objs = [get_merged_mesh_objects(scene, objs)]
+
+    return objs, obook
+
+def recover_objs_after_baking(objs, obook, uv_map):
+    # Return to original objects
+    if any(obook.ori_objs): objs = ori_objs
+
+    # Recover material index
+    for ob in objs:
+        if obook.ori_mat_ids[ob.name]:
+            for i, p in enumerate(ob.data.polygons):
+                if obook.ori_mat_ids[ob.name][i] != p.material_index:
+                    p.material_index = obook.ori_mat_ids[ob.name][i]
+
+        if obook.ori_loop_locs[ob.name]:
+
+            # Get uv map
+            uv_layers = get_uv_layers(ob)
+            uvl = uv_layers.get(uv_map)
+
+            # Recover uv locations
+            if uvl:
+                for i, p in enumerate(ob.data.polygons):
+                    for j, li in enumerate(p.loop_indices):
+                        uvl.data[li].uv = obook.ori_loop_locs[ob.name][i][j]
+
+    # Remove temporary objects
+    for o in obook.temp_objs:
+        remove_mesh_obj(o)
+
+    return objs
+
+def do_image_post_process(image, bprops, alpha_enabled=False, bake_device='CPU', force_denoise_off=False):
+
+    # Dithering
+    if bprops.use_dithering and not image.is_float:
+        dither_image(image, dither_intensity=bprops.dither_intensity, alpha_aware=alpha_enabled)
+
+    # Denoise
+    if not force_denoise_off:
+        if bprops.denoise and is_bl_newer_than(2, 81):
+            denoise_image(image)
+
+    # AA process
+    if bprops.aa_level > 1:
+        image, _ = resize_image(
+            image, bprops.width, bprops.height, 
+            image.colorspace_settings.name,
+            alpha_aware=alpha_enabled, bake_device=bake_device
+        )
+
+    # FXAA doesn't work with hdr image
+    if bprops.fxaa and not image.is_float:
+        fxaa_image(image, alpha_enabled, bake_device=bake_device)
+
+    return image
+
+def get_bake_target_default_color(node, bt, any_linear_ch):
+    yp = node.node_tree.yp
+
+    color = []
+    for i, letter in enumerate(rgba_letters):
+        btc = getattr(bt, letter)
+        root_ch = yp.channels.get(btc.channel_name)
+        if root_ch:
+            if root_ch.special_type == 'NORMAL':
+                if btc.subchannel_index in {'0', '1'}:
+                    color.append(0.5)
+                else: color.append(1.0)
+
+            elif root_ch.special_type == 'HEIGHT' and (root_ch.use_height_normalize or bt.height_normalize):
+                color.append(0.5)
+
+            elif root_ch.type == 'VALUE':
+                val = node.inputs[root_ch.name].default_value
+                color.append(val)
+
+            else:
+                if btc.subchannel_index in {'0', '1', '2'}:
+                    channel_idx = get_channel_index(root_ch)
+
+                    # NOTE: Sometimes user like to add solid color as base color rather than edit the channel background color
+                    # So check the first layer that uses solid color that has no masks and use it as bake background color
+                    base_solid_color = None
+                    for layer in yp.layers:
+                        if not layer.enable or layer.type != 'COLOR' or len(layer.masks) > 0 or layer.parent_idx != -1: continue
+                        c = layer.channels[channel_idx]
+                        if not c.enable or c.override: continue
+                        source = get_layer_source(layer)
+                        if source:
+                            base_solid_color = source.outputs[0].default_value
+                            break
+
+                    if base_solid_color != None:
+                        col = base_solid_color
+                    else: col = node.inputs[root_ch.name].default_value
+
+                    val = col[i]
+                    if not any_linear_ch:
+                        val = linear_to_srgb_per_element(val)
+                    color.append(val)
+
+                else: color.append(1.0)
+        else:
+            color.append(btc.default_value)
+
+    return tuple(color)
+
+def copy_vcol_channels(source, target, source_idx, target_idx):
+    dim_rgba = 4
+    temp_nvcol = numpy.zeros(len(source.data) * dim_rgba, dtype=numpy.float32)
+    target_nvcol = numpy.zeros(len(target.data) * dim_rgba, dtype=numpy.float32)
+    
+    source.data.foreach_get('color', temp_nvcol)
+    target.data.foreach_get('color', target_nvcol)
+    temp_nvcol2D = temp_nvcol.reshape(-1, dim_rgba)
+    target_nvcol2D = target_nvcol.reshape(-1, dim_rgba)
+
+    # Moves the alpha of the temp vertex color to the target vertex color
+    target_nvcol2D[:, target_idx] = temp_nvcol2D[:, source_idx]
+    target.data.foreach_set('color', target_nvcol)   
+
+def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bake_device='CPU', use_osl=False):
+
+    if not any(objs): objs = get_all_objects_with_same_materials(mat)
+
+    tree = node.node_tree
+    yp = tree.yp
+    ypup = get_user_preferences()
+    scene = bpy.context.scene
+
+    book = remember_before_bake(yp)
+
+    # Disable use baked first
+    if yp.use_baked:
+        yp.use_baked = False
+
+    # Check used channels
+    channels = get_bake_target_channels(bt)
+
+    # Normal and height channel
+    normal_root_ch = get_root_normal_channel(yp)
+    height_root_ch = get_root_height_channel(yp)
+
+    any_linear_ch = any([c for c in channels if c.colorspace == 'LINEAR' or c.special_type == 'NORMAL'])
+    any_normal_ch = any([c for c in channels if c.special_type == 'NORMAL'])
+    any_height_ch = any([c for c in channels if c.special_type == 'HEIGHT'])
+    any_vdm_ch = any([c for c in channels if c.special_type == 'VDISP'])
+    any_non_clamped_ch = any([c for c in channels if c.use_clamp and c.special_type not in {'HEIGHT', 'NORMAL'}])
+
+    # Checking if all channel sources are from normal channel
+    # NOTE: Assuming there's only one normal channel, which what's currently possible
+    all_normal_ch = True
+    if any_normal_ch:
+
+        r_found = False
+        g_found = False
+        b_found = False
+
+        for letter in rgba_letters:
+            if letter == 'a': continue
+
+            # Check if all the channels are used
+            btc = getattr(bt, letter)
+            if btc.subchannel_index == '0': r_found = True
+            elif btc.subchannel_index == '1': g_found = True
+            elif btc.subchannel_index == '2': b_found = True
+
+            # Check if there's other channel
+            root_ch = yp.channels.get(btc.channel_name)
+            if not root_ch or root_ch != normal_root_ch:
+                all_normal_ch = False
+                break
+
+        if not r_found or not g_found or not b_found:
+            all_normal_ch = False
+
+    tangent_sign_calculation = False
+    if BL28_HACK and any_normal_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and bpy.context.object in objs:
+
+        obj = bpy.context.object
+        if len(yp.uvs) < MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
+            print('INFO: Calculating tangent sign before bake...')
+            tangent_sign_calculation = True
+
+            # Update tangent sign vertex color
+            for uv in yp.uvs:
+                tangent_process = tree.nodes.get(uv.tangent_process)
+                if tangent_process:
+                    tangent_process.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
+                    #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
+                    tansign = tangent_process.node_tree.nodes.get('_tangent_sign')
+                    vcol = refresh_tangent_sign_vcol(obj, uv.name)
+                    if vcol: tansign.attribute_name = vcol.name
+
+    # Enable disabled layers if needed
+    disabled_layers = []
+    if btprops.bake_disabled_layers:
+        disabled_layers = [layer for layer in yp.layers if not layer.enable]
+        for layer in disabled_layers:
+            layer.enable = True 
+
+    ## Check if there no layer using the channels
+    #no_layer_using = False
+    #if len(channels) > 0:
+
+    #    # Check if any layer is using the channels
+    #    layer_found = False
+    #    for ch in channels:
+    #        if is_any_layer_using_channel(ch, node):
+    #            layer_found = True
+    #            break
+    #    if not layer_found:
+    #        no_layer_using = True
+
+    # Vertex color baking
+    is_vcol_baking = bt.data_type == 'VCOL'
+
+    # NOTE: Vertex color baking probably better off without merging objects
+    do_actual_objects_setup = do_objects_setup and not is_vcol_baking
+
+    # Objects setup
+    if do_actual_objects_setup:
+        objs, obook = prepare_objs_before_baking(mat, yp, objs, btprops.uv_map, btprops.force_bake_all_polygons)
+
+    # Width and height
+    width = btprops.width if btprops.use_custom_resolution else int(btprops.image_resolution)
+    height = btprops.height if btprops.use_custom_resolution else int(btprops.image_resolution)
+
+    # AA setup
+    margin = btprops.margin * btprops.aa_level
+    width = width * btprops.aa_level
+    height = height * btprops.aa_level
+
+    # Prepare bake settings
+    prepare_bake_settings(
+        book, objs, yp, btprops.samples, margin, btprops.uv_map, disable_problematic_modifiers=True, 
+        bake_device=bake_device, margin_type=btprops.margin_type, use_osl=use_osl,
+        bake_target='VERTEX_COLORS' if is_vcol_baking else 'IMAGE_TEXTURES'
+    )
+
+    ## Check if baking fake lighting is necessary
+    ## NOTE: Only needed for Blender 2.80 or less because those are the only versions that can use non-baked fake lighting as bump
+    #ori_bprops_name = bprops['name'] if bprops else ''
+    #if not is_bl_newer_than(2, 81) and normal_root_ch in channel:
+    #    normal_ch_idx = get_channel_index(normal_root_ch)
+    #    for lay in yp.layers:
+    #        if not lay.enable: continue
+    #        if normal_ch_idx >= len(lay.channels): continue
+    #        ch = lay.channels[normal_ch_idx]
+    #        if not ch.enable: continue
+    #        bake_happened = False
+
+    #        if lay.type in {'HEMI'} and not lay.use_baked:
+    #            bprops['name'] = 'Baked ' + lay.name
+    #            bprops['hdr'] = is_bl_newer_than(2, 80)
+    #            bake_entity_as_image(lay, bprops, set_image_to_entity=True)
+    #            bake_happened = True
+
+    #        for mask in lay.masks:
+    #            if mask.type in {'HEMI'} and not mask.use_baked:
+    #                bprops['name'] = 'Baked ' + mask.name
+    #                bprops['hdr'] = is_bl_newer_than(2, 80)
+    #                bake_entity_as_image(mask, bprops, set_image_to_entity=True)
+    #                bake_happened = True
+
+    #        if bake_happened:
+    #            reconnect_layer_nodes(lay)
+    #            rearrange_layer_nodes(lay)
+
+    # Check for hdr
+    use_hdr = False
+    if not bt or bt.bake_settings == 'GLOBAL':
+        if hasattr(btprops, 'use_float_for_displacement') and btprops.use_float_for_displacement and any_height_ch:
+            use_hdr = True
+        if hasattr(btprops, 'use_float_for_normal') and btprops.use_float_for_normal and any_normal_ch:
+            use_hdr = True
+        if hasattr(btprops, 'use_float_for_vector_displacement') and btprops.use_float_for_vector_displacement and any_vdm_ch:
+            use_hdr = True
+    elif bt:
+        use_hdr = bt.hdr
+
+    # Get default color
+    color = get_bake_target_default_color(node, bt, any_linear_ch)
+
+    # Check if udim image is needed based on number of tiles
+    tilenums = [1001]
+    if btprops.use_udim and not is_vcol_baking:
+        tilenums = UDIM.get_tile_numbers(objs, btprops.uv_map)
+
+    # Get output node and remember original bsdf input
+    output = get_material_output(mat, create_one=True)
+    ori_bsdf = output.inputs[0].links[0].from_socket
+
+    # Create setup nodes
+    tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+    combine_xyz = mat.node_tree.nodes.new('ShaderNodeCombineXYZ')
+    rgb_to_bw = mat.node_tree.nodes.new('ShaderNodeRGBToBW')
+
+    separate_xyzs = []
+    for i in range(4):
+        separate_xyzs.append(mat.node_tree.nodes.new('ShaderNodeSeparateXYZ'))
+
+    inverts = []
+    for i in range(4):
+        inv = mat.node_tree.nodes.new('ShaderNodeMath')
+        inv.operation = 'SUBTRACT'
+        inv.inputs[0].default_value = 1.0
+        inverts.append(inv)
+
+    # Set tex as active node
+    mat.node_tree.nodes.active = tex
+
+    img = None
+    old_img = None
+    vcol_name = bt.name
+
+    baked_node = tree.nodes.get(bt.baked_node)
+
+    if is_vcol_baking:
+        if baked_node and baked_node.type == 'ATTRIBUTE':
+            vcol_name = baked_node.attribute_name
+        for obj in objs:
+            vcols = get_vertex_colors(obj)
+            vcol = vcols.get(vcol_name)
+
+            # Check if the attribute has correct data type and domain
+            if vcol and (vcol.data_type != bt.vcol_data_type or vcol.domain != bt.vcol_domain):
+                # Remove vcol
+                vcols.remove(vcol)
+                vcol = None
+
+            # Create new vcol
+            if not vcol:
+                vcol = new_vertex_color(obj, vcol_name, bt.vcol_data_type, bt.vcol_domain, color_fill=color)
+
+            # Make sure it has the corect data type
+            set_active_vertex_color(obj, vcol)
+    else:
+        img = baked_node.image if baked_node and baked_node.image else None
+        img_name = img.name if img else bt.name
+        filepath = img.filepath if img else ''
+
+        if img and (
+                img.size[0] != width or img.size[1] != height or
+                (img.source == 'TILED' and not btprops.use_udim) or
+                (img.source != 'TILED' and btprops.use_udim) or
+                (img.is_float != use_hdr)
+                ):
+            old_img = img
+            img = None
+            if (old_img.source == 'TILED' and not btprops.use_udim) or (old_img.source != 'TILED' and btprops.use_udim):
+                filepath = ''
+
+    if not baked_node:
+        # Set nodes
+        if is_vcol_baking:
+            baked_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeAttribute')
+        else:
+            baked_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeTexImage')
+
+    # Set legacy colorspace
+    if hasattr(baked_node, 'color_space'):
+        if any_linear_ch:
+            baked_node.color_space = 'NONE'
+        else: baked_node.color_space = 'COLOR'
+
+    # Set interpolation
+    if not is_vcol_baking:
+        baked_node.interpolation = btprops.interpolation
+
+        # Bake target that uses global settings will always use 'Cubic' interpolation for height and vdm
+        if not bt or bt.bake_settings == 'GLOBAL':
+            if hasattr(btprops, 'use_float_for_displacement') and any_height_ch:
+                baked_node.interpolation = 'Cubic'
+            if hasattr(btprops, 'use_float_for_vector_displacement') and any_vdm_ch:
+                baked_node.interpolation = 'Cubic'
+        
+    if not is_vcol_baking:
+        # Create new image
+        if not img:
+            if btprops.use_udim:
+
+                # Create new udim image
+                img = bpy.data.images.new(
+                    name=img_name, width=width, height=height,
+                    alpha=True, tiled=True,
+                    float_buffer = use_hdr
+                )
+
+                # Fill tiles
+                for tilenum in tilenums:
+                    UDIM.fill_tile(img, tilenum, color, width, height)
+
+                UDIM.initial_pack_udim(img, color)
+
+            else:
+                # Create new standard image
+                img = bpy.data.images.new(
+                    name=img_name, width=width, height=height, alpha=True,
+                    float_buffer = use_hdr
+                )
+                img.generated_type = 'BLANK'
+
+            # Set image base color
+            if hasattr(img, 'use_alpha'):
+                img.use_alpha = True
+
+            # Set filepath
+            if filepath != '' and (
+                    (btprops.use_udim and '.<UDIM>.' in filepath) or 
+                    (not btprops.use_udim and '.<UDIM>.' not in filepath)
+                ):
+                img.filepath = filepath
+
+            # Set colorspace to linear
+            #if root_ch.colorspace == 'LINEAR' or root_ch.special_type == 'NORMAL' or (root_ch.special_type != 'NORMAL' and use_hdr):
+            if any_linear_ch:
+                img.colorspace_settings.name = get_noncolor_name()
+            else: img.colorspace_settings.name = get_srgb_name()
+
+        # Reset image by the base color
+        img.source = 'GENERATED'
+        img.generated_color = color
+
+    # Check if normal need no bump
+    no_bump_normal = any_normal_ch and height_root_ch and not bt.normal_includes_height and not is_vcol_baking
+
+    # Remember height channel settings
+    if height_root_ch:
+        ori_use_height_normalize = height_root_ch.use_height_normalize
+        ori_use_height_as_bump = height_root_ch.use_height_as_bump
+
+    ## Original displacement connection
+    ori_disp_from_node = ''
+    ori_disp_from_socket = ''
+
+    ## Remove displacement link early if displacement setup is enabled and the current channel is not normal channel
+    ##if normal_root_ch and any_height_ch and not height_root_ch.use_height_as_bump:
+    if (normal_root_ch and not any_normal_ch) or no_bump_normal:
+        #if root_ch != normal_root_ch:
+        # Disconnect displacement for non-normal channel
+        for link in output.inputs['Displacement'].links:
+            ori_disp_from_node = link.from_node.name
+            ori_disp_from_socket = link.from_socket.name
+            mat.node_tree.links.remove(link)
+            break
+    #    else:
+    #        # Reconnect displacement for normal channel
+    #        from_node = mat.node_tree.nodes.get(ori_disp_from_node)
+    #        from_socket = from_node.outputs.get(ori_disp_from_socket) if from_node else None
+    #        if from_socket:
+    #            mat.node_tree.links.new(from_socket, output.inputs['Displacement'])
+
+    # Disable use height as bump when baking normal not including height
+    if no_bump_normal:
+        if height_root_ch.use_height_as_bump:
+            safely_set_use_height_as_bump(height_root_ch, False)
+
+    # Dealing with height channel 
+    if any_height_ch:
+
+        # Normalize height option
+        if bt.height_normalize:
+            height_root_ch.use_height_normalize = True
+
+        if height_root_ch.use_height_normalize:
+            inp_height = node.inputs.get(height_root_ch.name)
+            inp_scale = node.inputs.get(height_root_ch.name + io_suffix['SCALE'])
+            ori_default_height_scale = inp_scale.default_value if inp_scale else 1.0
+
+            # NOTE: Set height input scale to 0.0 since it can affect the bake result
+            if len(inp_height.links) == 0 and inp_height.default_value == 0.0 and inp_scale: 
+                ori_default_height_scale = inp_scale.default_value
+                inp_scale.default_value = 0.0
+
+        # Make sure height output exists by disabling use_height_as_bump
+        if height_root_ch.use_height_as_bump:
+            safely_set_use_height_as_bump(height_root_ch, False)
+
+    # RGB to bake
+    rgb = None
+
+    # Normal pass
+    bsdf = None
+    norm = None
+    norm_tex = None
+    norm_img = None
+    norm_attr = None
+    ori_normal_space = scene.render.bake.normal_space
+    if any_normal_ch:
+
+        rgb = node.outputs.get(normal_root_ch.name)
+
+        # NOTE: Object space normal layers currently will gives less accurate result when baking using BSDF
+        if is_bl_newer_than(3) and not any_object_space_normal(yp):
+            # Use principled bsdf for Blender 2.80+
+            bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfPrincipled')
+
+            # Baking normal from diffuse bsdf
+            scene.cycles.bake_type = 'NORMAL'
+            scene.render.bake.normal_space = 'TANGENT'
+
+            # Map the channels
+            if all_normal_ch:
+                for i, letter in enumerate(rgba_letters):
+                    if letter == 'a': continue
+                    btc = getattr(bt, letter)
+                    subch = 'POS_' if not btc.invert_value else 'NEG_'
+                    if btc.subchannel_index == '0': subch += 'X'
+                    elif btc.subchannel_index == '1': subch += 'Y'
+                    elif btc.subchannel_index == '2': subch += 'Z'
+
+                    if i == 0: scene.render.bake.normal_r = subch
+                    elif i == 1: scene.render.bake.normal_g = subch
+                    elif i == 2: scene.render.bake.normal_b = subch
+
+            # Connect bsdf node to output
+            if rgb: mat.node_tree.links.new(rgb, bsdf.inputs['Normal'])
+            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+            # HACK: Sometimes the bsdf node need color socket to be also connected
+            for rch in yp.channels:
+                if rch.type == 'RGB':
+                    soc = node.outputs.get(rch.name)
+                    if soc: 
+                        mat.node_tree.links.new(soc, bsdf.inputs[0])
+                        break
+
+        else:
+            # Use custom normal calculation for legacy blender
+            norm = mat.node_tree.nodes.new('ShaderNodeGroup')
+            if is_bl_newer_than(3) or not is_bl_newer_than(2, 80):
+                norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
+            else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
+
+            # Custom normal calculation setup
+            if rgb: rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
+            else: rgb = norm.outputs[0]
+
+            mat.node_tree.links.new(rgb, emit.inputs[0])
+            mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+
+        if not all_normal_ch:
+
+            if not is_vcol_baking:
+                # Copy image
+                norm_img = img.copy()
+
+                # Set normal image target
+                tex.image = norm_img
+            else:
+                for obj in objs:
+                    # Use temp vertex color for baking normal
+                    vcols = get_vertex_colors(obj)
+                    temp_vcol = vcols.get(TEMP_VCOL)
+                    if not temp_vcol: temp_vcol = new_vertex_color(obj, TEMP_VCOL, bt.vcol_data_type, bt.vcol_domain)
+                    set_active_vertex_color(obj, temp_vcol)
+
+            # Bake normal
+            bake_object_op(scene.cycles.bake_type)
+
+            if norm_img:
+                # Set baked normal to node
+                norm_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+                norm_tex.image = norm_img
+            else:
+                norm_attr = mat.node_tree.nodes.new('ShaderNodeAttribute')
+                norm_attr.attribute_name = TEMP_VCOL
+
+                # Set back to target vcol
+                for obj in objs:
+                    vcols = get_vertex_colors(obj)
+                    vcol = vcols.get(vcol_name)
+                    set_active_vertex_color(obj, vcol)
+
+            # Set back bake type to 'EMIT'
+            scene.cycles.bake_type = 'EMIT'
+
+    # Links to bake
+    if not any_normal_ch or not all_normal_ch:
+        for i, letter in enumerate(rgba_letters):
+            if letter == 'a': continue
+            btc = getattr(bt, letter)
+            root_ch = yp.channels.get(btc.channel_name)
+            soc = node.outputs.get(root_ch.name) if root_ch else None
+
+            if root_ch:
+                if root_ch == normal_root_ch and (norm_tex or norm_attr):
+
+                    if btc.subchannel_index == '3':
+                        if norm_tex:
+                            mat.node_tree.links.new(norm_tex.outputs[0], rgb_to_bw.inputs[0])
+                        else: mat.node_tree.links.new(norm_attr.outputs['Color'], rgb_to_bw.inputs[0])
+                        soc = rgb_to_bw.outputs[0]
+                    else:
+                        if norm_tex:
+                            mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[i].inputs[0])
+                        else: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[i].inputs[0])
+                        soc = separate_xyzs[i].outputs[int(btc.subchannel_index)]
+                    
+                elif soc and root_ch.type != 'VALUE':
+                    if btc.subchannel_index == '3':
+                        mat.node_tree.links.new(soc, rgb_to_bw.inputs[0])
+                        soc = rgb_to_bw.outputs[0]
+                    else:
+                        mat.node_tree.links.new(soc, separate_xyzs[i].inputs[0])
+                        soc = separate_xyzs[i].outputs[int(btc.subchannel_index)]
+                
+            if soc:
+                if btc.invert_value:
+                    mat.node_tree.links.new(soc, inverts[i].inputs[1])
+                    soc = inverts[i].outputs[0]
+
+                mat.node_tree.links.new(soc, combine_xyz.inputs[i])
+            else:
+                inp = combine_xyz.inputs[i]
+                if inp:
+                    for link in inp.links:
+                        mat.node_tree.links.remove(link)
+                    inp.default_value = btc.default_value
+
+        # Connect combined xyz/rgb to emit node
+        rgb = combine_xyz.outputs[0]
+        mat.node_tree.links.new(rgb, emit.inputs[0])
+
+        # Connect emit node to output
+        mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+
+    # Set image to tex node
+    if img: tex.image = img
+
+    # No need to bake if there is no channel used
+    if len(channels) > 0:
+        # Bake!
+        extra_label = ''
+        if not is_vcol_baking: 
+            extra_label += ' Size='+str(width)+'x'+str(height)
+        print('BAKE TARGET: Baking', bt.name+'...'+extra_label)
+        bake_object_op(scene.cycles.bake_type)
+
+    # Revert back the original bake settings
+    scene.cycles.bake_type = 'EMIT'
+    if scene.render.bake.normal_space != ori_normal_space:
+        scene.render.bake.normal_space = ori_normal_space
+
+    # For alpha socket
+    root_ch = yp.channels.get(bt.a.channel_name) if bt.a.channel_name != '' else None
+    soc = node.outputs.get(bt.a.channel_name) if bt.a.channel_name != '' else None
+
+    # Alpha pass
+    if root_ch and soc:
+
+        alpha_img = None
+        if not is_vcol_baking:
+            # Create temp image
+            alpha_img = img.copy()
+            alpha_img.source = 'GENERATED'
+            alpha_img.generated_color = (color[3], color[3], color[3], 1.0)
+            alpha_img.colorspace_settings.name = get_noncolor_name()
+        else:
+            for obj in objs:
+                # Use temp vertex color for baking alpha
+                vcols = get_vertex_colors(obj)
+                temp_vcol = vcols.get(TEMP_VCOL_1)
+                if not temp_vcol: temp_vcol = new_vertex_color(obj, TEMP_VCOL_1, bt.vcol_data_type, bt.vcol_domain)
+                set_active_vertex_color(obj, temp_vcol)
+
+        if root_ch == normal_root_ch and (norm_tex or norm_attr):
+            if bt.a.subchannel_index == '3':
+                if norm_tex: mat.node_tree.links.new(norm_tex.outputs[0], rgb_to_bw.inputs[0])
+                else: mat.node_tree.links.new(norm_attr.outputs['Color'], rgb_to_bw.inputs[0])
+                soc = rgb_to_bw.outputs[0]
+            else:
+                if norm_tex: mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[3].inputs[0])
+                else: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[3].inputs[0])
+                soc = separate_xyzs[3].outputs[int(bt.a.subchannel_index)]
+        elif root_ch.type != 'VALUE':
+            if bt.a.subchannel_index == '3':
+                mat.node_tree.links.new(soc, rgb_to_bw.inputs[0])
+                soc = rgb_to_bw.outputs[0]
+            else:
+                mat.node_tree.links.new(soc, separate_xyzs[3].inputs[0])
+                soc = separate_xyzs[3].outputs[int(bt.a.subchannel_index)]
+
+        if bt.a.invert_value:
+            mat.node_tree.links.new(soc, inverts[3].inputs[1])
+            soc = inverts[3].outputs[0]
+
+        mat.node_tree.links.new(soc, emit.inputs[0])
+
+        if alpha_img: 
+            tex.image = alpha_img
+
+            # Set temp filepath
+            if img.source == 'TILED':
+                alpha_img.name = '__TEMP__'
+                UDIM.initial_pack_udim(alpha_img)
+
+        # Bake
+        print('BAKE CHANNEL: Baking alpha of ' + bt.name + ' channel...')
+        bake_object_op()
+
+        if alpha_img:
+            # Set tile pixels
+            for tilenum in tilenums:
+
+                # Swap tile
+                if tilenum != 1001:
+                    UDIM.swap_tile(img, 1001, tilenum)
+                    UDIM.swap_tile(alpha_img, 1001, tilenum)
+
+                # Copy alpha
+                copy_image_channel_pixels(alpha_img, img, 0, 3)
+
+                # Swap tile again to recover
+                if tilenum != 1001:
+                    UDIM.swap_tile(img, 1001, tilenum)
+                    UDIM.swap_tile(alpha_img, 1001, tilenum)
+
+            # Remove temp image
+            remove_datablock(bpy.data.images, alpha_img, user=tex, user_prop='image')
+
+        else:
+            for obj in objs:
+                vcols = get_vertex_colors(obj)
+                temp_vcol = vcols.get(TEMP_VCOL_1)
+                vcol = vcols.get(vcol_name)
+
+                # Copy temp_vcol to vcol
+                copy_vcol_channels(temp_vcol, vcol, 0, 3)
+
+                # Back to baked vcol
+                set_active_vertex_color(obj, vcol)
+
+                # Remove temp vcol
+                vcols.remove(temp_vcol)
+
+    # Replace old image
+    if old_img: 
+        replace_image(old_img, img)
+    elif img: baked_node.image = img
+
+    if is_vcol_baking:
+        baked_node.attribute_name = vcol_name
+
+    # Max height pass
+    if any_height_ch and height_root_ch and height_root_ch.use_height_normalize:
+        # Bake maximum height / height scale
+        max_height_value = get_bake_max_height(height_root_ch, mat, node, tex, emit)
+        max_value_node = check_new_node(tree, bt, 'max_value_node', 'ShaderNodeValue', 'Max '+height_root_ch.name+' Value')
+        max_value_node.outputs[0].default_value = max_height_value
+
+        # Recover default height scale value
+        inp_height = node.inputs.get(height_root_ch.name)
+        inp_scale = node.inputs.get(height_root_ch.name + io_suffix['SCALE'])
+        if len(inp_height.links) == 0 and inp_height.default_value == 0.0 and inp_scale: 
+            inp_scale.default_value = ori_default_height_scale
+
+    # Remove nodes
+    simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img and img != None)
+    simple_remove_node(mat.node_tree, emit)
+    simple_remove_node(mat.node_tree, combine_xyz)
+    simple_remove_node(mat.node_tree, rgb_to_bw)
+    for n in separate_xyzs:
+        simple_remove_node(mat.node_tree, n)
+    for n in inverts:
+        simple_remove_node(mat.node_tree, n)
+    if bsdf: simple_remove_node(mat.node_tree, bsdf)
+    if norm: simple_remove_node(mat.node_tree, norm)
+    if norm_tex:
+        if norm_img:
+            remove_datablock(bpy.data.images, norm_img, user=norm_tex, user_prop='image')
+        simple_remove_node(mat.node_tree, norm_tex)
+
+    if norm_attr:
+        simple_remove_node(mat.node_tree, norm_attr)
+
+        # Remove temp vcol
+        for obj in objs:
+            vcols = get_vertex_colors(obj)
+            temp_vcol = vcols.get(TEMP_VCOL)
+            set_active_vertex_color(obj, temp_vcol)
+
+    # Recover displacement link
+    if ori_disp_from_node != '':
+        nod = mat.node_tree.nodes.get(ori_disp_from_node)
+        if nod: 
+            soc = nod.outputs.get(ori_disp_from_socket)
+            if soc:
+                mat.node_tree.links.new(soc, output.inputs['Displacement'])
+
+    # Recover original bsdf
+    mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+
+    # Recover disabled layers
+    if btprops.bake_disabled_layers:
+        for layer in disabled_layers:
+            layer.enable = False
+
+    # Recover height channel
+    if height_root_ch:
+        if height_root_ch.use_height_as_bump != ori_use_height_as_bump:
+            safely_set_use_height_as_bump(height_root_ch, ori_use_height_as_bump)
+        if height_root_ch.use_height_normalize != ori_use_height_normalize:
+            height_root_ch.use_height_normalize = ori_use_height_normalize
+
+    # Recover hack
+    if BL28_HACK and any_normal_ch and tangent_sign_calculation and is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
+        print('INFO: Recovering tangent sign after bake...')
+        # Refresh tangent sign hacks
+        update_enable_tangent_sign_hacks(yp, bpy.context)
+
+    # Recover objects setup
+    if do_actual_objects_setup:
+        recover_objs_after_baking(objs, obook, btprops.uv_map)
+
+    # Recover bake settings
+    recover_bake_settings(book, yp)
+
+    # Post process
+    if len(channels) > 0 and img:
+        alpha_enabled = yp.channels.get(bt.a.channel_name) != None
+        # NOTE: Force denoise off for height and non-clamped channels since it can clamp the image
+        force_denoise_off = False
+        if (any_height_ch and not bt.height_normalize) or any_non_clamped_ch: 
+            force_denoise_off = True
+        img = do_image_post_process(img, bt, alpha_enabled, bake_device=bake_device, force_denoise_off=force_denoise_off)
+
+    return img
+
 def bake_channel(
         uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
         aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
         use_float_for_displacement=False, use_float_for_normal=False, bprops=None
     ):
 
-    print('BAKE CHANNEL: Baking', root_ch.name + ' channel...')
+    print('BAKE CHANNEL: Baking', root_ch.name + ' channel...' + 'size=' + str(width) + 'x' + str(height))
 
     tree = node.node_tree
     yp = tree.yp
@@ -2288,7 +3224,7 @@ def bake_channel(
     # Check if baking fake lighting is necessary
     # NOTE: Only needed for Blender 2.80 or less because those are the only versions that can use non-baked fake lighting as bump
     ori_bprops_name = bprops['name'] if bprops else ''
-    if not is_bl_newer_than(2, 81) and root_ch.type == 'NORMAL':
+    if not is_bl_newer_than(2, 81) and root_ch.special_type == 'NORMAL':
         for lay in yp.layers:
             if not lay.enable: continue
             if channel_idx >= len(lay.channels): continue
@@ -2358,7 +3294,7 @@ def bake_channel(
     # Normal baking need special node setup
     bsdf = None
     norm = None
-    if root_ch.type == 'NORMAL':
+    if root_ch.special_type == 'NORMAL':
 
         # NOTE: Object space normal layers currently will gives less accurate result when baking using BSDF
         if is_bl_newer_than(2, 80) and not any_object_space_normal(yp):
@@ -2372,18 +3308,28 @@ def bake_channel(
     # Set tex as active node
     mat.node_tree.nodes.active = tex
 
+    # Get normal and height channel pair
+    normal_root_ch, height_root_ch = get_normal_height_ch_pairs(yp)
+
     # Original displacement connection
     ori_disp_from_node = ''
     ori_disp_from_socket = ''
 
     # Remove displacement link early if displacement setup is enabled and the current channel is not normal channel
-    height_root_ch = get_root_height_channel(yp)
-    if height_root_ch and root_ch != height_root_ch and height_root_ch.enable_subdiv_setup:
-        for link in output.inputs['Displacement'].links:
-            ori_disp_from_node = link.from_node.name
-            ori_disp_from_socket = link.from_socket.name
-            mat.node_tree.links.remove(link)
-            break
+    if height_root_ch and not height_root_ch.use_height_as_bump:
+        if root_ch != normal_root_ch:
+            # Disconnect displacement for non-normal channel
+            for link in output.inputs['Displacement'].links:
+                ori_disp_from_node = link.from_node.name
+                ori_disp_from_socket = link.from_socket.name
+                mat.node_tree.links.remove(link)
+                break
+        else:
+            # Reconnect displacement for normal channel
+            from_node = mat.node_tree.nodes.get(ori_disp_from_node)
+            from_socket = from_node.outputs.get(ori_disp_from_socket) if from_node else None
+            if from_socket:
+                mat.node_tree.links.new(from_socket, output.inputs['Displacement'])
 
     # Connect emit to output material
     mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
@@ -2408,13 +3354,13 @@ def bake_channel(
         if not baked or not is_root_ch_prop_node_unique(root_ch, 'baked'):
             baked = new_node(tree, root_ch, 'baked', 'ShaderNodeTexImage', 'Baked ' + root_ch.name)
         if hasattr(baked, 'color_space'):
-            if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL':
+            if root_ch.colorspace == 'LINEAR' or root_ch.special_type == 'NORMAL':
                 baked.color_space = 'NONE'
             else: baked.color_space = 'COLOR'
         baked.interpolation = interpolation
         
         # Normal related nodes
-        if root_ch.type == 'NORMAL':
+        if root_ch.special_type == 'NORMAL':
             baked_normal = tree.nodes.get(root_ch.baked_normal)
             if not baked_normal:
                 baked_normal = new_node(tree, root_ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
@@ -2433,7 +3379,7 @@ def bake_channel(
         # Check if image is available
         if baked.image:
             img_name = baked.image.name
-            if root_ch.type == 'NORMAL':
+            if root_ch.special_type == 'NORMAL':
                 filepath = baked.image.filepath
             else: filepath = get_valid_filepath(baked.image, use_hdr)
             baked.image.name = '____TEMP'
@@ -2457,8 +3403,11 @@ def bake_channel(
 
                 color = segment.base_color
 
-        elif root_ch.type == 'NORMAL':
+        elif root_ch.special_type == 'NORMAL':
             color = (0.5, 0.5, 1.0, 1.0)
+
+        elif root_ch.special_type == 'HEIGHT' and root_ch.use_height_normalize:
+            color = (0.5, 0.5, 0.5, 1.0)
 
         elif root_ch.type == 'VALUE':
             val = node.inputs[root_ch.name].default_value
@@ -2496,7 +3445,7 @@ def bake_channel(
             img = bpy.data.images.new(
                 name=img_name, width=width, height=height,
                 alpha=True, tiled=True,
-                float_buffer = (root_ch.type == 'NORMAL' and use_float_for_normal) or use_hdr
+                float_buffer = (root_ch.special_type == 'NORMAL' and use_float_for_normal) or use_hdr
             )
 
             # Fill tiles
@@ -2515,7 +3464,7 @@ def bake_channel(
             # Create new standard image
             img = bpy.data.images.new(
                 name=img_name, width=width, height=height, alpha=True,
-                float_buffer = (root_ch.type == 'NORMAL' and use_float_for_normal) or use_hdr
+                float_buffer = (root_ch.special_type == 'NORMAL' and use_float_for_normal) or use_hdr
             )
             img.generated_type = 'BLANK'
 
@@ -2532,328 +3481,178 @@ def bake_channel(
             img.filepath = filepath
 
         # Set colorspace to linear
-        if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL' or (root_ch.type != 'NORMAL' and use_hdr):
+        if root_ch.colorspace == 'LINEAR' or root_ch.special_type == 'NORMAL' or (root_ch.special_type != 'NORMAL' and use_hdr):
             img.colorspace_settings.name = get_noncolor_name()
         else: img.colorspace_settings.name = get_srgb_name()
 
-    # Bake main image
-    if (
-        (target_layer and (root_ch.type != 'NORMAL' or ch.normal_map_type == 'NORMAL_MAP')) or
-        (not target_layer)
-        ):
+    if root_ch.special_type == 'HEIGHT':
 
-        # Set image to tex node
-        tex.image = img
+        if root_ch.use_height_normalize:
+            inp_height = node.inputs.get(root_ch.name)
+            inp_scale = node.inputs.get(root_ch.name + io_suffix['SCALE'])
+            ori_default_height_scale = inp_scale.default_value if inp_scale else 1.0
 
-        # Links to bake
-        rgb = node.outputs[root_ch.name]
+            # NOTE: Set height input scale to 0.0 since it can affect the bake result
+            if len(inp_height.links) == 0 and inp_height.default_value == 0.0 and inp_scale: 
+                ori_default_height_scale = inp_scale.default_value
+                inp_scale.default_value = 0.0
 
-        if root_ch.type == 'NORMAL':
-            if norm:
-                # Custom normal calculation setup
-                rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
-                mat.node_tree.links.new(rgb, emit.inputs[0])
-            elif bsdf:
-                # Baking normal from diffuse bsdf
-                ori_normal_space = scene.render.bake.normal_space
-                scene.cycles.bake_type = 'NORMAL'
-                scene.render.bake.normal_space = 'TANGENT'
+        # Make sure height output exists by disabling use_height_as_bump
+        ori_use_height_as_bump = root_ch.use_height_as_bump
+        if root_ch.use_height_as_bump:
+            safely_set_use_height_as_bump(root_ch, False)
 
-                # Connect bsdf node to output
-                mat.node_tree.links.new(rgb, bsdf.inputs['Normal'])
-                mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+    # Set image to tex node
+    tex.image = img
 
-                # HACK: Sometimes the bsdf node need color socket to be also connected
-                for rch in yp.channels:
-                    if rch.type == 'RGB':
-                        soc = node.outputs.get(rch.name)
-                        if soc: 
-                            mat.node_tree.links.new(soc, bsdf.inputs[0])
-                            break
-        else:
+    # Links to bake
+    rgb = node.outputs[root_ch.name]
+
+    if root_ch.special_type == 'NORMAL':
+        if norm:
+            # Custom normal calculation setup
+            rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
             mat.node_tree.links.new(rgb, emit.inputs[0])
+        elif bsdf:
+            # Baking normal from diffuse bsdf
+            ori_normal_space = scene.render.bake.normal_space
+            scene.cycles.bake_type = 'NORMAL'
+            scene.render.bake.normal_space = 'TANGENT'
 
-        # Bake!
-        print('BAKE CHANNEL: Baking main image of ' + root_ch.name + ' channel...')
+            # Connect bsdf node to output
+            mat.node_tree.links.new(rgb, bsdf.inputs['Normal'])
+            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+            # HACK: Sometimes the bsdf node need color socket to be also connected
+            for rch in yp.channels:
+                if rch.type == 'RGB':
+                    soc = node.outputs.get(rch.name)
+                    if soc: 
+                        mat.node_tree.links.new(soc, bsdf.inputs[0])
+                        break
+    else:
+        mat.node_tree.links.new(rgb, emit.inputs[0])
+
+    # Bake!
+    print('BAKE CHANNEL: Baking main image of ' + root_ch.name + ' channel...')
+    bake_object_op(scene.cycles.bake_type)
+
+    # Revert back the original bake settings
+    if root_ch.special_type == 'NORMAL' and bsdf:
+        scene.cycles.bake_type = 'EMIT'
+        scene.render.bake.normal_space = ori_normal_space
+        mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+
+    # Bake normal without bump/displacement
+    norm_img = None
+    if height_root_ch and root_ch.special_type == 'NORMAL':
+
+        # Disable use height as bump so normal output doesn't have bump data
+        ori_height_as_bump = height_root_ch.use_height_as_bump
+        if height_root_ch.use_height_as_bump:
+            safely_set_use_height_as_bump(height_root_ch, False)
+
+        baked_normal_no_disp = tree.nodes.get(root_ch.baked_normal_no_disp)
+        if not baked_normal_no_disp:
+            baked_normal_no_disp = new_node(
+                tree, root_ch, 'baked_normal_no_disp', 'ShaderNodeTexImage', 
+                'Baked ' + root_ch.name + ' Overlay Only'
+            )
+            if hasattr(baked_normal_no_disp, 'color_space'):
+                baked_normal_no_disp.color_space = 'NONE'
+
+        if baked_normal_no_disp.image:
+            norm_img_name = baked_normal_no_disp.image.name
+            filepath = baked_normal_no_disp.image.filepath
+            #filepath = get_valid_filepath(baked_normal_no_disp.image, use_hdr)
+            baked_normal_no_disp.image.name = '____NORM_TEMP'
+        else:
+            norm_img_name = tree.name + ' ' + root_ch.name + ' without Displacement'
+
+        # Create target image
+        norm_img = img.copy()
+        norm_img.name = norm_img_name
+        norm_img.colorspace_settings.name = get_noncolor_name()
+        color = (0.5, 0.5, 1.0, 1.0)
+
+        if img.source == 'TILED':
+            UDIM.fill_tiles(norm_img, color)
+            UDIM.initial_pack_udim(norm_img, color)
+        else: 
+            norm_img.generated_color = color
+            if filepath != '' and (
+                    (use_udim and '.<UDIM>.' in filepath) or 
+                    (not use_udim and '.<UDIM>.' not in filepath)
+                ):
+                norm_img.filepath = filepath
+
+        tex.image = norm_img
+
+        # Disconnect displacement before baking
+        ori_disp_node = ''
+        ori_disp_socket = ''
+        for link in output.inputs['Displacement'].links:
+            ori_disp_node = link.from_node.name
+            ori_disp_socket = link.from_socket.name
+            mat.node_tree.links.remove(link)
+
+        # Preparing for normal baking
+        if bsdf:
+            scene.cycles.bake_type = 'NORMAL'
+            scene.render.bake.normal_space = 'TANGENT'
+            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+        # Bake
+        print('BAKE CHANNEL: Baking normal without bump image of ' + root_ch.name + ' channel...')
         bake_object_op(scene.cycles.bake_type)
 
-        # Revert back the original bake settings
-        if root_ch.type == 'NORMAL' and bsdf:
+        # Recover normal baking related
+        if bsdf:
             scene.cycles.bake_type = 'EMIT'
             scene.render.bake.normal_space = ori_normal_space
             mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
-    # Bake displacement
-    disp_img = None
-    if root_ch.type == 'NORMAL':
+        # Recover displacement connection
+        from_node = mat.node_tree.nodes.get(ori_disp_node)
+        from_socket = from_node.outputs.get(ori_disp_socket) if from_node else None
+        if from_socket:
+            mat.node_tree.links.new(from_socket, output.inputs['Displacement'])
 
-        # Make sure height outputs available
-        check_all_channel_ios(yp, reconnect=True, force_height_io=True)
+        # Set baked normal without bump image
+        if baked_normal_no_disp.image:
+            temp = baked_normal_no_disp.image
+            img_users = get_all_image_users(baked_normal_no_disp.image)
+            for user in img_users:
+                user.image = norm_img
+            remove_datablock(bpy.data.images, temp)
+        else:
+            baked_normal_no_disp.image = norm_img
 
-        # Break displacement connection if displacement setup is enabled
-        if root_ch.enable_subdiv_setup:
-            for link in output.inputs['Displacement'].links:
-                ori_disp_from_node = link.from_node.name
-                ori_disp_from_socket = link.from_socket.name
-                mat.node_tree.links.remove(link)
-                break
+        # Recover height as bump
+        if height_root_ch.use_height_as_bump != ori_height_as_bump:
+            safely_set_use_height_as_bump(height_root_ch, ori_height_as_bump)
 
-        if not target_layer:
+    if root_ch.special_type == 'HEIGHT':
 
-            ### Normal without bump only
-            if not is_baked_normal_without_bump_needed(root_ch):
-                # Remove baked_normal_overlay
-                remove_node(tree, root_ch, 'baked_normal_overlay')
-            else:
+        if root_ch.use_height_normalize:
 
-                baked_normal_overlay = tree.nodes.get(root_ch.baked_normal_overlay)
-                if not baked_normal_overlay:
-                    baked_normal_overlay = new_node(
-                        tree, root_ch, 'baked_normal_overlay', 'ShaderNodeTexImage', 
-                        'Baked ' + root_ch.name + ' Overlay Only'
-                    )
-                    if hasattr(baked_normal_overlay, 'color_space'):
-                        baked_normal_overlay.color_space = 'NONE'
-
-                if baked_normal_overlay.image:
-                    norm_img_name = baked_normal_overlay.image.name
-                    filepath = baked_normal_overlay.image.filepath
-                    #filepath = get_valid_filepath(baked_normal_overlay.image, use_hdr)
-                    baked_normal_overlay.image.name = '____NORM_TEMP'
-                else:
-                    norm_img_name = tree.name + ' ' + root_ch.name + ' without Bump'
-
-                # Create target image
-                norm_img = img.copy()
-                norm_img.name = norm_img_name
-                norm_img.colorspace_settings.name = get_noncolor_name()
-                color = (0.5, 0.5, 1.0, 1.0)
-
-                if img.source == 'TILED':
-                    UDIM.fill_tiles(norm_img, color)
-                    UDIM.initial_pack_udim(norm_img, color)
-                else: 
-                    norm_img.generated_color = color
-                    if filepath != '' and (
-                            (use_udim and '.<UDIM>.' in filepath) or 
-                            (not use_udim and '.<UDIM>.' not in filepath)
-                        ):
-                        norm_img.filepath = filepath
-
-                tex.image = norm_img
-
-                # Bake setup (doing little bit doing hacky reconnection here)
-                end = tree.nodes.get(TREE_END)
-                end_linear = tree.nodes.get(root_ch.end_linear)
-                if end_linear:
-                    ori_soc = end.inputs[root_ch.name].links[0].from_socket
-                    soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
-                    create_link(tree, soc, end.inputs[root_ch.name])
-                    #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
-
-                # Preparing for normal baking
-                if bsdf:
-                    scene.cycles.bake_type = 'NORMAL'
-                    scene.render.bake.normal_space = 'TANGENT'
-                    mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
-
-                # Bake
-                print('BAKE CHANNEL: Baking normal without bump image of ' + root_ch.name + ' channel...')
-                bake_object_op(scene.cycles.bake_type)
-
-                # Recover normal baking related
-                if bsdf:
-                    scene.cycles.bake_type = 'EMIT'
-                    scene.render.bake.normal_space = ori_normal_space
-                    mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
-
-                # Recover connection
-                if end_linear:
-                    create_link(tree, ori_soc, end.inputs[root_ch.name])
-
-                # Set baked normal without bump image
-                if baked_normal_overlay.image:
-                    temp = baked_normal_overlay.image
-                    img_users = get_all_image_users(baked_normal_overlay.image)
-                    for user in img_users:
-                        user.image = norm_img
-                    remove_datablock(bpy.data.images, temp)
-                else:
-                    baked_normal_overlay.image = norm_img
-
-            ### Vector Displacement
-            if not any_layers_using_vdisp(root_ch):
-                # Remove baked_vdisp
-                remove_node(tree, root_ch, 'baked_vdisp')
-            else:
-
-                baked_vdisp = tree.nodes.get(root_ch.baked_vdisp)
-                if not baked_vdisp:
-                    baked_vdisp = new_node(
-                        tree, root_ch, 'baked_vdisp', 'ShaderNodeTexImage', 
-                        'Baked ' + root_ch.name + ' Vector Displacement'
-                    )
-                    if hasattr(baked_vdisp, 'color_space'):
-                        baked_vdisp.color_space = 'NONE'
-
-                if baked_vdisp.image:
-                    vdisp_img_name = baked_vdisp.image.name
-                    filepath = baked_vdisp.image.filepath
-                    baked_vdisp.image.name = '____VDISP_TEMP'
-                else:
-                    vdisp_img_name = tree.name + ' ' + root_ch.name + ' Vector Displacement'
-
-                # Set interpolation to cubic
-                baked_vdisp.interpolation = 'Cubic'
-
-                # Create target image
-                vdisp_img = img.copy()
-                vdisp_img.name = vdisp_img_name
-                vdisp_img.use_generated_float = True
-                vdisp_img.colorspace_settings.name = get_noncolor_name()
-                color = (0.0, 0.0, 0.0, 1.0)
-
-                if img.source == 'TILED':
-                    UDIM.fill_tiles(vdisp_img, color)
-                    UDIM.initial_pack_udim(vdisp_img, color)
-                else: 
-                    vdisp_img.generated_color = color
-                    if filepath != '' and (
-                            (use_udim and '.<UDIM>.' in filepath) or 
-                            (not use_udim and '.<UDIM>.' not in filepath)
-                        ):
-                        vdisp_img.filepath = filepath
-
-                tex.image = vdisp_img
-
-                # Bake setup 
-                create_link(
-                    mat.node_tree,
-                    node.outputs[root_ch.name + io_suffix['VDISP']], 
-                    emit.inputs[0]
-                )
-
-                # Bake
-                print('BAKE CHANNEL: Baking vector displacement image of ' + root_ch.name + ' channel...')
-                bake_object_op()
-
-                # Set baked vector displacement image
-                if baked_vdisp.image:
-                    temp = baked_vdisp.image
-                    img_users = get_all_image_users(baked_vdisp.image)
-                    for user in img_users:
-                        user.image = vdisp_img
-                    remove_datablock(bpy.data.images, temp)
-                else:
-                    baked_vdisp.image = vdisp_img
-
-            if not any_layers_using_disp(root_ch):
-                # Remove baked_disp
-                remove_node(tree, root_ch, 'baked_disp')
-                remove_node(tree, root_ch, 'end_max_height')
-            else:
-
-                ### Max Height
-
-                max_height_value = get_bake_max_height(root_ch, mat, node, tex, emit)
+            # Bake maximum height / height scale
+            max_height_value = get_bake_max_height(root_ch, mat, node, tex, emit)
+            if not target_layer:
                 end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
                 end_max_height.outputs[0].default_value = max_height_value
+            elif ch: set_entity_prop_value(ch, 'bump_distance', max_height_value)
 
-                ### Displacement
-
-                # Create target image
-                baked_disp = tree.nodes.get(root_ch.baked_disp)
-                if not baked_disp:
-                    baked_disp = new_node(
-                        tree, root_ch, 'baked_disp', 'ShaderNodeTexImage', 
-                        'Baked ' + root_ch.name + ' Displacement'
-                    )
-                    if hasattr(baked_disp, 'color_space'):
-                        baked_disp.color_space = 'NONE'
-
-                if baked_disp.image:
-                    disp_img_name = baked_disp.image.name
-                    filepath = baked_disp.image.filepath
-                    #filepath = get_valid_filepath(baked_disp.image, use_hdr)
-                    baked_disp.image.name = '____DISP_TEMP'
-                else:
-                    disp_img_name = tree.name + ' Displacement'
-
-                # Set interpolation to cubic
-                baked_disp.interpolation = 'Cubic'
-
-                disp_img = img.copy()
-                disp_img.name = disp_img_name
-                disp_img.use_generated_float = use_float_for_displacement
-                disp_img.colorspace_settings.name = get_noncolor_name()
-                color = (0.5, 0.5, 0.5, 1.0)
-
-                if img.source == 'TILED':
-                    UDIM.fill_tiles(disp_img, color)
-                    UDIM.initial_pack_udim(disp_img, color)
-                else: 
-                    disp_img.generated_color = color
-                    if filepath != '' and (
-                            (use_udim and '.<UDIM>.' in filepath) or 
-                            (not use_udim and '.<UDIM>.' not in filepath)
-                        ):
-                        disp_img.filepath = filepath
-
-        elif ch.normal_map_type == 'BUMP_MAP':
-            disp_img = img
-
-        if disp_img:
-
-            # Bake setup
-            # Spread height only created if layer has no parent
-            if target_layer and target_layer.parent_idx == -1:
-                spread_height = mat.node_tree.nodes.new('ShaderNodeGroup')
-                spread_height.node_tree = get_node_tree_lib(lib.SPREAD_NORMALIZED_HEIGHT)
-
-                create_link(
-                    mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], 
-                    spread_height.inputs[0]
-                )
-                create_link(
-                    mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], 
-                    spread_height.inputs[1]
-                )
-
-                create_link(mat.node_tree, spread_height.outputs[0], emit.inputs[0])
-
-            else:
-                spread_height = None
-                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], emit.inputs[0])
-            tex.image = disp_img
-
-            # Bake
-            print('BAKE CHANNEL: Baking displacement image of ' + root_ch.name + ' channel...')
-            bake_object_op()
-
-            if target_layer:
-                # Get max height value
-                max_height_value = get_bake_max_height(root_ch, mat, node, tex, emit)
-                if ch: set_entity_prop_value(ch, 'bump_distance', max_height_value)
-            else:
-
-                # Set baked displacement image
-                if baked_disp.image:
-                    temp = baked_disp.image
-                    img_users = get_all_image_users(baked_disp.image)
-                    for user in img_users:
-                        user.image = disp_img
-                    remove_datablock(bpy.data.images, temp)
-                else:
-                    baked_disp.image = disp_img
-
-            if spread_height:
-                simple_remove_node(mat.node_tree, spread_height)
-
-        # Recover input outputs
-        check_all_channel_ios(yp)
+            # Recover default height scale value
+            inp_height = node.inputs.get(root_ch.name)
+            inp_scale = node.inputs.get(root_ch.name + io_suffix['SCALE'])
+            if len(inp_height.links) == 0 and inp_height.default_value == 0.0 and inp_scale: 
+                inp_scale.default_value = ori_default_height_scale
+            
+        if root_ch.use_height_as_bump != ori_use_height_as_bump:
+            safely_set_use_height_as_bump(root_ch, ori_use_height_as_bump)
 
     # Bake alpha
-    #if root_ch.type != 'NORMAL' and root_ch.enable_alpha:
     if alpha_enabled:
 
         # Create temp image
@@ -3171,13 +3970,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         height = bprops.height
 
     # If use baked disp, need to bake normal and height map first
-    subdiv_setup_changes = False
+    disp_setup_changes = False
     height_root_ch = get_root_height_channel(yp)
-    if height_root_ch and bprops.use_baked_disp and not bprops.type.startswith('MULTIRES_'):
-
-        if not height_root_ch.enable_subdiv_setup:
-            height_root_ch.enable_subdiv_setup = True
-            subdiv_setup_changes = True
+    if height_root_ch and bprops.use_baked_disp and not bprops.type.startswith('MULTIRES_') and height_root_ch.use_height_as_bump:
+        displacement_common.enable_displacement_setup(mat, yp, objs, use_adaptive_subdivision=True)
+        disp_setup_changes = True
 
     # Sometimes Cavity bake will create temporary objects
     if (bprops.type == 'CAVITY' and (bprops.subsurf_influence or bprops.use_baked_disp)):
@@ -3394,17 +4191,24 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         tile_x = 256
         tile_y = 256
 
+    if bprops.bake_device == 'OSL':
+        bake_device = 'CPU'
+        use_osl = True
+    else:
+        bake_device = bprops.bake_device
+        use_osl = False
+
     prepare_bake_settings(
         book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
         uv_map=bprops.uv_map, bake_type=bake_type, #disable_problematic_modifiers=True, 
-        bake_device=bprops.bake_device, hide_other_objs=hide_other_objs, 
+        bake_device=bake_device, hide_other_objs=hide_other_objs, 
         bake_from_multires=bprops.type.startswith('MULTIRES_'), tile_x = tile_x, tile_y = tile_y, 
         use_selected_to_active=bprops.type.startswith('OTHER_OBJECT_'),
         max_ray_distance=bprops.max_ray_distance, cage_extrusion=bprops.cage_extrusion,
         source_objs=other_objs, use_denoising=False, margin_type=bprops.margin_type,
         use_cage = bprops.use_cage, cage_object_name = bprops.cage_object_name,
         normal_space = 'TANGENT' if bprops.type != 'OBJECT_SPACE_NORMAL' else 'OBJECT',
-        use_osl = bprops.use_osl
+        use_osl = use_osl
     )
     # Set multires level
     #ori_multires_levels = {}
@@ -3528,6 +4332,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             if active_mat_id: active_mat_id = active_mat_id[0]
             else: continue
 
+            # Get uv map
             uv_layers = get_uv_layers(ob)
             uvl = uv_layers.get(bprops.uv_map)
 
@@ -3955,7 +4760,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     oo.hide_render = True
                 else: oo.hide_render = False
 
-            if root_ch.type == 'NORMAL':
+            if root_ch.special_type == 'NORMAL':
                 bake_type = 'NORMAL'
 
                 # Set back original socket
@@ -4068,9 +4873,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 root_ch = yp.channels[idx]
                 ch = layer.channels[idx]
 
-                if root_ch.type == 'NORMAL':
-                    source = get_channel_source_1(ch, layer)
-                else: source = get_channel_source(ch, layer)
+                source = get_channel_source(ch, layer)
 
                 if source and hasattr(source, 'image') and source.image and not source.image.packed_file and source.image.filepath != '':
                     image.filepath = source.image.filepath
@@ -4106,7 +4909,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             else:
                 print('EXCEPTIION:', e)
 
-        if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
+        if use_fxaa: fxaa_image(image, False, bake_device=bake_device)
 
         # Curvature is always normalized so the result spans the full black to
         # white range. Stretching the pixels directly also covers rebakes onto
@@ -4231,7 +5034,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         copy_image_channel_pixels(temp_img, temp_img, 3, 0)
 
                     # FXAA alpha
-                    fxaa_image(temp_img, False, bprops.bake_device, first_tile_only=True)
+                    fxaa_image(temp_img, False, bake_device, first_tile_only=True)
 
                     # Copy alpha to actual image
                     copy_image_channel_pixels(temp_img, image, 0, 3)
@@ -4252,7 +5055,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         if use_ssaa:
             image, temp_segment = resize_image(
                 image, bprops.width, bprops.height, image.colorspace_settings.name,
-                alpha_aware=True, bake_device=bprops.bake_device
+                alpha_aware=True, bake_device=bake_device
             )
 
         # Denoise AO image
@@ -4371,14 +5174,15 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     layer_name = get_unique_name(layer_name, yp.layers)
 
                 yp.halt_update = True
-                layer = Layer.add_new_layer(
+                layer = layer_common.add_new_layer(
                     group_tree=node.node_tree, layer_name=layer_name,
                     layer_type='IMAGE', channel_idx=channel_idx,
                     blend_type=bprops.blend_type, normal_blend_type=bprops.normal_blend_type,
                     normal_map_type=bprops['normal_map_type'], texcoord_type='UV',
                     uv_name=bprops.uv_map, image=image, vcol=None, segment=segment,
                     interpolation = bprops.interpolation,
-                    normal_space = 'OBJECT' if bprops.type == 'OBJECT_SPACE_NORMAL' else 'TANGENT'
+                    normal_space = 'OBJECT' if bprops.type == 'OBJECT_SPACE_NORMAL' else 'TANGENT',
+                    height_blend_type = bprops.height_blend_type
                 )
                 yp.halt_update = False
                 active_id = yp.active_layer_index
@@ -4401,7 +5205,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 if bprops.use_image_atlas:
                     mask_name = get_unique_name(mask_name, active_layer.masks)
 
-                mask = Mask.add_new_mask(
+                mask = mask_common.add_new_mask(
                     active_layer, mask_name, 'IMAGE', 'UV', bprops.uv_map,
                     image=image, vcol_name='', segment=segment
                 )
@@ -4429,16 +5233,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             ch = layer.channels[idx]
             if not ch.enable: ch.enable = True
 
-            # Normal channel will use second override
-            if root_ch.type == 'NORMAL':
-                if ch.normal_map_type != 'NORMAL_MAP': ch.normal_map_type = 'NORMAL_MAP'
-                if not ch.override_1: ch.override_1 = True
-                if ch.override_1_type != 'IMAGE': ch.override_1_type = 'IMAGE'
-                source = get_channel_source_1(ch, layer)
-            else:
-                if not ch.override: ch.override = True
-                if ch.override_type != 'IMAGE': ch.override_type = 'IMAGE'
-                source = get_channel_source(ch, layer)
+            if not ch.override: ch.override = True
+            if ch.override_type != 'IMAGE': ch.override_type = 'IMAGE'
+            source = get_channel_source(ch, layer)
 
             # If image already exists on source
             old_image = None
@@ -4609,8 +5406,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             flip_mesh_normals(ob)
 
     # Recover subdiv setup
-    if height_root_ch and subdiv_setup_changes:
-        height_root_ch.enable_subdiv_setup = not height_root_ch.enable_subdiv_setup
+    if height_root_ch and disp_setup_changes:
+        displacement_common.disable_displacement_setup(mat, yp, objs, recover_original=True)
 
     # Remove temp curvature vcols
     if bprops.type == 'CURVATURE':
@@ -4783,8 +5580,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     # Remember before doing preview
     ori_channel_index = yp.active_channel_index
     ori_preview_mode = yp.preview_mode
-    ori_layer_preview_mode = yp.layer_preview_mode
-    ori_layer_preview_mode_type = yp.layer_preview_mode_type
+    ori_preview_mode_type = yp.preview_mode_type
 
     ori_layer_intensity_value = 1.0
     changed_layer_channel_index = -1
@@ -4821,8 +5617,10 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
             if m.active_edit: m.active_edit = False
 
     # Preview setup
-    yp.layer_preview_mode_type = 'SPECIFIC_MASK' if mask else 'LAYER'
-    yp.layer_preview_mode = True
+    if not yp.preview_mode: yp.preview_mode = True
+    correct_type = 'SPECIFIC_MASK' if mask else 'LAYER'
+    if yp.preview_mode_type != correct_type:
+        yp.preview_mode_type = correct_type
 
     # Set active channel so preview will output right value
     for i, ch in enumerate(layer.channels):
@@ -4870,10 +5668,17 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     source = get_entity_source(entity)
     hide_other_objs = entity.type != 'AO' or source.only_local
 
+    if bprops.bake_device == 'OSL':
+        bake_device = 'CPU'
+        use_osl = True
+    else:
+        bake_device = bprops.bake_device
+        use_osl = False
+
     prepare_bake_settings(
         book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
-        uv_map=bprops.uv_map, bake_type='EMIT', bake_device=bprops.bake_device, 
-        margin_type=bprops.margin_type, use_osl=bprops.use_osl, hide_other_objs=hide_other_objs,
+        uv_map=bprops.uv_map, bake_type='EMIT', bake_device=bake_device, 
+        margin_type=bprops.margin_type, use_osl=use_osl, hide_other_objs=hide_other_objs,
     )
 
     # Create bake nodes
@@ -4928,11 +5733,11 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     if bprops.blur: 
         samples = 4096 if is_bl_newer_than(3) else 128
         if bprops.blur_type == 'NOISE':
-            noise_blur_image(image, False, bake_device=bprops.bake_device, factor=bprops.blur_factor, samples=samples)
+            noise_blur_image(image, False, bake_device=bake_device, factor=bprops.blur_factor, samples=samples)
         else: blur_image(image, filter_type=bprops.blur_type, size=bprops.blur_size)
     if bprops.denoise:
         denoise_image(image)
-    if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
+    if use_fxaa: fxaa_image(image, False, bake_device=bake_device)
 
     # Remove temp bake nodes
     simple_remove_node(mat.node_tree, tex, remove_data=False)
@@ -4956,10 +5761,8 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     yp.active_channel_index = ori_channel_index
     if yp.preview_mode != ori_preview_mode:
         yp.preview_mode = ori_preview_mode
-    if yp.layer_preview_mode != ori_layer_preview_mode:
-        yp.layer_preview_mode = ori_layer_preview_mode
-    if yp.layer_preview_mode_type != ori_layer_preview_mode_type:
-        yp.layer_preview_mode_type = ori_layer_preview_mode_type
+    if yp.preview_mode_type != ori_preview_mode_type:
+        yp.preview_mode_type = ori_preview_mode_type
 
     if changed_layer_channel_index != -1:
         ch = layer.channels[changed_layer_channel_index]
@@ -5538,17 +6341,27 @@ def get_output_uv_names_from_geometry_nodes(obj):
 
     return uv_names
 
-class BaseBakeOperator():
-    bake_device : EnumProperty(
-        name = 'Bake Device',
-        description = 'Device to use for baking',
-        items = (
-            ('GPU', 'GPU Compute', ''),
-            ('CPU', 'CPU', '')
-        ),
-        default = 'CPU'
+#def update_bake_image_resolution(self, context):
+#    pass
+
+class BaseBakeProps():
+    # Image related
+    width : IntProperty(name='Width', default=1024, min=1, max=16384)
+    height : IntProperty(name='Height', default=1024, min=1, max=16384)
+
+    image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
+        default = '1024'
+        #update = update_bake_image_resolution
     )
     
+    use_custom_resolution : BoolProperty(
+        name = 'Custom Resolution',
+        description = 'Use custom Resolution to adjust the width and height individually',
+        default = False
+    )
+
     samples : IntProperty(
         name = 'Bake Samples', 
         description = 'Bake Samples, more means less jagged on generated textures', 
@@ -5572,21 +6385,30 @@ class BaseBakeOperator():
         default = 'ADJACENT_FACES'
     )
 
-    width : IntProperty(name='Width', default=1024, min=1, max=16384)
-    height : IntProperty(name='Height', default=1024, min=1, max=16384)
+    # Vertex color related
 
-    image_resolution : EnumProperty(
-        name = 'Image Resolution',
-        items = image_resolution_items,
-        default = '1024'
+    vcol_data_type : EnumProperty(
+        name = get_vertex_color_label()+' Data Type',
+        description = get_vertex_color_label(10)+' data type',
+        items = vcol_data_type_items,
+        default = 'BYTE_COLOR'
+    )
+
+    vcol_domain : EnumProperty(
+        name = get_vertex_color_label()+' Domain',
+        description = get_vertex_color_label(10)+' domain',
+        items = vcol_domain_items,
+        default = 'CORNER'
+    )
+
+class BaseBakeOperator(BaseBakeProps):
+    bake_device : EnumProperty(
+        name = 'Bake Device',
+        description = 'Device to use for baking',
+        items = bake_device_items,
+        default = 'CPU'
     )
     
-    use_custom_resolution : BoolProperty(
-        name = 'Custom Resolution',
-        description = 'Use custom Resolution to adjust the width and height individually',
-        default = False
-    )
-
     def invoke_operator(self, context):
         ypup = get_user_preferences()
 

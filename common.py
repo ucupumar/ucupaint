@@ -15,6 +15,7 @@ INFO_PREFIX = '__yp_info_'
 TREE_START = 'Group Input'
 TREE_END = 'Group Output'
 ONE_VALUE = 'One Value'
+HALF_VALUE = 'Half Value'
 ZERO_VALUE = 'Zero Value'
 
 BAKED_PARALLAX = 'Baked Parallax'
@@ -109,6 +110,13 @@ else:
         ("BURN", "Burn", ""),
     ]
 
+height_blend_type_items = (
+    ("MIX", "Mix", ""),
+    ("ADD", "Add", ""),
+    ("SUBTRACT", "Subtract", ""),
+    ("COMPARE", "Compare Height", ""),
+)
+
 blend_type_labels = {
     "MIX" : "Mix",
     "ADD" : "Add",
@@ -129,6 +137,7 @@ blend_type_labels = {
     "DODGE" : "Dodge",
     "BURN" : "Burn",
     "EXCLUSION" : "Exclusion",
+    "COMPARE" : "Compare Height",
 }
 
 if is_bl_newer_than(3, 5):
@@ -188,6 +197,12 @@ swizzle_items = (
     ('R', 'R', ''),
     ('G', 'G', ''),
     ('B', 'B', '')
+)
+
+bake_device_items = (
+    ('GPU', 'GPU Compute', 'Use GPU Compute'),
+    ('CPU', 'CPU', 'Use CPU'),
+    ('OSL', 'CPU (OSL)', 'Use CPU with OSL enabled (slower but higher compatibility for complex shader)'),
 )
 
 def entity_input_items(self, context):
@@ -251,10 +266,16 @@ def get_vertex_color_label(capital=11):
 
     return 'Color Attribute'
 
+# Deprecated
 normal_blend_items = (
     ('MIX', 'Mix', ''),
     ('OVERLAY', 'Add', ''),
     ('COMPARE', 'Compare Height', '')
+)
+
+normal_blend_type_items = (
+    ("MIX", "Mix", ""),
+    ("OVERLAY", "Overlay", ""),
 )
 
 normal_blend_labels = {
@@ -269,12 +290,6 @@ normal_space_items = (
     ('WORLD', 'World Space', 'World space normal mapping'),
     ('BLENDER_OBJECT', 'Blender Object Space', 'Object space normal mapping, compatible with Blender render baking'),
     ('BLENDER_WORLD', 'Blender World Space', 'World space normal mapping, compatible with Blender render baking'),
-)
-
-height_blend_items = (
-    ('REPLACE', 'Replace', ''),
-    ('COMPARE', 'Compare', ''),
-    ('ADD', 'Add', ''),
 )
 
 normal_type_labels = {
@@ -302,6 +317,7 @@ layer_type_items = (
     ('GABOR', 'Gabor', ''),
     ('EDGE_DETECT', 'Edge Detect', ''),
     ('AO', 'Ambient Occlusion', ''),
+    ('PREV_LAYERS', 'Previous Layers', ''),
 )
 
 mask_type_items = (
@@ -370,6 +386,7 @@ layer_type_labels = {
     'GABOR' : 'Gabor',
     'EDGE_DETECT' : 'Edge Detect',
     'AO' : 'Ambient Occlusion',
+    'PREV_LAYERS' : 'Previous Layers',
 }
 
 mask_type_labels = {
@@ -530,7 +547,7 @@ mask_texcoord_type_items = (
     ('Window', 'Window', ''),
     ('Reflection', 'Reflection', ''),
     ('Decal', 'Decal', ''),
-    ('Layer', 'Use Layer Vector', ''),
+    ('Layer', 'Use Layer Mapping', ''),
 )
 
 interpolation_type_items = (
@@ -542,13 +559,15 @@ interpolation_type_items = (
 channel_socket_input_bl_idnames = {
     'RGB': 'NodeSocketColor',
     'VALUE': 'NodeSocketFloatFactor',
-    'NORMAL': 'NodeSocketVector',
+    #'NORMAL': 'NodeSocketVector',
+    'VECTOR': 'NodeSocketVector',
 }
 
 channel_socket_output_bl_idnames = {
     'RGB': 'NodeSocketColor',
     'VALUE': 'NodeSocketFloat',
-    'NORMAL': 'NodeSocketVector',
+    #'NORMAL': 'NodeSocketVector',
+    'VECTOR': 'NodeSocketVector',
 }
 
 possible_object_types = {
@@ -600,6 +619,7 @@ layer_node_bl_idnames = {
     'GABOR' : 'ShaderNodeTexGabor',
     'MODIFIER' : 'ShaderNodeGroup',
     'AO' : 'ShaderNodeAmbientOcclusion',
+    'PREV_LAYERS' : 'NodeGroupInput',
 }
 
 io_suffix = {
@@ -619,6 +639,8 @@ io_suffix = {
     'HEIGHT_S' : ' Height S',
     'HEIGHT_E' : ' Height E',
     'HEIGHT_W' : ' Height W',
+    'SCALE' : ' Scale',
+    'MIDLEVEL' : ' Midlevel',
 }
 
 io_names = {
@@ -1184,7 +1206,7 @@ def copy_id_props(source, dest, extras=[], reverse=False):
             for i, subval in enumerate(val):
                 dest_val[i] = subval
         else:
-            if getattr(dest, prop) != val:
+            if hasattr(dest, prop) and getattr(dest, prop) != val:
                 try: setattr(dest, prop, val)
                 except: print('Error set prop:', prop)
 
@@ -1594,6 +1616,12 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, re
             #remove_tree_data_recursive(node)
 
     tree.nodes.remove(node)
+
+def remove_all_nodes_from_tree(tree):
+    for node in tree.nodes:
+        if node.type == 'GROUP' and node.node_tree.users <= 1:
+            remove_all_nodes_from_tree(node.node_tree)
+        simple_remove_node(tree, node)
 
 def is_vcol_being_used(tree, vcol_name, exception_node=None):
     for node in tree.nodes:
@@ -2778,7 +2806,7 @@ def get_transition_bump_channel(layer):
 
     bump_ch = None
     for i, ch in enumerate(layer.channels):
-        if yp.channels[i].type == 'NORMAL' and ch.enable and ch.enable_transition_bump:
+        if yp.channels[i].special_type == 'HEIGHT' and ch.enable and ch.enable_transition_bump:
             bump_ch = ch
             break
 
@@ -2790,7 +2818,7 @@ def get_showed_transition_bump_channel(layer):
 
     bump_ch = None
     for i, ch in enumerate(layer.channels):
-        if yp.channels[i].type == 'NORMAL' and ch.show_transition_bump:
+        if yp.channels[i].special_type == 'HEIGHT' and ch.show_transition_bump:
             bump_ch = ch
             break
 
@@ -2845,6 +2873,28 @@ def get_tree_outputs(tree):
         return tree.outputs
 
     return [ui for ui in tree.interface.items_tree if hasattr(ui, 'in_out') and ui.in_out in {'OUTPUT', 'BOTH'}]
+
+def get_tree_input_index_by_name(tree, name):
+    if not is_bl_newer_than(4):
+        ids = [i for i, inp in enumerate(tree.inputs) if inp.name == name]
+    else:
+        inputs = get_tree_inputs(tree)
+        ids = [i for i, inp in enumerate(inputs) if inp.name == name and hasattr(inp, 'in_out') and inp.in_out in {'INPUT', 'BOTH'}]
+
+    if len(ids) > 0: return ids[0]
+
+    return -1
+
+def get_tree_output_index_by_name(tree, name):
+    if not is_bl_newer_than(4):
+        ids = [i for i, outp in enumerate(tree.outputs) if outp.name == name]
+    else:
+        outputs = get_tree_outputs(tree)
+        ids = [i for i, outp in enumerate(outputs) if outp.name == name and hasattr(outp, 'in_out') and outp.in_out in {'OUTPUT', 'BOTH'}]
+
+    if len(ids) > 0: return ids[0]
+
+    return -1
 
 def get_tree_input_by_name(tree, name):
     if not is_bl_newer_than(4):
@@ -2978,16 +3028,7 @@ def get_tree_output_by_index(tree, index):
     return None
 
 def get_output_index(root_ch):
-    yp = root_ch.id_data.yp
-
     output_index = root_ch.io_index
-
-    # Check if there's normal channel above current channel because it has extra output
-    #for ch in yp.channels:
-    #    if ch.type == 'NORMAL' and ch != root_ch:
-    #        output_index += 1
-    #    if ch == root_ch:
-    #        break
 
     return output_index
 
@@ -3263,6 +3304,18 @@ def get_last_chained_up_layer_ids(layer, idx_limit):
 
     return parent_idx
 
+def get_list_of_direct_previous_layers(layer):
+    yp = layer.id_data.yp
+
+    layer_idx = get_layer_index(layer)
+
+    prev_layers = []
+    for i, t in enumerate(yp.layers):
+        if t.parent_idx == layer.parent_idx and i > layer_idx:
+            prev_layers.append(t)
+
+    return prev_layers
+
 def has_children(layer):
 
     yp = layer.id_data.yp
@@ -3289,10 +3342,32 @@ def has_channel_children(layer, root_ch):
     ch_idx = get_channel_index(root_ch)
     children = get_list_of_direct_children(layer)
 
+    # Get normal height channel pair index
+    normal_ch_idx = -1
+    height_ch_idx = -1
+    if root_ch.special_type == 'NORMAL':
+        normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+        
+        normal_ch_idx = get_channel_index(normal_ch) if normal_ch else -1
+        height_ch_idx = get_channel_index(height_ch) if height_ch else -1
+
     for child in children:
         if not child.enable: continue
-        for i, ch in enumerate(child.channels):
-            if i == ch_idx and ch.enable:
+        try: ch = child.channels[ch_idx]
+        except: continue
+
+        if child.type == 'GROUP':
+            if has_channel_children(child, root_ch):
+                return True
+        else:
+            # Check if height channel is converted to normal
+            if ch_idx == normal_ch_idx:
+                try: hch = child.channels[height_ch_idx]
+                except: hch = None
+                if hch and hch.enable and hch.use_height_as_normal:
+                    return True
+
+            if ch.enable:
                 return True
 
     return False
@@ -3376,6 +3451,17 @@ def is_valid_to_remove_bump_nodes(layer, ch):
 
     return False
 
+def is_parent_using_transition_bump(layer):
+    yp = layer.id_data.yp
+
+    for pid in get_list_of_parent_ids(layer):
+        parent = yp.layers[pid]
+        height_ch = get_height_channel(parent)
+        if height_ch and height_ch.enable_transition_bump:
+            return True
+
+    return False
+
 def get_correct_uv_neighbor_resolution(ch, image=None):
 
     res_x = image.size[0] if image else 1000
@@ -3453,7 +3539,10 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PREV_LAYERS'} 
+
+def is_udim_supported():
+    return is_bl_newer_than(3, 3)
 
 def clear_mapping(entity, use_baked=False):
 
@@ -3536,15 +3625,6 @@ def update_mapping(entity, use_baked=False):
         mapping.translation = (offset_x, offset_y, offset_z)
         mapping.rotation = entity.rotation
         mapping.scale = (scale_x, scale_y, scale_z)
-
-    # Setting UV neighbor resolution probably isn't important right now
-    #set_uv_neighbor_resolution(entity, source=source, mapping=mapping)
-
-    #if m1: 
-    #    for i, ch in enumerate(entity.channels):
-    #        root_ch = yp.channels[i]
-    #        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable and ch.override and ch.override_type == 'IMAGE':
-    #            set_uv_neighbor_resolution(ch, mapping=mapping)
 
     if entity.type == 'IMAGE' and entity.texcoord_type == 'UV':
         if hasattr(bpy.context, 'object') and bpy.context.object and bpy.context.object.mode == 'TEXTURE_PAINT':
@@ -4036,7 +4116,7 @@ def is_parallax_enabled(root_ch):
     yp = root_ch.id_data.yp
     ypup = get_user_preferences()
 
-    parallax_enabled = root_ch.enable_parallax if root_ch.type == 'NORMAL' else False
+    parallax_enabled = root_ch.enable_parallax if root_ch.special_type == 'HEIGHT' else False
 
     if not ypup.parallax_without_baked and not yp.use_baked:
         parallax_enabled = False
@@ -4045,14 +4125,28 @@ def is_parallax_enabled(root_ch):
 
 def get_root_parallax_channel(yp):
     for ch in yp.channels:
-        if ch.type == 'NORMAL' and is_parallax_enabled(ch):
+        if ch.special_type == 'HEIGHT' and is_parallax_enabled(ch):
+            return ch
+
+    return None
+
+def get_root_normal_channel(yp):
+    for ch in yp.channels:
+        if ch.special_type == 'NORMAL':
             return ch
 
     return None
 
 def get_root_height_channel(yp):
     for ch in yp.channels:
-        if ch.type == 'NORMAL':
+        if ch.special_type == 'HEIGHT':
+            return ch
+
+    return None
+
+def get_root_vdisp_channel(yp):
+    for ch in yp.channels:
+        if ch.special_type == 'VDISP':
             return ch
 
     return None
@@ -4063,7 +4157,28 @@ def get_height_channel(layer):
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        if root_ch.type == 'NORMAL':
+        if root_ch.special_type == 'HEIGHT':
+            return ch
+
+    return None
+
+def get_normal_channel(layer):
+    yp = layer.id_data.yp
+
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i]
+        if root_ch.special_type == 'NORMAL':
+            return ch
+
+    return None
+
+def get_vdisp_channel(layer):
+
+    yp = layer.id_data.yp
+
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i]
+        if root_ch.special_type == 'VDISP':
             return ch
 
     return None
@@ -4507,7 +4622,7 @@ def get_smooth_bump_channel(layer):
     yp = layer.id_data.yp
 
     for i, root_ch in enumerate(yp.channels):
-        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+        if root_ch.special_type == 'HEIGHT' and root_ch.enable_smooth_bump:
             return layer.channels[i]
 
     return None
@@ -4519,7 +4634,7 @@ def get_smooth_bump_channels(layer):
     channels = []
 
     for i, root_ch in enumerate(yp.channels):
-        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+        if root_ch.special_type == 'HEIGHT' and root_ch.enable_smooth_bump:
             channels.append(layer.channels[i])
 
     return channels
@@ -4530,7 +4645,7 @@ def get_write_height_normal_channels(layer):
     channels = []
 
     for i, root_ch in enumerate(yp.channels):
-        if root_ch.type == 'NORMAL':
+        if root_ch.special_type == 'HEIGHT':
             ch = layer.channels[i]
             write_height = get_write_height(ch)
             if write_height:
@@ -4542,7 +4657,7 @@ def get_write_height_normal_channel(layer):
     yp = layer.id_data.yp
 
     for i, root_ch in enumerate(yp.channels):
-        if root_ch.type == 'NORMAL':
+        if root_ch.special_type == 'HEIGHT':
             ch = layer.channels[i]
             write_height = get_write_height(ch)
             if write_height:
@@ -4715,23 +4830,6 @@ def get_bump_chain(layer, ch=None):
     if height_ch:
         chain = height_ch.transition_bump_chain
 
-    # Try to get transition bump
-    #trans_bump = get_transition_bump_channel(layer)
-
-    #if trans_bump:
-    #    chain = trans_bump.transition_bump_chain 
-    #else:
-
-    #    # Try to standard smooth bump if transition bump is not found
-    #    for i, c in enumerate(layer.channels):
-
-    #        if ch and c != ch: continue
-
-    #        if yp.channels[i].type == 'NORMAL':
-    #            chain_local = min(c.transition_bump_chain, len(layer.masks))
-    #            if chain_local > chain:
-    #                chain = chain_local
-
     return min(chain, len(layer.masks))
 
 def check_if_node_is_duplicated_from_lib(node, lib_name):
@@ -4740,9 +4838,9 @@ def check_if_node_is_duplicated_from_lib(node, lib_name):
     if m: return True
     return False
 
-def get_subsurf_modifier(obj, keyword=''):
+def get_subsurf_modifier(obj, keyword='', include_hidden=True):
     for mod in obj.modifiers:
-        if mod.type == 'SUBSURF': # and mod.show_render and mod.show_viewport:
+        if mod.type == 'SUBSURF' and (mod.show_viewport or include_hidden):
             if keyword != '' and keyword != mod.name: continue
             return mod
 
@@ -5181,6 +5279,41 @@ def check_other_mats_to_use_temp_image(obj):
                     mat.paint_active_slot = idx
                     break
 
+def get_active_baked_channel_image(root_ch):
+    tree = root_ch.id_data
+    yp = tree.yp
+
+    bt = yp.bake_targets.get(root_ch.bake_target_name)
+    baked_node = tree.nodes.get(bt.baked_node) if bt else None
+
+    if baked_node and baked_node.type == 'TEX_IMAGE':
+        return baked_node.image
+
+    return None
+
+def get_bake_target_index(bt):
+    yp = bt.id_data.yp
+
+    for i, b in enumerate(yp.bake_targets):
+        if b == bt:
+            return i
+
+    return -1
+
+def get_bake_target_label(bt=None):
+    if bt == None: return '-'
+
+    tree = bt.id_data
+    yp = tree.yp
+
+    label = bt.name
+    if bt.data_type == 'IMAGE':
+        baked_node = tree.nodes.get(bt.baked_node)
+        if baked_node and baked_node.image:
+            label = baked_node.image.name
+
+    return label
+
 def set_active_paint_slot_entity(yp):
     image = None
     mat = get_active_material()
@@ -5202,36 +5335,38 @@ def set_active_paint_slot_entity(yp):
     if yp.use_baked and len(yp.channels) > 0:
 
         ch = yp.channels[yp.active_channel_index]
-        if ch.type == 'NORMAL':
-            cur_image = get_active_paint_slot_image()
+        image = get_active_baked_channel_image(ch)
+        #if ch.special_type == 'NORMAL':
+        #    cur_image = get_active_paint_slot_image()
 
-            # Cycle through all baked normal images
-            orders = ['baked', 'baked_normal_overlay', 'baked_disp', 'baked_vdisp']
-            for i, prop in enumerate(orders):
-                cur_baked = root_tree.nodes.get(getattr(ch, prop))
-                if cur_baked and cur_baked.image == cur_image:
-                    next_i = i
-                    for j in range(len(orders)):
-                        if next_i == len(orders)-1:
-                            next_i = 0
-                        else: next_i += 1
+        #    # Cycle through all baked normal images
+        #    #orders = ['baked', 'baked_normal_overlay', 'baked_disp', 'baked_vdisp']
+        #    orders = ['baked', 'baked_normal_no_disp']
+        #    for i, prop in enumerate(orders):
+        #        cur_baked = root_tree.nodes.get(getattr(ch, prop))
+        #        if cur_baked and cur_baked.image == cur_image:
+        #            next_i = i
+        #            for j in range(len(orders)):
+        #                if next_i == len(orders)-1:
+        #                    next_i = 0
+        #                else: next_i += 1
 
-                        next_prop = orders[next_i]
-                        next_baked = root_tree.nodes.get(getattr(ch, next_prop))
+        #                next_prop = orders[next_i]
+        #                next_baked = root_tree.nodes.get(getattr(ch, next_prop))
 
-                        if next_baked:
-                            next_baked.select = True
-                            image = next_baked.image
-                            root_tree.nodes.active = next_baked
-                            break
-                    break
+        #                if next_baked:
+        #                    next_baked.select = True
+        #                    image = next_baked.image
+        #                    root_tree.nodes.active = next_baked
+        #                    break
+        #            break
 
-        if not image:
-            baked = root_tree.nodes.get(ch.baked)
-            if baked and baked.image:
-                baked.select = True
-                root_tree.nodes.active = baked
-                image = baked.image
+        #if not image:
+        #    baked = root_tree.nodes.get(ch.baked)
+        #    if baked and baked.image:
+        #        baked.select = True
+        #        root_tree.nodes.active = baked
+        #        image = baked.image
 
     elif len(yp.layers) > 0:
         
@@ -5451,21 +5586,14 @@ def is_uv_input_needed(layer, uv_name):
             return True
 
         if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO'}:
+            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
                 return True
 
             for i, ch in enumerate(layer.channels):
                 if not ch.enable: continue
                 root_ch = yp.channels[i]
-                if root_ch.type != 'NORMAL':
-                    if ch.override and ch.override_type not in {'DEFAULT', 'VCOL'}:
-                        return True
-                else:
-                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override and ch.override_type not in {'DEFAULT', 'VCOL'}:
-                        return True
-
-                    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type != 'DEFAULT':
-                        return True
+                if ch.override and ch.override_type not in {'DEFAULT', 'VCOL'}:
+                    return True
         
         for mask in layer.masks:
             if not get_mask_enabled(mask): continue
@@ -5494,41 +5622,52 @@ def is_entity_need_tangent_input(entity, uv_name):
 
         height_root_ch = get_root_height_channel(yp)
         height_ch = get_height_channel(layer)
+        normal_root_ch = get_root_normal_channel(yp)
+        normal_ch = get_normal_channel(layer)
+
+        height_channel_enabled = get_channel_enabled(height_ch, layer, height_root_ch) if height_root_ch and height_ch else False
+        normal_channel_enabled = get_channel_enabled(normal_ch, layer, normal_root_ch) if normal_root_ch and normal_ch else False
 
         # Previous normal is calculated using normal process
         if height_root_ch and height_root_ch.enable_smooth_bump and check_need_prev_normal(layer):
             return True
 
-        if height_root_ch and height_ch and get_channel_enabled(height_ch, layer, height_root_ch):
+        #if normal_root_ch and normal_ch and get_channel_enabled(normal_ch, layer, normal_root_ch):
 
-            if entity.type == 'GROUP':
+        if entity.type == 'GROUP':
 
-                if is_layer_using_normal_map(entity, height_root_ch):
-                    return True
+            if normal_root_ch and is_layer_using_normal_map(entity, normal_root_ch):
+                return True
 
-            elif uv_name == height_root_ch.main_uv:
+            if normal_ch and height_ch and height_ch.use_height_as_normal and has_channel_children(entity, normal_root_ch):
+                return True
 
-                # Main UV tangent is needed for normal process
-                if is_parallax_enabled(height_root_ch) and height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
-                    return True
+        elif normal_root_ch and uv_name == normal_root_ch.main_uv:
 
-                # Overlay blend and transition bump need tangent
-                if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and (height_ch.normal_blend_type == 'OVERLAY' or (height_ch.enable_transition_bump and height_root_ch.enable_smooth_bump)):
+            if normal_channel_enabled and normal_ch.normal_blend_type == 'OVERLAY':
+                return True
+
+            if height_channel_enabled and height_ch.use_height_as_normal and normal_ch.normal_blend_type == 'OVERLAY':
+                return True
+
+            if height_channel_enabled and height_root_ch.enable_smooth_bump:
+                if height_ch.enable_transition_bump:
                     return True
 
                 # Main UV Tangent is needed if smooth bump is on and entity is using non-uv texcoord or have different UV
-                if height_root_ch.enable_smooth_bump and (entity.texcoord_type != 'UV' or entity.uv_name != uv_name) and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                if (entity.texcoord_type != 'UV' or entity.uv_name != uv_name) and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                     return True
 
                 # Fake neighbor need tangent
-                if height_root_ch.enable_smooth_bump and entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT', 'AO'} and not entity.use_baked:
+                if entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT', 'AO'} and not entity.use_baked:
                     return True
 
-            elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
+        elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
 
-                # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
-                if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                    return True
+            # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
+            #if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+            if height_channel_enabled and height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name:
+                return True
 
     return False
 
@@ -5549,9 +5688,6 @@ def is_tangent_process_needed(yp, uv_name):
     if height_root_ch:
 
         if height_root_ch.main_uv == uv_name and (
-                (height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch)) or
-                #(not height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch) and any_layers_using_normal_map(height_root_ch))
-                #any_layers_using_bump_map(height_root_ch) or
                 (is_normal_height_input_connected(height_root_ch) and height_root_ch.enable_smooth_bump)
             ):
             return True
@@ -5570,9 +5706,9 @@ def is_height_process_needed(layer):
     height_ch = get_height_channel(layer)
     if not height_ch or not height_ch.enable: return False
 
-    if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+    if is_layer_preview_mode_enabled(yp) and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
-    if layer.type == 'GROUP': 
+    if layer.type in {'GROUP', 'PREV_LAYERS'}: 
         if is_layer_using_bump_map(layer, height_root_ch):
             return True
     elif height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
@@ -5582,21 +5718,20 @@ def is_height_process_needed(layer):
 
 def is_vdisp_process_needed(layer):
     yp = layer.id_data.yp
-    height_root_ch = get_root_height_channel(yp)
-    if not height_root_ch: return False
+    vdisp_root_ch = get_root_vdisp_channel(yp)
+    if not vdisp_root_ch: return False
 
-    height_ch = get_height_channel(layer)
-    if not height_ch or not height_ch.enable: return False
+    vdisp_ch = get_vdisp_channel(layer)
+    if not vdisp_ch or not vdisp_ch.enable: return False
 
-    #if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+    #if is_layer_preview_mode_enabled(yp) and vdisp_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
-    if layer.type == 'GROUP': 
-        if is_layer_using_vdisp_map(layer, height_root_ch):
-            return True
-    elif height_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or height_ch.enable_transition_bump:
-        return True
+    if layer.type in {'GROUP', 'PREV_LAYERS'}: 
+        return is_layer_using_vdisp_map(layer, vdisp_root_ch)
+    #elif vdisp_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or vdisp_ch.enable_transition_bump:
+    #    return True
 
-    return False
+    return True
 
 def is_normal_process_needed(layer):
     yp = layer.id_data.yp
@@ -5606,9 +5741,9 @@ def is_normal_process_needed(layer):
     height_ch = get_height_channel(layer)
     if not height_ch or not height_ch.enable: return False
 
-    if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+    if is_layer_preview_mode_enabled(yp) and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
-    if layer.type == 'GROUP': 
+    if layer.type in {'GROUP', 'PREV_LAYERS'}: 
         if is_layer_using_bump_map(layer, height_root_ch) and not height_ch.write_height:
             return True
     elif height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not height_ch.write_height:
@@ -5636,7 +5771,6 @@ def get_layer_enabled(layer):
             break
 
     return layer.enable and parent_enable and channel_enabled
-    #return (layer.enable and parent_enable) or yp.layer_preview_mode
 
 ''' Check if mask is practically enabled or not '''
 def get_mask_enabled(mask, layer=None):
@@ -5646,7 +5780,6 @@ def get_mask_enabled(mask, layer=None):
         layer = yp.layers[int(m.group(1))]
 
     return get_layer_enabled(layer) and layer.enable_masks and mask.enable
-    #return (get_layer_enabled(layer) and mask.enable) or yp.layer_preview_mode
 
 ''' Check if channel is practically enabled or not '''
 def get_channel_enabled(ch, layer=None, root_ch=None):
@@ -5663,20 +5796,30 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
 
     channel_idx = get_channel_index(root_ch)
 
-    if layer.type in {'BACKGROUND', 'GROUP'}:
+    if layer.type == 'PREV_LAYERS':
+        return ch.enable
+
+    elif layer.type in {'BACKGROUND', 'GROUP'}:
         
         if layer.type == 'BACKGROUND':
             layer_idx = get_layer_index(layer)
             lays = [l for i, l in enumerate(yp.layers) if i > layer_idx and l.parent_idx == layer.parent_idx]
-        else:
+        elif layer.type == 'GROUP':
             lays = get_list_of_direct_children(layer)
+        else:
+            lays = get_list_of_direct_previous_layers(layer)
 
         color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
         alpha_ch_idx = get_channel_index(alpha_ch) if alpha_ch else -1
         color_ch_idx = get_channel_index(color_ch) if color_ch else -1
+
+        normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+        normal_ch_idx = get_channel_index(normal_ch) if normal_ch else -1
+        height_ch_idx = get_channel_index(height_ch) if height_ch else -1
         
         for l in lays:
             if not l.enable: continue
+            if l.type == 'PREV_LAYERS': continue
             if channel_idx >= len(l.channels): continue
             c = l.channels[channel_idx]
 
@@ -5687,6 +5830,12 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
                     cc = l.channels[color_ch_idx]
                     if cc.enable and not cc.unpair_alpha:
                         continue
+
+                # NOTE: Normal will automatically enabled if a layer height channel uses 'Height as Normal'
+                if channel_idx == normal_ch_idx and height_ch_idx < len(l.channels):
+                    height_c = l.channels[height_ch_idx]
+                    if height_c.enable and height_c.use_height_as_normal:
+                        return True
 
                 if c.enable:
                     return True
@@ -5729,8 +5878,9 @@ def is_blend_node_needed(ch, layer=None, root_ch=None):
         layer = yp.layers[int(m.group(1))]
         root_ch = yp.channels[int(m.group(2))]
 
-    # Get alpha and color pair channel
+    # Get channel pairs
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
 
     # Blend node is necessary for alpha channel that is forced to be unpaired from color channel
     if ch == alpha_ch:
@@ -5742,6 +5892,11 @@ def is_blend_node_needed(ch, layer=None, root_ch=None):
 
         elif get_channel_enabled(color_ch, layer):
             return color_ch.unpair_alpha
+
+    # Blend node is necessary if height channel has 'use_height_as_normal' enabled
+    if ch == normal_ch and height_ch:
+        if height_ch.use_height_as_normal:
+            return True
 
     return get_channel_enabled(ch, layer, root_ch)
 
@@ -5765,10 +5920,13 @@ def is_layer_using_bump_map(layer, root_ch=None):
     try: ch = layer.channels[channel_idx]
     except: return False
     if get_channel_enabled(ch, layer, root_ch):
-        if layer.type == 'GROUP':
-            children = get_list_of_direct_children(layer)
-            for child in children:
-                if is_layer_using_bump_map(child):
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
+            if layer.type == 'GROUP':
+                other_layers = get_list_of_direct_children(layer)
+            else: other_layers = get_list_of_direct_previous_layers(layer)
+
+            for ol in other_layers:
+                if is_layer_using_bump_map(ol):
                     return True
         elif ch.write_height and (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or ch.enable_transition_bump):
             return True
@@ -5777,19 +5935,23 @@ def is_layer_using_bump_map(layer, root_ch=None):
 
 def is_layer_using_vdisp_map(layer, root_ch=None):
     yp = layer.id_data.yp
-    if not root_ch: root_ch = get_root_height_channel(yp)
+    if not root_ch: root_ch = get_root_vdisp_channel(yp)
     if not root_ch: return False
 
     channel_idx = get_channel_index(root_ch)
     try: ch = layer.channels[channel_idx]
     except: return False
     if get_channel_enabled(ch, layer, root_ch):
-        if layer.type == 'GROUP':
-            children = get_list_of_direct_children(layer)
-            for child in children:
-                if is_layer_using_vdisp_map(child):
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
+            if layer.type == 'GROUP':
+                other_layers = get_list_of_direct_children(layer)
+            else: other_layers = get_list_of_direct_previous_layers(layer)
+
+            for ol in other_layers:
+                if is_layer_using_vdisp_map(ol):
                     return True
-        elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or ch.enable_transition_bump:
+        #elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or ch.enable_transition_bump:
+        else:
             return True
 
     return False
@@ -5803,44 +5965,15 @@ def is_layer_using_normal_map(layer, root_ch=None):
     try: ch = layer.channels[channel_idx]
     except: return False
     if get_channel_enabled(ch, layer, root_ch):
-        if layer.type == 'GROUP':
-            children = get_list_of_direct_children(layer)
-            for child in children:
-                if is_layer_using_normal_map(child) or (not ch.write_height and is_layer_using_bump_map(child)):
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
+            if layer.type == 'GROUP':
+                other_layers = get_list_of_direct_children(layer)
+            else: other_layers = get_list_of_direct_previous_layers(layer)
+
+            for ol in other_layers:
+                if is_layer_using_normal_map(ol) or (not ch.write_height and is_layer_using_bump_map(ol)):
                     return True
         elif not ch.write_height or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-            return True
-
-    return False
-
-def any_layers_using_bump_map(root_ch):
-    if root_ch.type != 'NORMAL': return False
-    yp = root_ch.id_data.yp
-
-    for layer in yp.layers:
-        if is_layer_using_bump_map(layer, root_ch):
-            return True
-
-    return False
-
-def any_layers_using_displacement(root_ch):
-    if any_layers_using_bump_map(root_ch):
-        return True
-
-    yp = root_ch.id_data.yp
-    vdm_layer = get_first_vdm_layer(yp)
-    if vdm_layer: 
-        return True
-
-    return False
-
-def any_layers_using_normal_map(root_ch):
-    if root_ch.type != 'NORMAL': return False
-    yp = root_ch.id_data.yp
-    channel_idx = get_channel_index(root_ch)
-
-    for layer in yp.layers:
-        if is_layer_using_normal_map(layer, root_ch):
             return True
 
     return False
@@ -5870,13 +6003,6 @@ def is_any_layer_using_channel(root_ch, node=None):
         inp = node.inputs.get(root_ch.name + io_suffix['ALPHA'])
         if inp and len(inp.links):
             return True
-        if root_ch.type == 'NORMAL':
-            inp = node.inputs.get(root_ch.name + io_suffix['HEIGHT'])
-            if inp and len(inp.links):
-                return True
-            inp = node.inputs.get(root_ch.name + io_suffix['VDISP'])
-            if inp and len(inp.links):
-                return True
 
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
     color_ch_idx = get_channel_index(color_ch) if root_ch == alpha_ch else -1
@@ -5889,6 +6015,23 @@ def is_any_layer_using_channel(root_ch, node=None):
             return True
 
     return False
+
+def get_displacement_method():
+    mat = get_active_material()
+
+    if mat and hasattr(mat, 'displacement_method'):
+        return mat.displacement_method
+
+    if mat and hasattr(mat.cycles, 'displacement_method'):
+        return mat.cycles.displacement_method
+
+    # Displacement method is inside object data for Blender 2.77 and below 
+    if not is_bl_newer_than(2, 78):
+        obj = bpy.context.object
+        if obj and obj.data and hasattr(obj.data, 'cycles'):
+            return obj.data.cycles.displacement_method
+
+    return 'BUMP'
 
 def get_layer_type_icon(layer_type):
 
@@ -6087,30 +6230,16 @@ def get_yp_images(yp, udim_only=False, get_baked_channels=False, check_overlay_n
     # Baked images
     if get_baked_channels:
         tree = yp.id_data
-        for ch in yp.channels:
-            baked = tree.nodes.get(ch.baked)
-            if baked and baked.image and baked.image not in images:
-                images.append(baked.image)
-
-            if ch.type == 'NORMAL':
-                baked_disp = tree.nodes.get(ch.baked_disp)
-                if baked_disp and baked_disp.image and baked_disp.image not in images:
-                    images.append(baked_disp.image)
-
-                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
-                if baked_vdisp and baked_vdisp.image and baked_vdisp.image not in images:
-                    images.append(baked_vdisp.image)
-
-                if not check_overlay_normal or not is_overlay_normal_empty(ch):
-                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
-                        images.append(baked_normal_overlay.image)
+        #for ch in yp.channels:
+        #    baked = tree.nodes.get(ch.baked)
+        #    if baked and baked.image and baked.image not in images:
+        #        images.append(baked.image)
 
         # Custom bake target images
         for bt in yp.bake_targets:
-            image_node = tree.nodes.get(bt.image_node)
-            if image_node and image_node.image not in images:
-                images.append(image_node.image)
+            baked_node = tree.nodes.get(bt.baked_node)
+            if baked_node and baked_node.type == 'TEX_IMAGE' and baked_node.image and baked_node.image not in images:
+                images.append(baked_node.image)
 
     return images
 
@@ -6257,35 +6386,25 @@ def get_all_baked_channel_images(tree):
 
     images = []
 
-    for ch in yp.channels:
+    for bt in yp.bake_targets:
+        if bt.data_type != 'IMAGE': continue
+        baked_node = tree.nodes.get(bt.baked_node)
 
-        baked = tree.nodes.get(ch.baked)
-        if baked and baked.image:
-            images.append(baked.image)
-
-        if ch.type == 'NORMAL':
-            baked_disp = tree.nodes.get(ch.baked_disp)
-            if baked_disp and baked_disp.image:
-                images.append(baked_disp.image)
-
-            baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-            if baked_normal_overlay and baked_normal_overlay.image:
-                images.append(baked_normal_overlay.image)
+        if baked_node and baked_node.image:
+            images.append(baked_node.image)
 
     return images
 
 def is_layer_using_vector(layer, exclude_baked=False):
     yp = layer.id_data.yp
 
-    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
         return True
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
         if ch.enable:
             if ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
-                return True
-            if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type != 'DEFAULT':
                 return True
 
     for mask in layer.masks:
@@ -6548,7 +6667,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
         if ( 
             not ch.override
             and ch.gamma_space 
-            and root_ch.type != 'NORMAL' 
+            and root_ch.special_type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
             and socket_input_name == 'Color' 
             and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
@@ -6556,7 +6675,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             return GAMMA
 
         # NOTE: Linear blending currently will only use gamma correction on normal channel
-        if not ch.override_1 and image and is_image_source_srgb(image, source) and root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
+        if image and is_image_source_srgb(image, source) and root_ch.special_type == 'NORMAL' and (not ch.override or ch.override_type == 'IMAGE'):
             return 1.0 / GAMMA
 
         # NOTE: These two gamma correction are unused yet for simplicity and older file compatibility
@@ -6574,14 +6693,14 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             return 1.0 / GAMMA
 
         # Convert non image override data to linear
-        if ch.override and ch.override_type not in {'IMAGE'} and root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB':
+        if ch.override and ch.override_type not in {'IMAGE'} and root_ch.special_type not in {'NORMAL', 'VDISP', 'HEIGHT'} and root_ch.colorspace == 'SRGB':
             return 1.0 / GAMMA
 
         # Convert non image layer data to linear
         if (
             not ch.override 
             and not ch.gamma_space 
-            and root_ch.type != 'NORMAL' 
+            and root_ch.special_type not in {'NORMAL', 'HEIGHT', 'VDISP'}
             and root_ch.colorspace == 'SRGB' 
             and (socket_input_name == 'Color' or layer.type in {'HEMI', 'EDGE_DETECT'})
             and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
@@ -7084,17 +7203,13 @@ def swap_channel_fcurves(yp, idx0, idx1):
     ch0 = yp.channels[idx0]
     ch1 = yp.channels[idx1]
 
-    ch0_idx = ch0.io_index
-    ch1_idx = ch1.io_index
+    inp0_idx = get_tree_input_index_by_name(yp.id_data, ch0.name)
+    inp1_idx = get_tree_input_index_by_name(yp.id_data, ch1.name)
+
+    if inp0_idx == -1 or inp1_idx == -1: return
 
     # NOTE: This swap does not consider the alpha channel input
     # Since it will be replaced with dedicated channel, I think it's probably fine for now
-
-    if idx0 > idx1 and ch1.enable_alpha:
-        ch1_idx += 1
-
-    if idx0 < idx1 and ch0.enable_alpha:
-        ch0_idx += 1
 
     for mat in bpy.data.materials:
         if not mat.node_tree: continue
@@ -7114,11 +7229,11 @@ def swap_channel_fcurves(yp, idx0, idx1):
                     m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                     if m:
                         index = int(m.group(1))
-                        if index == ch0_idx:
-                            fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(ch1_idx) + '].default_value'
+                        if index == inp0_idx:
+                            fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(inp1_idx) + '].default_value'
 
-                        elif index == ch1_idx:
-                            fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(ch0_idx) + '].default_value'
+                        elif index == inp1_idx:
+                            fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(inp0_idx) + '].default_value'
 
 def swap_layer_channel_fcurves(layer, idx0, idx1):
     if idx0 >= len(layer.channels) or idx1 >= len(layer.channels): return
@@ -7334,9 +7449,21 @@ def remove_channel_fcurves(root_ch):
     drivers = get_material_drivers(mat)
 
     # Get list of channel input indices
-    indices = [root_ch.io_index]
+    indices = []
+
+    idx = get_tree_input_index_by_name(tree, root_ch.name)
+    if idx != -1: indices.append(idx)
+
     if root_ch.enable_alpha:
-        indices.append(root_ch.io_index+1)
+        idx = get_tree_input_index_by_name(tree, root_ch.name + io_suffix['ALPHA'])
+        if idx != -1: indices.append(idx)
+
+    if root_ch.special_type == 'HEIGHT' and root_ch.use_height_normalize:
+        idx = get_tree_input_index_by_name(tree, root_ch.name + io_suffix['MIDLEVEL'])
+        if idx != -1: indices.append(idx)
+
+        idx = get_tree_input_index_by_name(tree, root_ch.name + io_suffix['SCALE'])
+        if idx != -1: indices.append(idx)
 
     # Delete fcurves
     fcs = []
@@ -7448,8 +7575,11 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
                     if m:
                         fc.data_path = fc.data_path.replace('.channels[' + str(i) + ']', '.channels[' + str(i+shifter) + ']')
 
-    if remove_ch_mode and start_index < len(yp.channels) and yp.channels[start_index].enable_alpha and shifter < 0:
-        shifter -= 1
+    if remove_ch_mode and start_index < len(yp.channels) and shifter < 0:
+        if yp.channels[start_index].enable_alpha:
+            shifter -= 1
+        #if yp.channels[start_index].special_type == 'HEIGHT' and yp.channels[start_index].use_height_normalize:
+        #    shifter -= 1
 
     for mat in bpy.data.materials:
         if not mat.node_tree: continue
@@ -7471,18 +7601,19 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
 
                     for i, root_ch in reversed(list(enumerate(yp.channels))):
                         if i <= start_index: continue
-                        io_index = root_ch.io_index
+                        input_index = get_tree_input_index_by_name(tree, root_ch.name)
+
                         for fc in fcurves:
-                            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(io_index) + r'\]\.default_value$', fc.data_path)
-                            if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
+                            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(input_index) + r'\]\.default_value$', fc.data_path)
+                            if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(input_index+shifter) + '].default_value'
                 else:
 
                     for i, root_ch in enumerate(yp.channels):
                         if i <= start_index: continue
-                        io_index = root_ch.io_index
+                        input_index = get_tree_input_index_by_name(tree, root_ch.name)
                         for fc in fcurves:
-                            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(io_index) + r'\]\.default_value$', fc.data_path)
-                            if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
+                            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(input_index) + r'\]\.default_value$', fc.data_path)
+                            if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(input_index+shifter) + '].default_value'
 
 
 def shift_mask_fcurves_up(layer, start_index=1):
@@ -8074,6 +8205,11 @@ def split_layout(layout, factor, align=False):
 
     return layout.split(factor=factor, align=align)
 
+def right_aligned_label(layout, text):
+    row = layout.row()
+    if is_bl_newer_than(2, 80): row.alignment = 'RIGHT'
+    row.label(text=text)
+
 def get_armature_modifier(obj, return_index=False):
     for i, mod in enumerate(obj.modifiers):
         if mod.type == 'ARMATURE' and mod.object:
@@ -8088,8 +8224,8 @@ def get_armature_modifier(obj, return_index=False):
 
 def is_layer_vdm(layer):
 
-    hch = get_height_channel(layer)
-    if not hch or not hch.enable or hch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': 
+    vch = get_vdisp_channel(layer)
+    if not vch or not vch.enable:
         return False
 
     return True
@@ -8244,7 +8380,7 @@ def get_alpha_channel_pair(root_ch):
     # Look for alpha channel
     alpha_channel = None
     for ch in yp.channels:
-        if ch.is_alpha and ch.alpha_pair_name == root_ch.name:
+        if ch.special_type == 'ALPHA' and ch.alpha_pair_name == root_ch.name:
             return ch
 
     return None
@@ -8254,7 +8390,7 @@ def is_channel_alpha_enabled(root_ch):
 
 def get_alpha_channel(yp):
     for ch in yp.channels:
-        if ch.is_alpha and yp.channels.get(ch.alpha_pair_name):
+        if ch.special_type == 'ALPHA' and yp.channels.get(ch.alpha_pair_name):
             return ch
 
     return None
@@ -8293,6 +8429,34 @@ def is_modifier_used_by_paired_alpha_channel(mod):
         return True
 
     return False
+
+def get_normal_height_ch_pairs(yp):
+    height_ch = get_root_height_channel(yp)
+    # Look for normal channel
+    normal_ch = None
+    chs = [ch for ch in yp.channels if ch.special_type == 'NORMAL']
+    if any(chs): normal_ch = chs[0]
+
+    if not normal_ch:
+        return None, None
+    
+    return normal_ch, height_ch
+
+def get_layer_normal_height_ch_pairs(layer):
+    yp = layer.id_data.yp
+
+    normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
+    if not normal_ch or not height_ch:
+        return None, None
+
+    normal_ch_idx = get_channel_index(normal_ch) if height_ch else -1
+    height_ch_idx = get_channel_index(height_ch) if normal_ch else -1
+
+    layer_normal_ch = layer.channels[normal_ch_idx] if normal_ch_idx >= 0 and normal_ch_idx < len(layer.channels) else None
+    layer_height_ch = layer.channels[height_ch_idx] if height_ch_idx >= 0 and height_ch_idx < len(layer.channels) else None
+
+    return layer_normal_ch, layer_height_ch
 
 def is_modifier_used_by_alpha_channel(mod):
     yp = mod.id_data.yp
@@ -8401,3 +8565,158 @@ def set_scene_bake_margin(scene, value):
     if not is_bl_newer_than(5):
         scene.render.bake_margin = value
     else: scene.render.bake.margin = value
+
+def get_bake_target_channels(bt):
+    yp = bt.id_data.yp
+
+    channels = []
+    for letter in rgba_letters:
+        btc = getattr(bt, letter)
+        if btc.channel_name != '' and yp.channels.get(btc.channel_name):
+            ch = yp.channels.get(btc.channel_name)
+            if ch not in channels:
+                channels.append(ch)
+
+    return channels
+
+def is_bake_target_using_exact_channel(bt, root_ch):
+
+    if bt.r.channel_name == bt.g.channel_name == bt.b.channel_name == root_ch.name:
+        if root_ch.type == 'VALUE' or (
+            bt.r.subchannel_index == '0' and not bt.r.invert_value and
+            bt.g.subchannel_index == '1' and not bt.g.invert_value and
+            bt.b.subchannel_index == '2' and not bt.b.invert_value
+        ):
+            return True
+
+    return False
+
+def get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, root_ch):
+    for i, letter in enumerate(rgba_letters):
+        btc = getattr(bt, letter)
+        if not btc: continue
+        if btc.channel_name == root_ch.name and btc.subchannel_index == '3':
+            return i
+
+    return -1
+
+def get_bake_target_subchannel_ids_of_value_channel(bt, root_ch):
+
+    for i, letter in enumerate(rgba_letters):
+        btc = getattr(bt, letter)
+        if not btc: continue
+        if btc.channel_name == root_ch.name:
+            return i
+
+    return -1
+
+def get_bake_target_subchannel_ids_of_rgb_channel(bt, root_ch):
+
+    ids = [-1, -1, -1]
+
+    for i, letter in enumerate(rgba_letters):
+        btc = getattr(bt, letter)
+        if not btc: continue
+        if btc.channel_name == root_ch.name and btc.subchannel_index != '3':
+            ids[int(btc.subchannel_index)] = i
+
+    return ids
+
+def get_channel_bake_target_dict(yp):
+
+    chbts = {}
+    for ch in yp.channels:
+        chbts[ch.name] = []
+
+    for bt in yp.bake_targets:
+
+        r_found = False
+        g_found = False
+        b_found = False
+        rgb_ch = None
+
+        for letter in rgba_letters:
+            btc = getattr(bt, letter)
+            ch = yp.channels.get(btc.channel_name)
+            if ch:
+                if ch.type == 'VALUE' or btc.subchannel_index == '3':
+                    if bt not in chbts[ch.name]: chbts[ch.name].append(bt)
+                else:
+                    # NOTE: Currently only bake target that has the full RGB or RGB to BW will be considered
+                    if rgb_ch == None: rgb_ch = ch
+                    if rgb_ch == ch:
+                        if btc.subchannel_index == '0': r_found = True
+                        elif btc.subchannel_index == '1': g_found = True
+                        elif btc.subchannel_index == '2': b_found = True
+
+        if rgb_ch and r_found and g_found and b_found:
+            if bt not in chbts[rgb_ch.name]: chbts[rgb_ch.name].append(bt)
+    
+    return chbts
+
+def is_baked_channel_normalized(root_ch):
+    tree = root_ch.id_data
+    yp = tree.yp
+
+    is_baked_normalize = False
+    if yp.use_baked and not root_ch.disable_global_baked:
+        bt = yp.bake_targets.get(root_ch.bake_target_name)
+        if bt and bt.height_normalize:
+            max_value_node = tree.nodes.get(bt.max_value_node)
+            if max_value_node:
+                is_baked_normalize = True
+
+    return is_baked_normalize
+
+def get_normal_bake_target_without_height(yp, normal_root_ch=None):
+    if not normal_root_ch: normal_root_ch = get_root_normal_channel(yp)
+    if not normal_root_ch: return None
+    
+    # Check for normal bake target that has no height data
+    for bt in yp.bake_targets:
+        if is_bake_target_using_exact_channel(bt, normal_root_ch) and not bt.normal_includes_height:
+            return bt
+
+    return None
+
+def connect_outside_displacement_node(yp, height_root_ch=None, node=None):
+    if yp.enable_baked_outside: return
+
+    if height_root_ch == None: height_root_ch = get_root_height_channel(yp)
+    if not height_root_ch: return
+
+    is_baked_normalize = is_baked_channel_normalized(height_root_ch)
+
+    # Reconnect outside nodes
+    if height_root_ch.use_height_normalize or is_baked_normalize:
+        mat = get_active_material()
+        if node == None: node = get_active_ypaint_node()
+
+        # Get connected node
+        outp = node.outputs.get(height_root_ch.name)
+        if outp and len(outp.links) > 0:
+            for link in outp.links:
+                to_node = link.to_node
+
+                # Connect max height output
+                if 'Scale' in to_node.inputs:
+                    inp = to_node.inputs['Scale']
+                    if len(inp.links) == 0:
+                        max_height_outp = node.outputs.get(height_root_ch.name + io_suffix['SCALE'])
+                        if max_height_outp:
+                            mat.node_tree.links.new(max_height_outp, inp)
+
+                # Connect midlevel output
+                if 'Midlevel' in to_node.inputs:
+                    inp = to_node.inputs['Midlevel']
+                    if len(inp.links) == 0:
+                        midlevel_outp = node.outputs.get(height_root_ch.name + io_suffix['MIDLEVEL'])
+                        if midlevel_outp:
+                            mat.node_tree.links.new(midlevel_outp, inp)
+
+def is_layer_preview_mode_enabled(yp):
+    return yp.preview_mode and yp.preview_mode_type != 'CHANNEL' and not yp.use_baked
+
+def is_channel_preview_mode_enabled(yp):
+    return yp.preview_mode and (yp.preview_mode_type == 'CHANNEL' or yp.use_baked)
+

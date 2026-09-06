@@ -1069,16 +1069,6 @@ def draw_contributor_status(context, layout, add_separator=False):
         else:
             layout.label(text="Loading contributors...", icon='TIME')
 
-classes = [
-    VIEW3D_PT_YPaint_support_ui,
-    YSponsorProp,
-    YTierPagingButton,
-    YSponsorPopover,
-    YForceUpdateSponsors,
-    YRefreshSponsors,
-    YCollaboratorPagingButton
-]
-
 class Collaborators:
     default_pic = None
     empty_pic = None
@@ -1113,9 +1103,18 @@ def draw_preferences(self, layout):
 def check_contributors_on_load(scn):
     check_contributors()
 
+classes = [
+    VIEW3D_PT_YPaint_support_ui,
+    YSponsorProp,
+    YTierPagingButton,
+    YSponsorPopover,
+    YForceUpdateSponsors,
+    YRefreshSponsors,
+    YCollaboratorPagingButton
+]
+
 def register():
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    for cls in classes: bpy.utils.register_class(cls)
 
     global previews_users
     global collaborators
@@ -1161,8 +1160,7 @@ def register():
         bpy.app.handlers.load_post.append(check_contributors_on_load)
 
 def unregister():
-    for cls in classes:
-        bpy.utils.unregister_class(cls)
+    for cls in classes: bpy.utils.unregister_class(cls)
 
     del bpy.types.WindowManager.ypui_credits
 

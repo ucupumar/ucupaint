@@ -311,14 +311,15 @@ class YNormalMapModifier(bpy.types.PropertyGroup):
     # UI
     expand_content : BoolProperty(default=True)
 
+classes = (
+    YNewNormalmapModifier,
+    YMoveNormalMapModifier,
+    YRemoveNormalMapModifier,
+    YNormalMapModifier,
+)
+
 def register():
-    bpy.utils.register_class(YNewNormalmapModifier)
-    bpy.utils.register_class(YMoveNormalMapModifier)
-    bpy.utils.register_class(YRemoveNormalMapModifier)
-    bpy.utils.register_class(YNormalMapModifier)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YNewNormalmapModifier)
-    bpy.utils.unregister_class(YMoveNormalMapModifier)
-    bpy.utils.unregister_class(YRemoveNormalMapModifier)
-    bpy.utils.unregister_class(YNormalMapModifier)
+    for cls in classes: bpy.utils.unregister_class(cls)

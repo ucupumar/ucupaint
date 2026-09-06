@@ -179,7 +179,7 @@ def save_pack_all(yp):
 
         force_pack = False
 
-        if UDIM.is_udim_supported() and image.source == 'TILED' and UDIM.is_using_temp_dir(image):
+        if is_udim_supported() and image.source == 'TILED' and UDIM.is_using_temp_dir(image):
 
             # There's a need to check if there's empty tile to make sure the image will be packed correctly
             # NOTE: There's actually no need to do this for Blender 4.1 onward,
@@ -335,31 +335,6 @@ class YPackImage(bpy.types.Operator):
 
         pack_image(context.image)
         context.image.filepath = ''
-
-        node = get_active_ypaint_node()
-        tree = node.node_tree
-        yp = tree.yp
-
-        if yp.use_baked and yp.active_channel_index < len(yp.channels):
-            ch = yp.channels[yp.active_channel_index]
-            if ch.type == 'NORMAL':
-
-                baked_disp = tree.nodes.get(ch.baked_disp)
-                if baked_disp and baked_disp.image and not baked_disp.image.packed_file:
-                    pack_image(baked_disp.image)
-                    baked_disp.image.filepath = ''
-
-                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
-                if baked_vdisp and baked_vdisp.image and not baked_vdisp.image.packed_file:
-                    pack_image(baked_vdisp.image)
-                    baked_vdisp.image.filepath = ''
-
-                if not is_overlay_normal_empty(ch):
-                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image and not baked_normal_overlay.image.packed_file:
-                        pack_image(baked_normal_overlay.image)
-
-                    baked_normal_overlay.image.filepath = ''
 
         print('INFO:', context.image.name, 'image is packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -625,11 +600,15 @@ class YSaveAllBakedImages(bpy.types.Operator):
                     if baked_normal_overlay and baked_normal_overlay.image:
                         images.append(baked_normal_overlay.image)
 
+                baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
+                if baked_normal_no_disp and baked_normal_no_disp.image:
+                    images.append(baked_normal_no_disp.image)
+
         # Custom bake target images
         for bt in yp.bake_targets:
-            image_node = tree.nodes.get(bt.image_node)
-            if image_node and image_node.image not in images:
-                images.append(image_node.image)
+            baked_node = tree.nodes.get(bt.baked_node)
+            if baked_node and baked_node.image not in images:
+                images.append(baked_node.image)
 
         original_image_names = []
         original_names = []
@@ -1185,28 +1164,22 @@ class YConvertImageBitDepth(bpy.types.Operator):
 
         return {'FINISHED'}
 
+classes = (
+    YCopyImagePathToClipboard,
+    YOpenContainingImageFolder,
+    YInvertImage,
+    YRefreshImage,
+    YPackImage,
+    YSaveImage,
+    YExportLayers,
+    YSaveAsImage,
+    YSavePackAll,
+    YSaveAllBakedImages,
+    YConvertImageBitDepth,
+)
+
 def register():
-    bpy.utils.register_class(YCopyImagePathToClipboard)
-    bpy.utils.register_class(YOpenContainingImageFolder)
-    bpy.utils.register_class(YInvertImage)
-    bpy.utils.register_class(YRefreshImage)
-    bpy.utils.register_class(YPackImage)
-    bpy.utils.register_class(YSaveImage)
-    bpy.utils.register_class(YExportLayers)
-    bpy.utils.register_class(YSaveAsImage)
-    bpy.utils.register_class(YSavePackAll)
-    bpy.utils.register_class(YSaveAllBakedImages)
-    bpy.utils.register_class(YConvertImageBitDepth)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YCopyImagePathToClipboard)
-    bpy.utils.unregister_class(YOpenContainingImageFolder)
-    bpy.utils.unregister_class(YInvertImage)
-    bpy.utils.unregister_class(YRefreshImage)
-    bpy.utils.unregister_class(YPackImage)
-    bpy.utils.unregister_class(YSaveImage)
-    bpy.utils.unregister_class(YExportLayers)
-    bpy.utils.unregister_class(YSaveAsImage)
-    bpy.utils.unregister_class(YSavePackAll)
-    bpy.utils.unregister_class(YSaveAllBakedImages)
-    bpy.utils.unregister_class(YConvertImageBitDepth)
+    for cls in classes: bpy.utils.unregister_class(cls)

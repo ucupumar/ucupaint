@@ -7,7 +7,7 @@ from bpy.app.handlers import persistent
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
-from . import Bake, ListItem, Modifier, Root, Layer
+from . import Bake, ListItem, modifier_common, modifier_common, channel_common, layer_common, BakeTarget, displacement_common
 
 def flip_tangent_sign():
     meshes = []
@@ -215,6 +215,106 @@ def update_bake_info_use_cages(yp):
         if bi.is_baked and bi.bake_type.startswith('OTHER_OBJECT_'):
             if bi.cage_object_name != '':
                 bi.use_cage = True
+
+def create_bake_target_from_channel(ch, baked_node=None, use_vcol=False, bt_name='', rename_image=True):
+    tree = ch.id_data
+    yp = tree.yp
+
+    baked_image = None
+
+    # Get baked node
+    if use_vcol:
+        baked_node = tree.nodes.get(ch.baked_vcol)
+        bt_name = baked_node.attribute_name if baked_node else ''
+        ch.baked_vcol = ''
+    else:
+        if baked_node == None:
+            baked_node = tree.nodes.get(ch.baked)
+            ch.baked = ''
+
+        if baked_node and baked_node.image:
+            baked_image = baked_node.image
+
+    if baked_image and rename_image:
+        new_image_name = baked_image.name.replace(get_addon_title()+' ', '')
+        new_image_name = new_image_name.replace('Normal Displacement', 'Height')
+        new_image_name = get_unique_name(new_image_name, bpy.data.images)
+        baked_image.name = new_image_name
+
+    # Create bake target name
+    if bt_name == '':
+        bt_name = baked_image.name if baked_image else yp.id_data.name+' '+ch.name
+
+        if use_vcol:
+            if is_bl_newer_than(3, 2):
+                bt_name += ' Attribute'
+            else: bt_name += ' VCol'
+
+    bt_name = bt_name.replace(get_addon_title()+' ', '')
+    bt_name = get_unique_name(bt_name, yp.bake_targets)
+
+    bt = yp.bake_targets.add()
+    bt.name = bt_name
+
+    bt.r.channel_name = ch.name
+    bt.r.subchannel_index = '0'
+
+    bt.g.channel_name = ch.name
+    bt.g.subchannel_index = '1'
+
+    bt.b.channel_name = ch.name
+    bt.b.subchannel_index = '2'
+
+    bt.a.default_value = 1.0
+
+    bt.data_type = 'IMAGE' if not use_vcol else 'VCOL'
+
+    # Avoid checking UDIM when setting uv map
+    ori_halt_update = yp.halt_update
+    yp.halt_update = True
+    bt.uv_map = yp.baked_uv_name
+    yp.halt_update = ori_halt_update
+
+    if baked_node:
+        bt.baked_node = baked_node.name
+
+    # Copy bake info to bake target
+    if baked_image:
+        bi = baked_image.y_bake_info
+        for attr in dir(bt):
+            if attr in {'name', 'rna_type'}: continue
+            if attr.startswith('__'): continue
+            if attr.startswith('bl_'): continue
+            if attr in dir(bi):
+                try: setattr(self, attr, getattr(bi, attr))
+                except: pass
+
+        bt.use_float = baked_image.is_float
+        bt.width = baked_image.size[0]
+        bt.height = baked_image.size[1]
+
+        if bt.width == bt.height and bt.width in {512, 1024, 2048, 4096}:
+            bt.use_custom_resolution = False
+            bt.image_resolution = str(bt.width)
+        else:
+            bt.use_custom_resolution = True
+    else:
+        # Set some default props
+        bt.fxaa = ch.special_type != 'NORMAL'
+        bt.denoise = False
+
+    # Make sure height bake target uses cubic by default
+    if ch.special_type == 'HEIGHT':
+        bt.interpolation = 'Cubic' if not baked_node else baked_node.interpolation
+
+    return bt
+
+def switch_frame(source_frame, dest_frame, tree):
+    for n in tree.nodes:
+        if n.parent == source_frame:
+            n.parent = dest_frame
+
+    tree.nodes.remove(source_frame)
 
 def update_yp_tree(tree):
     cur_version = get_current_version_str()
@@ -542,7 +642,8 @@ def update_yp_tree(tree):
         for layer in yp.layers:
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
-                if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP' and ch.override:
+                # NOTE: `NORMAL` type is replaced with `VECTOR`
+                if root_ch.type == 'VECTOR' and ch.normal_map_type == 'NORMAL_MAP' and ch.override:
 
                     # Disable override first
                     ch.override = False
@@ -700,7 +801,7 @@ def update_yp_tree(tree):
 
                 # Update displacement connection, make sure only setup with the height socket actually connected
                 if is_height_connected:
-                    Bake.check_subdiv_setup(height_root_ch)
+                    displacement_common.check_subdiv_setup(height_root_ch)
 
                 updated_to_yp_200_displacement = True
 
@@ -852,7 +953,8 @@ def update_yp_tree(tree):
                 bi = baked.image.y_bake_info
                 bi.is_baked_channel = True
 
-            if root_ch.type == 'NORMAL':
+            # NOTE: `NORMAL` type is replaced with `VECTOR`
+            if root_ch.type == 'VECTOR':
                 baked_disp = tree.nodes.get(root_ch.baked_disp)
                 if baked_disp and baked_disp.image:
                     bi = baked_disp.image.y_bake_info
@@ -892,7 +994,9 @@ def update_yp_tree(tree):
             for layer in yp.layers:
                 height_ch = get_height_channel(layer)
                 layer_tree = get_tree(layer)
-                need_reconnect = check_channel_normal_map_nodes(layer_tree, layer, height_root_ch, height_ch)
+                # NOTE: This function is no longer exists
+                #need_reconnect = check_channel_normal_map_nodes(layer_tree, layer, height_root_ch, height_ch)
+                need_reconnect = False
 
                 if need_reconnect:
                     reconnect_layer_nodes(layer)
@@ -962,7 +1066,8 @@ def update_yp_tree(tree):
                             for i, ch in enumerate(layer.channels):
                                 if not ch.enable: continue
                                 root_ch = yp.channels[i]
-                                if root_ch.type == 'NORMAL' and ((ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and not ch.override_1) or ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
+                                # NOTE: `NORMAL` type is replaced with `VECTOR`
+                                if root_ch.type == 'VECTOR' and ((ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and not ch.override_1) or ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
                                     used_as_normal_map = True
                                     break
 
@@ -970,7 +1075,7 @@ def update_yp_tree(tree):
                             if not used_as_normal_map:
 
                                 # In some cases (like in linked blend file context), adding new data is causing an error
-                                try: mod = Modifier.add_new_modifier(layer, 'MATH')
+                                try: mod = modifier_common.add_new_modifier(layer, 'MATH')
                                 except Exception as e: 
                                     mod = None
                                     print('EXCEPTIION:', e)
@@ -1089,7 +1194,8 @@ def update_yp_tree(tree):
                         color_ch_name = ch.name
                         backface_mode = ch.backface_mode
 
-                    if ch.type != 'NORMAL':
+                    # NOTE: `NORMAL` type is replaced with `VECTOR`
+                    if ch.type != 'VECTOR':
                         inp = node.inputs.get(ch.name)
                         if inp:
                             val = inp.default_value
@@ -1100,8 +1206,8 @@ def update_yp_tree(tree):
         if color_ch_name != '':
 
             # Create alpha channel
-            alpha_ch = Root.create_new_yp_channel(tree, 'Alpha', 'VALUE', non_color=True)
-            alpha_ch.is_alpha = True
+            alpha_ch = channel_common.create_new_yp_channel(tree, 'Alpha', 'VALUE', non_color=True, add_bake_target=False)
+            alpha_ch.special_type = 'ALPHA'
             if backface_mode != '':
                 alpha_ch.backface_mode = backface_mode
             yp.halt_update = True
@@ -1111,7 +1217,7 @@ def update_yp_tree(tree):
             # Move index
             color_ch = yp.channels.get(color_ch_name)
             color_idx = get_channel_index(color_ch)
-            Root.set_channel_index(alpha_ch, color_idx+1)
+            channel_common.set_channel_index(alpha_ch, color_idx+1)
 
             # Repoint after creating new data
             color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
@@ -1136,7 +1242,7 @@ def update_yp_tree(tree):
         # Convert background layer to solid color
         for layer in yp.layers:
             if layer.type == 'BACKGROUND':
-                Layer.replace_layer_type(layer, 'COLOR')
+                layer_common.replace_layer_type(layer, 'COLOR')
                 if 'Solid Color' in layer.name: layer.name = 'Hole'
 
                 source = get_layer_source(layer)
@@ -1196,7 +1302,8 @@ def update_yp_tree(tree):
                     else: ch.socket_input_name = 'Factor'
 
                 # Apparently normal channel use the same input as the bump map in previous versions
-                if root_ch.type == 'NORMAL':
+                # NOTE: `NORMAL` type is replaced with `VECTOR`
+                if root_ch.type == 'VECTOR':
                     ch.socket_input_1_name = ch.socket_input_name
 
             # Masks
@@ -1244,6 +1351,403 @@ def update_yp_tree(tree):
                     if mask_source and len(mask_source.inputs[0].links) > 0:
                         mask_tree.links.remove(mask_source.inputs[0].links[0])
 
+    # Version 3.0.0 has separated normal, height, and vector displacement channel
+    if version_tuple(yp.version) < (3, 0, 0):
+
+        normal_ch = None
+        normal_ch_idx = -1
+        displacement_setup_needed = False 
+        alpha_ch = None
+
+        # Check if there's legacy special channels
+        for i, ch in enumerate(yp.channels):
+
+            # Convert normal channel
+            # NOTE: `NORMAL` type is replaced with `VECTOR`
+            if ch.type == 'VECTOR':
+                normal_ch = ch
+                normal_ch_idx = i
+                displacement_setup_needed = ch.enable_subdiv_setup
+
+                # Replace normal channel to vector type with normal special type
+                ch.type = 'VECTOR'
+                ch.special_type = 'NORMAL'
+
+            # Convert alpha channel
+            if ch.is_alpha:
+                yp.halt_update = True
+                ch.special_type = 'ALPHA'
+                alpha_ch = ch
+                yp.halt_update = False
+
+        # Create new bake targets matching the available channels
+        for ch in yp.channels:
+            if ch == alpha_ch and alpha_ch.alpha_combine_to_baked_color: continue
+
+            baked = tree.nodes.get(ch.baked)
+            bt = create_bake_target_from_channel(ch)
+            if baked:
+                ch.bake_target_name = bt.name
+
+            # Outside nodes
+            bt.baked_node_outside = ch.baked_outside
+            ch.baked_normal_outside = ch.baked_outside_normal_process
+
+            # Vertex color bake target
+            vbt = None
+            if ch.enable_bake_to_vcol:
+                vbt = create_bake_target_from_channel(ch, use_vcol=True)
+                if ch.use_baked_vcol:
+                    ch.bake_target_name = vbt.name
+                vbt.baked_node_outside = ch.baked_outside_vcol
+
+            # Alpha bake target
+            if alpha_ch and alpha_ch.alpha_pair_name == ch.name and alpha_ch.alpha_combine_to_baked_color:
+                bt.a.channel_name = alpha_ch.name
+                if vbt: vbt.a.channel_name = alpha_ch.name
+
+        if normal_ch != None:
+
+            # Check if any layers are using bump/vdm
+            bump_found = False
+            vdm_found = False
+            for layer in yp.layers:
+                nch = layer.channels[normal_ch_idx]
+                #if nch.enable:
+                if nch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    bump_found = True
+                elif nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                    vdm_found = True
+
+            yp.halt_update = True
+
+            if bump_found or vdm_found:
+                # Delete some nodes since it's no longer needed
+                remove_node(tree, normal_ch, 'end_linear')
+                remove_node(tree, normal_ch, 'end_normal_engine_filter')
+
+            height_ch_idx = -1
+            if bump_found:
+
+                height_ch_name = get_unique_name('Height', yp.channels)
+
+                # Create height channel
+                height_ch = channel_common.create_new_yp_channel(tree, height_ch_name, 'VALUE', non_color=True, special_type='HEIGHT', add_bake_target=False)
+                height_ch.use_height_as_bump = not displacement_setup_needed
+                height_ch.enable_smooth_bump = False
+
+                # Move index
+                channel_common.set_channel_index(height_ch, normal_ch_idx, move_fcurves=False)
+
+                # Get correct indices for normal and height channel
+                height_ch_idx = normal_ch_idx
+                normal_ch_idx = height_ch_idx + 1
+
+                # Get the channels again since it got new index
+                height_ch = yp.channels[height_ch_idx]
+                normal_ch = yp.channels[normal_ch_idx]
+
+                # Create height bake target
+                height_baked_node = tree.nodes.get(normal_ch.baked_disp)
+                height_bt = create_bake_target_from_channel(height_ch, baked_node=height_baked_node)
+                height_bt.baked_node_outside = normal_ch.baked_outside_disp
+                if height_baked_node:
+                    height_bt.max_value_node = normal_ch.end_max_height
+                    height_ch.bake_target_name = height_bt.name
+
+                # The default height channel will normalize the bake
+                height_bt.height_normalize = True
+
+                # Create normal without height bake target
+                norm_woh_baked_node = tree.nodes.get(normal_ch.baked_normal_overlay)
+                norm_woh_bt_name = tree.name+' '+normal_ch.name+' without Height'
+                norm_woh_bt = create_bake_target_from_channel(normal_ch, baked_node=norm_woh_baked_node, bt_name=norm_woh_bt_name)
+                norm_woh_bt.normal_includes_height = False
+                norm_woh_bt.baked_node_outside = normal_ch.baked_outside_normal_overlay
+
+                # Repoint some nodes
+                if height_ch.baked != '':
+                    height_ch.no_layer_using = False
+                    # NOTE: Normalize height is enabled if height is baked before version 3.0
+                    #height_ch.use_height_normalize = True
+
+                # Update bake target
+                for bt in yp.bake_targets:
+                    if bt in {height_bt, norm_woh_bt}: continue
+                    for letter in rgba_letters:
+                        btc = getattr(bt, letter)
+                        if btc.channel_name == normal_ch.name and btc.normal_type == 'DISPLACEMENT':
+                            btc.channel_name = height_ch_name
+
+            vdm_ch_idx = -1
+            if vdm_found:
+
+                vdm_ch_name = get_unique_name('Vector Displacement', yp.channels)
+
+                # Create vdm channel
+                vdm_ch = channel_common.create_new_yp_channel(tree, vdm_ch_name, 'RGB', non_color=True, special_type='VDISP', add_bake_target=False)
+
+                # Swap index
+                vdm_ch_idx = get_channel_index(vdm_ch)
+                if vdm_ch_idx != normal_ch_idx+1:
+                    channel_common.set_channel_index(vdm_ch, normal_ch_idx+1)
+                    vdm_ch_idx = normal_ch_idx + 1
+
+                # Create vdm bake target
+                baked_node = tree.nodes.get(normal_ch.baked_vdisp)
+                vdm_bt = create_bake_target_from_channel(vdm_ch, baked_node=baked_node)
+                vdm_bt.baked_node_outside = normal_ch.baked_outside_vdisp
+                if baked_node:
+                    vdm_ch.bake_target_name = vdm_bt.name
+
+                # Repoint some nodes
+                if vdm_ch.baked != '':
+                    vdm_ch.no_layer_using = False
+
+                # Update bake target
+                for bt in yp.bake_targets:
+                    if bt == vdm_bt: continue
+                    for letter in rgba_letters:
+                        btc = getattr(bt, letter)
+                        if btc.channel_name == normal_ch.name and btc.normal_type == 'VECTOR_DISPLACEMENT':
+                            btc.channel_name = vdm_ch_name
+
+            for layer in yp.layers:
+                ltree = get_tree(layer)
+
+                # Get related channels
+                nch = layer.channels[normal_ch_idx]
+                hch = layer.channels[height_ch_idx] if bump_found else None
+                vch = layer.channels[vdm_ch_idx] if vdm_found else None
+
+                copy_exception_props = ['name']
+
+                if nch.normal_map_type != 'NORMAL_MAP':
+                    # Delete all nodes referenced, it will be fine since all will be rebuilt
+                    for prop in nch.bl_rna.properties:
+                        if prop.type == 'STRING' and (
+                            prop.identifier not in {'name', 'source', 'source_1'} 
+                            and not prop.identifier.startswith('cache_')
+                            and not prop.identifier.endswith('_name')
+                            ):
+                            remove_node(ltree, nch, prop.identifier)
+                            copy_exception_props.append(prop.identifier)
+
+                # Copy props
+                if hch and nch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    copy_id_props(nch, hch, copy_exception_props)
+
+                    # Convert some props
+                    hch.use_height_as_normal = not hch.write_height
+                    if 'normal_blend_type' in nch:
+                        if nch['normal_blend_type'] == 0:
+                            hch.height_blend_type = 'MIX'
+                        elif nch['normal_blend_type'] == 1:
+                            hch.height_blend_type = 'ADD'
+                        elif nch['normal_blend_type'] == 2:
+                            hch.height_blend_type = 'COMPARE'
+                            nch['normal_blend_type'] = 0
+                    
+                    # Clear modifiers for normal channel
+                    nch.modifiers.clear()
+
+                if vch and nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                    copy_id_props(nch, vch, copy_exception_props)
+
+                    if nch.normal_blend_type == 'OVERLAY':
+                        vch.blend_type = 'ADD'
+                    else: vch.blend_type = 'MIX'
+
+                # Repoint normal props
+                nch.source = nch.source_1
+                nch.source_1 = ''
+                nch.override_type = nch.override_1_type
+                nch.override = nch.override_1
+
+                # Move normal modifiers
+                # TODO: Remove modifiers_1 prop entirely
+                for m in nch.modifiers_1:
+                    new_m = nch.modifiers.add()
+                    copy_id_props(m, new_m)
+                nch.modifiers_1.clear()
+
+                # Move keyframes/drivers
+                # TODO: Bump + Normal Map type is not considered yet
+                if hch:
+                    if nch.normal_map_type == 'NORMAL_MAP':
+                        swap_layer_channel_fcurves(layer, height_ch_idx, normal_ch_idx)
+                    elif vch and nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                        swap_layer_channel_fcurves(layer, height_ch_idx, vdm_ch_idx)
+                elif vch and nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                    swap_layer_channel_fcurves(layer, normal_ch_idx, vdm_ch_idx)
+
+                # Automatically enable new layer channel for group and background layers
+                if layer.type in {'GROUP', 'BACKGROUND'}:
+                    if hch: hch.enable = True
+                    if vch: vch.enable = True
+
+                # Disable normal channel if it's a bump channel
+                elif nch.normal_map_type in {'BUMP_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
+                    nch.enable = False
+
+            yp.halt_update = False
+
+            # Update input outputs
+            check_all_channel_ios(yp, yp_node=None)
+
+            # Displacement setup
+            if displacement_setup_needed:
+
+                # Get material using yp
+                mats = get_materials_using_yp(yp)
+                for mat in mats:
+                    for node in mat.node_tree.nodes:
+                        if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
+
+                            if bump_found:
+                                # Getting the channel again just in case
+                                height_ch = [c for c in yp.channels if c.special_type == 'HEIGHT'][0]
+
+                                # Do setup
+                                disp = channel_common.do_displacement_node_setup(mat, node, height_ch)
+
+                                # Update displacement node to use 1.0  scale and 0.0 midlevel
+                                if disp:
+                                    scale_inp = disp.inputs.get('Scale')
+                                    midlevel_inp = disp.inputs.get('Midlevel')
+
+                                    if scale_inp: #and scale_inp.default_value == 0.0:
+                                        scale_inp.default_value = 1.0
+
+                                    if midlevel_inp: #and midlevel_inp.default_value == 0.5:
+                                        midlevel_inp.default_value = 0.0
+
+                            if vdm_found:
+                                # Getting the channel again just in case
+                                vdm_ch = [c for c in yp.channels if c.special_type == 'VDISP'][0]
+
+                                # Do setup
+                                channel_common.do_displacement_node_setup(mat, node, vdm_ch, is_vector_disp=True)
+
+                            # Hide base value since some older versions doesn't do that
+                            norm_chs = [c for c in yp.channels if c.special_type == 'NORMAL']
+                            if norm_chs:
+                                norm_ch = norm_chs[0]
+                                inp = get_tree_input_by_name(node.node_tree, norm_ch.name)
+                                if inp and hasattr(inp, 'hide_value'):
+                                    inp.hide_value = True
+                                else:
+                                    inp = node.inputs.get(norm_ch.name)
+                                    if inp and hasattr(inp, 'hide_value'):
+                                        inp.hide_value = True
+
+        # Convert some outside nodes
+        mats = get_materials_using_yp(yp)
+        for mat in mats:
+
+            # Frame nodes
+            frame = mat.node_tree.nodes.get(yp.baked_outside_frame)
+            if frame:
+                bt_frame = Bake.get_bake_target_outside_frame(yp, mat)
+                switch_frame(frame, bt_frame, mat.node_tree)
+
+            # UV nodes
+            uv = mat.node_tree.nodes.get(yp.baked_outside_uv)
+            if uv: uv.name = Bake.UV_OUTSIDE_PREFIX + uv.uv_map
+            yp.baked_outside_uv = ''
+
+            # Channel related nodes
+            for ch in yp.channels:
+
+                # Remove outsde displacement nodes
+                baked_disp_proc = mat.node_tree.nodes.get(ch.baked_outside_disp_process)
+                baked_vdisp_proc = mat.node_tree.nodes.get(ch.baked_outside_vdisp_process)
+
+                disp_nodes = [baked_disp_proc, baked_vdisp_proc]
+
+                for n in disp_nodes:
+                    if n != None:
+                        do_remove = True
+                        for outp in n.outputs:
+                            if len(outp.links) > 0:
+                                do_remove = False
+                                break
+                        if do_remove:
+                            mat.node_tree.nodes.remove(n)
+
+        # Convert root channel modifiers to 'PREV_LAYERS' layer
+        any_root_ch_modifiers = False
+        for i, root_ch in enumerate(yp.channels):
+            if any(root_ch.modifiers):
+                any_root_ch_modifiers = True
+
+                yp.halt_update = True
+
+                # Create new layer
+                layer = layer_common.add_new_layer(
+                    tree, root_ch.name+' Adjustment', 'PREV_LAYERS', i,
+                    'MIX', 'MIX', 'BUMP_MAP',
+                    'UV')
+
+                # Copy modifiers
+                for mod in root_ch.modifiers:
+                    new_mod = layer.modifiers.add()
+                    copy_id_props(mod, new_mod)
+                    modifier_common.check_modifier_nodes(new_mod, get_tree(layer), tree)
+
+                # Uncollapse the UI
+                layer.expand_content = True
+
+                yp.halt_update = False
+
+                # Remove root channel modifiers
+                root_ch.modifiers.clear()
+
+        if any_root_ch_modifiers:
+            check_all_channel_ios(yp)
+
+        # Preview mode now has it's own channel index
+        yp.preview_mode_channel_index = yp.active_channel_index
+
+        # Preview mode is now unified
+        if yp.layer_preview_mode:
+            yp.preview_mode = True
+            yp.preview_mode_type = yp.layer_preview_mode_type
+
+        # Copy the first bake target to the global settings
+        first_bt = None
+        for bt in yp.bake_targets:
+            if bt.data_type == 'IMAGE':
+                first_bt = bt
+                break
+
+        if first_bt:
+            gloset = yp.bake_target_global_settings
+
+            props = BakeTarget.get_global_settings_props()
+            for prop in props:
+                if hasattr(first_bt, prop):
+                    # Avoid checking UDIM when setting uv map
+                    ori_halt_update = yp.halt_update
+                    if prop == 'uv_map':
+                        yp.halt_update = True
+
+                    setattr(gloset, prop, getattr(first_bt, prop))
+
+                    if prop == 'uv_map':
+                        yp.halt_update = ori_halt_update
+
+            # Also copy from image's bake info for some other props
+            baked_node = tree.nodes.get(first_bt.baked_node)
+            if baked_node and baked_node.image:
+                bi = baked_node.image.y_bake_info
+                gloset.use_float_for_displacement = bi.use_float_for_displacement
+                gloset.use_float_for_normal = bi.use_float_for_normal
+                if bi.use_osl: gloset.bake_device = 'OSL'
+
+        # Update list item since there's a new base layer
+        ListItem.refresh_list_items(yp)
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
@@ -1282,17 +1786,23 @@ def update_yp_tree(tree):
 
     # SECTION III: Updates based on the blender version and yp version
 
-    # Version 1.1.0 and Blender 2.90 can hide default normal input
-    if is_bl_newer_than(2, 90) and (is_created_before(2, 90) or 
-                                  version_tuple(yp.blender_version) < (2, 90, 0) or 
-                                  version_tuple(yp.version) < (1, 1, 0)
-                                  ):
-        height_root_ch = get_root_height_channel(yp)
-        if height_root_ch:
-            inp = get_tree_input_by_name(tree, height_root_ch.name)
-            if inp: 
+    # Version 1.1.0 or Blender 2.90 hide default normal input
+    if version_tuple(yp.version) < (1, 1, 0) or (is_created_before(2, 90) and is_bl_newer_than(2, 90)) or (version_tuple(yp.version) < (3, 0, 0) and not is_bl_newer_than(2, 90)):
+
+        normal_root_ch = get_root_normal_channel(yp)
+        if normal_root_ch:
+            inp = get_tree_input_by_name(tree, normal_root_ch.name)
+            if inp and hasattr(inp, 'hide_value'): 
                 inp.hide_value = True
                 print("INFO: " + tree.name + " Normal input is hidden since Blender 2.90!")
+            else:
+                mats = get_materials_using_yp(yp)
+                for mat in mats:
+                    for node in mat.node_tree.nodes:
+                        if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
+                            inp = node.inputs.get(normal_root_ch.name)
+                            if inp and hasattr(inp, 'hide_value'):
+                                inp.hide_value = True
 
     # Blender 3.4 and version 1.0.9 will make sure all mix node using the newest type
     if version_tuple(yp.version) < (1, 0, 9) and is_bl_newer_than(3, 4):
@@ -1330,6 +1840,9 @@ def update_routine(name):
     # Flags
     updated_to_tangent_process_300 = False
     updated_to_yp_200_displacement = False
+
+    # Remove smooth bump first
+    remove_smooth_bump_setup(check_io=False)
 
     # Get all yp trees
     yp_trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]
@@ -1496,6 +2009,33 @@ def update_routine(name):
                     if o: oo.object = o
 
         print('INFO: Bake Info is updated to be able to point directly to object since Blender 2.79')
+
+    # Dealing with new Blender 3.4 mix node and baked outside
+    if is_created_before(3, 4) and is_bl_newer_than(3, 4):
+        any_changes = False
+        mats = get_all_materials_with_yp_nodes()
+        for mat in mats:
+            mtree = mat.node_tree
+            yp_nodes = []
+            for node in mat.node_tree.nodes:
+                if node.type == 'GROUP' and node.node_tree and node.node_tree.yp.is_ypaint_node and node not in yp_nodes:
+                    yp_nodes.append(node)
+
+            for node in yp_nodes:
+                yp = node.node_tree.yp
+
+                for ch in yp.channels:
+                    for con in ch.ori_to:
+                        node = mtree.nodes.get(con.node)
+                        if node.type == 'MIX':
+                            if con.socket_index == 1:
+                                con.socket_index = 6
+                            if con.socket_index == 2:
+                                con.socket_index = 7
+                            any_changes = True
+
+        if any_changes:
+            print('INFO: Outside nodes are now correctly connected with the newer Blender 3.4 mix node!')
 
     print('INFO: ' + get_addon_title() + ' update routine is done in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -1864,7 +2404,7 @@ class YUpdateYPTrees(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_ypaint_node()
+        return True
 
     def execute(self, context):
         update_node_tree_libs('')
@@ -1900,10 +2440,12 @@ def remove_smooth_bump_setup(check_io=True):
         yp = tree.yp
 
         # Get normal channel
-        norm_chs = [ch for ch in yp.channels if ch.type == 'NORMAL']
+        # NOTE: `NORMAL` type is replaced with `VECTOR`
+        norm_chs = [ch for ch in yp.channels if ch.type == 'VECTOR']
         norm_ch = norm_chs[0] if any(norm_chs) else None
 
         if norm_ch and norm_ch.enable_smooth_bump:
+
             norm_ch_idx = get_channel_index(norm_ch)
 
             # Get object dimension and volume
@@ -1919,8 +2461,8 @@ def remove_smooth_bump_setup(check_io=True):
                     for obj in objs:
                         volumes += (obj.dimensions.x + obj.dimensions.y + obj.dimensions.z) / 3
                         dimensions += obj.dimensions.x * obj.dimensions.y * obj.dimensions.z
-                    dimension = dimensions / len(objs)
-                    volume = volumes / len(objs)
+                    dimension = dimensions # / len(objs)
+                    volume = volumes # / len(objs)
 
                 # Check if material use subsurface scattering
                 sss_enabled = False
@@ -1937,9 +2479,7 @@ def remove_smooth_bump_setup(check_io=True):
                 except: continue
                 layer_tree = get_tree(layer)
 
-                if ch.normal_map_type not in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}: continue
-
-                if dimension != None and volume != None:
+                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and dimension != None and volume != None:
 
                     # NOTE: Smooth bump is originally tested on default cube, which has volume of 8 blender units and dimension of 2
                     # These values are fine tuned to closer results based on old models
@@ -1960,16 +2500,39 @@ def remove_smooth_bump_setup(check_io=True):
 
                 # Move all sources out of source group
                 disable_layer_source_tree(layer)
-                disable_channel_source_tree(layer, norm_ch, ch, rearrange=False, force=True)
-
-                # Remove neighbor UV
-                remove_node(layer_tree, layer, 'uv_neighbor')
-                remove_node(layer_tree, ch, 'uv_neighbor')
+                disable_channel_source_tree(layer, norm_ch, ch, rearrange=False)
 
                 for mask in layer.masks:
                     disable_mask_source_tree(layer, mask)
                     remove_node(layer_tree, mask, 'uv_neighbor')
                     #check_mask_mix_nodes(layer, layer_tree, mask, ch)
+
+                    # Remove decal alpha
+                    for letter in nsew_letters:
+                        remove_node(layer_tree, mask, 'decal_alpha_' + letter)
+                
+                # Remove neighbor UV
+                remove_node(layer_tree, layer, 'uv_neighbor')
+                remove_node(layer_tree, ch, 'uv_neighbor')
+
+                # Remove linear_1
+                remove_node(layer_tree, ch, 'linear_1')
+
+                # Remove decal alpha
+                for letter in nsew_letters:
+                    remove_node(layer_tree, ch, 'decal_alpha_' + letter)
+
+                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    # Get image and change the interpolation to Cubic
+                    if layer.type == 'IMAGE':
+                        source = layer_tree.nodes.get(layer.source)
+                        if source: source.interpolation = 'Cubic' 
+
+                    for mask in layer.masks:
+                        # Get image and change the interpolation to Cubic
+                        if mask.type == 'IMAGE':
+                            source = layer_tree.nodes.get(mask.source)
+                            if source: source.interpolation = 'Cubic' 
 
             # Disable smooth bump
             yp.halt_update = True

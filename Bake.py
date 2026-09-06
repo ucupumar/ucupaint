@@ -3,11 +3,14 @@ from bpy.props import *
 from mathutils import *
 from .common import *
 from .bake_common import *
+from .BakeTarget import *
 from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem
+from . import lib, Layer, Mask, MaskModifier, image_ops, ListItem, BakeInfo, channel_common, BakeTarget, displacement_common, layer_common, modifier_common, BaseOperator, UDIM
+
+UV_OUTSIDE_PREFIX = '__BAKE_TARGET_UV__'
 
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
@@ -390,7 +393,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
 
     from_uv_map : StringProperty(default='')
     uv_map : StringProperty(default='')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     remove_from_uv : BoolProperty(
         name = 'Delete From UV',
@@ -558,7 +561,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
     bl_options = {'UNDO'}
 
     uv_map : StringProperty(default='')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -1114,10 +1117,10 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
         self.any_channel_use_baked_vcol = False
 
         if not get_user_preferences().skip_property_popups or event.shift:
-            for ch in yp.channels:
-                baked_vcol_node = tree.nodes.get(ch.baked_vcol)
-                self.baked_vcol_name = baked_vcol_node.attribute_name if baked_vcol_node else ''
-                if self.baked_vcol_name != '':
+            for bt in yp.bake_targets:
+                if bt.data_type != 'VCOL': continue
+                baked_node = tree.nodes.get(bt.baked_node)
+                if baked_node:
                     self.any_channel_use_baked_vcol = True
                     return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -1142,41 +1145,45 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
         # Remove baked nodes
         for root_ch in yp.channels:
 
-            # Delete baked vertex color
-            if self.also_del_vcol:
+            # Deprecated
+            remove_node(tree, root_ch, 'baked')
+            remove_node(tree, root_ch, 'baked_vcol')
+            remove_node(tree, root_ch, 'baked_disp')
+            remove_node(tree, root_ch, 'baked_vdisp')
+            remove_node(tree, root_ch, 'baked_normal_overlay')
+            remove_node(tree, root_ch, 'baked_normal_no_disp')
+            remove_node(tree, root_ch, 'end_max_height')
+
+            remove_node(tree, root_ch, 'combine_xyz')
+            remove_node(tree, root_ch, 'baked_normal_prep')
+            remove_node(tree, root_ch, 'baked_normal')
+
+        # Remove bake target nodes
+        for bt in yp.bake_targets:
+
+            if self.also_del_vcol and bt.data_type == 'VCOL':
                 for ob in get_all_objects_with_same_materials(mat):
                     vcols = get_vertex_colors(ob)
                     if len(vcols) == 0: continue
-                    baked_vcol_node = tree.nodes.get(root_ch.baked_vcol)
-                    if baked_vcol_node:
-                        vcol = vcols.get(baked_vcol_node.attribute_name)
+                    baked_node = tree.nodes.get(bt.baked_node)
+                    if baked_node:
+                        vcol = vcols.get(baked_node.attribute_name)
                         if vcol:
                             vcols.remove(vcol)
 
-            remove_node(tree, root_ch, 'baked')
-            remove_node(tree, root_ch, 'baked_vcol')
-
-            if root_ch.type == 'NORMAL':
-                remove_node(tree, root_ch, 'baked_disp')
-                remove_node(tree, root_ch, 'baked_vdisp')
-                remove_node(tree, root_ch, 'baked_normal_overlay')
-                remove_node(tree, root_ch, 'baked_normal_prep')
-                remove_node(tree, root_ch, 'baked_normal')
-                remove_node(tree, root_ch, 'end_max_height')
+            remove_node(tree, bt, 'baked_node')
+            remove_node(tree, bt, 'max_value_node')
+            remove_node(tree, bt, 'separate_xyz')
+            remove_node(tree, bt, 'invert_r')
+            remove_node(tree, bt, 'invert_g')
+            remove_node(tree, bt, 'invert_b')
+            remove_node(tree, bt, 'invert_a')
 
         # Reconnect
         reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
 
         return {'FINISHED'}
-
-def update_bake_channel_uv_map(self, context):
-    if not UDIM.is_udim_supported(): return
-
-    if get_user_preferences().enable_auto_udim_detection:
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat)
-        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
 def bake_vcol_channel_items(self, context):
     node = get_active_ypaint_node()
@@ -1197,14 +1204,459 @@ def bake_vcol_channel_items(self, context):
 
     return items
 
+# Ensure bake override enums are defined before classes that use them
+bake_override_type = (
+    ('Default', 'Use bake target value', 'Use value from the bake target'),
+    ('Override', 'Override', 'Override this value'),
+)
+
+bake_boolean_override_type = (
+    ('Default', 'Use bake target value', 'Use value from the bake target'),
+    ('Enable', 'Enable', 'Enable this option'),
+    ('Disable', 'Disable', 'Disable this option'),
+)
+
+bake_resolution_override_type = (
+    ('Default', 'Use bake target value', 'Use value from the bake target'),
+    ('Template', 'Use Template Resolution', 'Use Template Resolution'),
+    ('Custom', 'Use Custom Resolution', 'Use Custom Resolution'),
+)
+
+def update_bake_override_resolution(self, context):
+    if self.override_resolution == 'Template':
+        self.use_custom_resolution = False
+    elif self.override_resolution == 'Custom':
+        self.use_custom_resolution = True
+
+    print("Updating override resolution to " + self.override_resolution +" > custom: " + str(self.use_custom_resolution))
+
+def update_override_vars(self, context):
+    
+    if self.override_use_udim != 'Default':
+        self.use_udim = self.override_use_udim == 'Enable'
+    
+    if self.override_fxaa != 'Default':
+        self.fxaa = self.override_fxaa == 'Enable'
+
+    if self.override_denoise != 'Default':
+        self.denoise = self.override_denoise == 'Enable'
+
+    if self.override_force_bake_all_polygons != 'Default':
+        self.force_bake_all_polygons = self.override_force_bake_all_polygons == 'Enable'
+
+    if self.override_bake_disabled_layers != 'Default':
+        self.bake_disabled_layers = self.override_bake_disabled_layers == 'Enable'
+
+    if self.override_use_dithering != 'Default':
+        self.use_dithering = self.override_use_dithering == 'Enable'
+
+class BaseBakeBakeTargetOperator():
+    bake_device : EnumProperty(
+        name = 'Bake Device',
+        description = 'Device to use for baking',
+        items = (
+            ('GPU', 'GPU Compute', ''),
+            ('CPU', 'CPU', ''),
+            ('OSL', 'CPU (OSL)', ''),
+        ),
+        default = 'CPU'
+    )
+
+    #override_bake_device : BoolProperty(
+    #    name = 'Override Bake Device',
+    #    description = 'Override bake device preference',
+    #    default = False
+    #)
+
+    uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
+
+    def invoke_op(self, context, event, fill_uv_coll=True):
+        ypup = get_user_preferences()
+        if ypup.default_bake_device != 'DEFAULT':
+            self.bake_device = ypup.default_bake_device
+
+        if fill_uv_coll:
+            # UV Map collections update
+            obj = context.object
+            if obj.type == 'MESH':
+                uv_layers = get_uv_layers(obj)
+                self.uv_map_coll.clear()
+                for uv in uv_layers:
+                    if not uv.name.startswith(TEMP_UV):
+                        self.uv_map_coll.add().name = uv.name
+                if self.uv_map == '' or self.uv_map not in uv_layers:
+                    self.uv_map = get_default_uv_name(obj)
+
+        return context.window_manager.invoke_props_dialog(self, width=300)
+
+    def is_cycles_exist(self, context):
+        if not hasattr(context.scene, 'cycles'):
+            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in the user preferences!")
+            return False
+        return True
+
+    def execute_bake_bake_target(self, context, bts, bake_device='CPU'):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+
+        T = time.time()
+
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+        obj = context.object
+        mat = obj.active_material
+
+        # Bake Device
+        selected_bake_device = bake_device
+        use_osl = False
+        if selected_bake_device == 'OSL':
+            selected_bake_device = 'CPU'
+            use_osl = True
+        
+        #ypup = get_user_preferences()
+        #if self.override_bake_device:
+        #    ypup.default_bake_device = selected_bake_device
+
+        if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
+            self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
+            return {'CANCELLED'}
+
+        if not is_bl_newer_than(2, 80) and obj.hide_render:
+            self.report({'ERROR'}, "Please unhide render of the active object!")
+            return {'CANCELLED'}
+
+        # Get all objects using material
+        objs = [obj]
+        meshes = [obj.data]
+        mat = obj.active_material
+        if mat.users > 1:
+            # Emptying the lists again in case active object is problematic
+            objs = []
+            meshes = []
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if is_bl_newer_than(2, 80) and ob.hide_viewport: continue
+                if ob.hide_render: continue
+                #if not in_renderable_layer_collection(ob): continue
+                if len(get_uv_layers(ob)) == 0: continue
+                if len(ob.data.polygons) == 0: continue
+                for i, m in enumerate(ob.data.materials):
+                    if m == mat:
+                        ob.active_material_index = i
+                        if ob not in objs and ob.data not in meshes:
+                            objs.append(ob)
+                            meshes.append(ob.data)
+
+        if not objs:
+            self.report({'ERROR'}, "No valid objects to bake!")
+            return {'CANCELLED'}
+        
+        # Disable preview mode
+        ori_preview_mode = yp.preview_mode
+        if yp.preview_mode:
+            yp.preview_mode = False
+
+        # UV data should be accessible when there's multiple materials in single object, so object mode is necessary
+        ori_edit_mode = False
+        if len(obj.data.materials) > 1 and obj.mode == 'EDIT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+            ori_edit_mode = True
+
+        # Default uv map
+        uv_map = get_default_uv_name(obj, yp)
+
+        # Make sure uv map is not empty
+        for bt in bts:
+            if bt.uv_map == '':
+                bt.uv_map = uv_map
+
+        # Image targets loop
+        image_bts = [bt for bt in bts if bt.data_type == 'IMAGE']
+
+        # Check if objects setup is needed
+        obook = None
+        if any(image_bts):
+
+            uv_map = image_bts[0].uv_map
+            force_bake_all_polygons = image_bts[0].force_bake_all_polygons
+
+            # Check if some settings are the same
+            settings_difference = False
+            for i, bt in enumerate(image_bts):
+                if i == 0: continue
+                if (bt.uv_map != uv_map or
+                    bt.force_bake_all_polygons != force_bake_all_polygons
+                ):
+                    settings_difference = True
+                    break
+            
+            # If there's no settings difference, do objects setup
+            if not settings_difference:
+                objs, obook = prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons)
+
+        gloset = yp.bake_target_global_settings if hasattr(self, 'with_prompt') and not self.with_prompt else self
+
+        for bt in image_bts:
+            # Get bake properties
+            if bt.bake_settings == 'GLOBAL':
+                btprops = gloset
+            else: btprops = bt
+
+            # Bake bake target
+            bake_bake_target(mat, node, bt, btprops, objs=objs, do_objects_setup=obook==None, bake_device=selected_bake_device, use_osl=use_osl)
+
+        # Recover object setup
+        if obook != None:
+            recover_objs_after_baking(objs, obook, uv_map)
+
+        # Vertex color targets loop
+        vcol_bts = [bt for bt in bts if bt.data_type == 'VCOL']
+
+        for bt in vcol_bts:
+            # Get bake properties
+            # NOTE: Attribute bake targets always use their own bake settings
+            btprops = bt
+
+            # Bake bake target
+            bake_bake_target(mat, node, bt, btprops, objs=objs, bake_device=selected_bake_device, use_osl=use_osl)
+
+        # Validate channels with bake targets
+        check_channel_bake_target_nodes(yp)
+
+        # Expand baked data
+        chbts = get_channel_bake_target_dict(yp)
+        for ch in yp.channels:
+            expand_baked_data = False
+            if ch.name in chbts:
+                for bt in chbts[ch.name]:
+                    #if bt in bts:
+                    baked_node = tree.nodes.get(bt.baked_node)
+                    if baked_node:
+                        expand_baked_data = True
+                
+            ch.expand_baked_data = expand_baked_data
+
+        # Update global uv
+        check_uv_nodes(yp)
+
+        # Use bake results
+        yp.halt_update = True
+        yp.use_baked = True
+        yp.halt_update = False
+
+        # Check input and outputs
+        check_all_channel_ios(yp, yp_node=node, do_process_layers=False)
+
+        # Connect to outside displacement node
+        connect_outside_displacement_node(yp)
+
+        # Revert back to edit mode
+        if ori_edit_mode:
+            bpy.ops.object.mode_set(mode='EDIT')
+
+        # Revert back preview mode
+        if ori_preview_mode:
+            yp.preview_mode = True
+        
+        # Refresh active channel index
+        #yp.active_channel_index = yp.active_channel_index
+        BakeTarget.refresh_active_channel_bake_target(yp)
+
+        # Update UI
+        ypui = context.window_manager.ypui
+        ypui.need_update = True
+
+        # If bake target ui is visible, refresh bake target index to show up the image result
+        if len(yp.bake_targets) > 0:
+            if ypui.show_bake_targets:
+                yp.active_bake_target_index = yp.active_bake_target_index
+
+        # Update baked outside nodes
+        update_enable_baked_outside(yp, context)
+
+        if len(bts) > 1:
+            self.report({'INFO'}, 'Baking bake targets are done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
+        else: self.report({'INFO'}, ' Baking '+bts[0].name+' is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
+
+        # Add to baked counters
+        yp.bake_target_global_settings.baked_counters += 1
+
+        return {'FINISHED'}
+    
+class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoProps, BaseBakeBakeTargetOperator):
+    bl_idname = "wm.y_bake_single_target"
+    bl_label = "Bake Bake Target"
+    bl_description = "Bake a single bake target"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    bake_target_index : IntProperty(
+        name = 'Bake Target Index',
+        description = 'Bake target index',
+        default = 0
+    )
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+        if not node: return False
+
+        group_tree = node.node_tree
+        yp = group_tree.yp
+        obj = context.object
+        
+        return obj and obj.type == 'MESH' and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0
+
+    def invoke(self, context, event):
+        return self.invoke_op(context, event)
+
+    def draw(self, context):
+        col = self.layout.column()
+
+        row_var = split_layout(col, 0.4, True)
+        row_var.alignment = 'RIGHT'
+        row_var.label(text="Bake Device" + ':')
+        row_var.prop(self, "bake_device", text="")
+
+    def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        try: bt = yp.bake_targets[self.bake_target_index]
+        except: return {'CANCELLED'}
+
+        return self.execute_bake_bake_target(context, [bt], bake_device=self.bake_device)
+
+class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSettings, BaseBakeBakeTargetOperator):
+    bl_idname = "wm.y_bake_all_targets"
+    bl_label = "Bake "+get_addon_title()+" Node"
+    bl_description = "Bake "+get_addon_title()+" node and use bake targets as channel outputs"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    with_prompt : BoolProperty(default=False)
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+        if not node: return False
+
+        group_tree = node.node_tree
+        yp = group_tree.yp
+        obj = context.object
+        
+        return obj and obj.type == 'MESH' and len(yp.bake_targets) > 0
+
+    def get_any_global_bts(self, yp):
+        any_global_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE' and bt.bake_settings == 'GLOBAL'])
+        any_global_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL' and bt.bake_settings == 'GLOBAL'])
+        return any_global_image_bts, any_global_vcol_bts
+
+    def invoke(self, context, event):
+        if self.with_prompt:
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
+            fill_uv_coll = False
+            any_global_image_bts, any_global_vcol_bts = self.get_any_global_bts(yp)
+            if any_global_image_bts or any_global_vcol_bts:
+                gloset = yp.bake_target_global_settings
+
+                # Read the global settings
+                props = BakeTarget.get_global_settings_props()
+                for prop in props:
+                    setattr(self, prop, getattr(gloset, prop))
+
+                fill_uv_coll = True
+
+            return self.invoke_op(context, event, fill_uv_coll=fill_uv_coll)
+        return self.execute(context)
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        col = self.layout.column()
+        any_global_image_bts, any_global_vcol_bts = self.get_any_global_bts(yp)
+        BaseOperator.draw_base_bake_target_settings(context, col, self, bt=None, 
+            show_image_props = any_global_image_bts,
+            show_vcol_props = False,
+            show_general_props = any_global_image_bts or any_global_vcol_bts,
+            show_hdr = False,
+            show_udim = is_udim_supported(),
+            yp = yp
+        )
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        gloset = yp.bake_target_global_settings
+        necessary_only = self.necessary_only if self.with_prompt else gloset.necessary_only
+        if not necessary_only:
+            bts = yp.bake_targets
+        else:
+            # Get normal and height channel pair
+            normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
+            # Get necessary channels
+            ch_names = []
+            for i, root_ch in enumerate(yp.channels):
+
+                # Check for connected input
+                inp = node.inputs.get(root_ch.name)
+                if inp and len(inp.links) > 0:
+                    if root_ch.name not in ch_names:
+                        ch_names.append(root_ch.name)
+                    continue
+
+                # Check for any layer
+                for layer in yp.layers:
+                    try: ch = layer.channels[i]
+                    except: pass
+                    if get_channel_enabled(ch, layer, root_ch):
+
+                        # NOTE: Currently height will also be baked even though it's only used as bump
+                        if root_ch.name not in ch_names:
+                            ch_names.append(root_ch.name)
+                        if normal_ch and height_ch and height_ch.use_height_as_bump and root_ch == height_ch:
+                            if  normal_ch.name not in ch_names:
+                                ch_names.append(normal_ch.name)
+
+                        break
+            
+            # Get bake target that uses the necessary channels:
+            bts = []
+            for bt in yp.bake_targets:
+                for letter in rgba_letters:
+                    btc = getattr(bt, letter)
+                    if btc and btc.channel_name in ch_names and bt not in bts:
+                        bts.append(bt)
+                        break
+
+        if len(bts) == 0:
+            self.report({'ERROR'}, "No valid bake targets to bake!")
+            return {'CANCELLED'}
+
+        status = self.execute_bake_bake_target(context, bts, bake_device=gloset.bake_device)
+
+        # Copy back operator settings to global bake target settings
+        any_global_image_bts, any_global_vcol_bts = self.get_any_global_bts(yp)
+        if self.with_prompt and (any_global_image_bts or any_global_vcol_bts):
+            props = BakeTarget.get_global_settings_props()
+            for prop in props:
+                if prop == 'baked_counters': continue
+                setattr(gloset, prop, getattr(self, prop))
+
+        return status
+
 class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     """Bake Channels to Image(s)"""
     bl_idname = "wm.y_bake_channels"
     bl_label = "Bake channels to Image"
     bl_options = {'REGISTER', 'UNDO'}
 
-    uv_map : StringProperty(default='', update=update_bake_channel_uv_map)
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     interpolation : EnumProperty(
         name = 'Image Interpolation Type',
@@ -1247,19 +1699,19 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
     enable_bake_as_vcol : BoolProperty(
         name = 'Enable Bake As VCol',
-        description = 'Has any channel enabled Bake As '+get_vertex_color_label(),
+        description = 'Has any channel enabled Bake As Vertex Color',
         default = False
     )
 
     vcol_force_first_ch_idx : EnumProperty(
-        name = 'Force First '+get_vertex_color_label()+' Channel',
-        description = 'Force the first channel after baking the '+get_vertex_color_label(),
+        name = 'Force First Vertex Color Channel',
+        description = 'Force the first channel after baking the Vertex Color',
         items = bake_vcol_channel_items
     )
 
     vcol_force_first_ch_idx_bool : BoolProperty(
-        name = 'Force First '+get_vertex_color_label()+' Channel',
-        description = 'Force the first channel after baking the '+get_vertex_color_label(),
+        name = 'Force First Vertex Color Channel',
+        description = 'Force the first channel after baking the Vertex Color',
         default = False
     )
 
@@ -1363,10 +1815,17 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         self.enable_bake_as_vcol = False
         if len(channels) > 0:
 
+            # Get normal and height channel pair
+            normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
             # Check if any layer is using the channels
             layer_found = False
             for ch in channels:
                 if is_any_layer_using_channel(ch, node):
+                    layer_found = True
+                    break
+                # Also check the height pair channel
+                if not layer_found and ch == normal_ch and is_any_layer_using_channel(height_ch, node):
                     layer_found = True
                     break
             if not layer_found:
@@ -1513,7 +1972,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         ccol.separator()
 
-        if UDIM.is_udim_supported():
+        if is_udim_supported():
             ccol.prop(self, 'use_udim')
         ccol.prop(self, 'fxaa', text='Use FXAA')
         if is_bl_newer_than(2, 81):
@@ -1605,7 +2064,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if BL28_HACK and height_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and obj in objs:
 
             if len(yp.uvs) > MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
-                self.report({'WARNING'}, "Maximum "+get_vertex_color_label(00)+"s reached! Need at least " + str(len(yp.uvs)) + " "+get_vertex_color_label(00)+"(s) to bake proper normal!")
+                self.report({'WARNING'}, "Maximum vertex colors reached! Need at least " + str(len(yp.uvs)) + " vertex color(s) to bake proper normal!")
             else:
                 print('INFO: Calculating tangent sign before bake...')
                 tangent_sign_calculation = True
@@ -1700,8 +2159,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             for layer in disabled_layers:
                 layer.enable = True 
 
-        # Get color and alpha channel
+        # Get channel pairs
         color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+        normal_ch, height_ch = get_normal_height_ch_pairs(yp)
 
         # Bake channels
         baked_exists = []
@@ -1720,15 +2180,24 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             else: baked_exists.append(False)
 
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
+
+            # Also check height channel if it's a normal channel pair
+            if ch.no_layer_using and ch == normal_ch:
+                ch.no_layer_using = not is_any_layer_using_channel(height_ch, node)
+
             if not ch.no_layer_using:
-                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
+                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB') or ch.special_type in {'HEIGHT', 'VDISP'}
 
                 # NOTE: Since normal channel only bake to tangent space for now, make sure all used armature objects are in rest pose
                 armature_objs = set_related_armatures_to_rest_pose(objs) if ch.type == 'NORMAL' else []
 
+                if ch.special_type == 'HEIGHT' and not self.only_active_channel:
+                    interpolation = 'Cubic'
+                else: interpolation = self.interpolation
+
                 bake_channel(
                     self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
-                    tilenums=tilenums, interpolation=self.interpolation, 
+                    tilenums=tilenums, interpolation=interpolation, 
                     use_float_for_displacement=self.use_float_for_displacement, 
                     use_float_for_normal=self.use_float_for_normal, bprops=bprops
                 )
@@ -1771,6 +2240,23 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     fxaa_image(baked.image, alpha_enabled, bake_device=self.bake_device)
 
                 baked_images.append(baked.image)
+
+            if ch.special_type == 'NORMAL':
+                baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
+                if baked_normal_no_disp and baked_normal_no_disp.image:
+
+                    # AA process
+                    if self.aa_level > 1:
+                        resize_image(
+                            baked_normal_no_disp.image, self.width, self.height, 
+                            baked.image.colorspace_settings.name,
+                            alpha_aware=alpha_enabled, bake_device=self.bake_device
+                        )
+                    # FXAA
+                    if self.fxaa:
+                        fxaa_image(baked_normal_no_disp.image, alpha_enabled, bake_device=self.bake_device)
+
+                    baked_images.append(baked_normal_no_disp.image)
 
             if ch.type == 'NORMAL':
 
@@ -1842,8 +2328,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if not self.only_active_channel:
             for bt in yp.bake_targets:
                 print("INFO: Processing custom bake target '" + bt.name + "'...")
-                bt_node = tree.nodes.get(bt.image_node)
-                btimg = bt_node.image if bt_node and bt_node.image else None 
+                bt_node = tree.nodes.get(bt.baked_node)
+                btimg = bt_node.image if bt_node and bt_node.type == 'TEX_IMAGE' and bt_node.image else None 
                 
                 old_img = None
                 filepath = ''
@@ -1975,8 +2461,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 # Set bake target image
                 if old_img: 
                     replace_image(old_img, btimg)
-                else: 
-                    bt_node = check_new_node(tree, bt, 'image_node', 'ShaderNodeTexImage')
+                elif bt_node and bt_node.type == 'TEX_IMAGE': 
+                    bt_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeTexImage')
                     bt_node.image = btimg
 
         # Set baked uv
@@ -2108,8 +2594,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         yp.halt_update = False
 
         # Check subdiv Setup
-        if height_ch:
-            check_subdiv_setup(height_ch)
+        #if height_ch:
+        #    displacement_common.check_subdiv_setup(height_ch)
 
         # Update global uv
         check_uv_nodes(yp)
@@ -2203,7 +2689,7 @@ def remember_and_disable_layer_modifiers_and_transforms(layer, disable_masks=Fal
         oris['ch_trans_aos'].append(c.enable_transition_ao)
         oris['ch_trans_ramps'].append(c.enable_transition_ramp)
 
-        if rch.type == 'NORMAL':
+        if rch.special_type == 'HEIGHT':
             if c.enable_transition_bump:
                 c.enable_transition_bump = False
         else:
@@ -2236,7 +2722,7 @@ def recover_layer_modifiers_and_transforms(layer, oris):
             mod.enable = oris['ch_mods'][ch_name][j]
 
         # Recover original channel transition effects
-        if rch.type == 'NORMAL':
+        if rch.special_type == 'HEIGHT':
             if oris['ch_trans_bumps'][i]:
                 c.enable_transition_bump = oris['ch_trans_bumps'][i]
         else:
@@ -2257,7 +2743,7 @@ def remove_layer_modifiers_and_transforms(layer):
 
         # Delete the nodes
         mod_tree = get_mod_tree(layer)
-        Modifier.delete_modifier_nodes(mod_tree, mod)
+        modifier_common.delete_modifier_nodes(mod_tree, mod)
         layer.modifiers.remove(i)
 
     for i, c in enumerate(layer.channels):
@@ -2269,11 +2755,11 @@ def remove_layer_modifiers_and_transforms(layer):
 
             # Delete the nodes
             mod_tree = get_mod_tree(c)
-            Modifier.delete_modifier_nodes(mod_tree, mod)
+            modifier_common.delete_modifier_nodes(mod_tree, mod)
             c.modifiers.remove(j)
 
         # Remove channel transition effects
-        if rch.type == 'NORMAL' and c.enable_transition_bump: 
+        if rch.special_type == 'HEIGHT' and c.enable_transition_bump: 
             c.enable_transition_bump = False
             c.show_transition_bump = False
         else:
@@ -2344,9 +2830,14 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         # Get active layer
         layer_idx = self.layer_idx = yp.active_layer_index
-        layer = self.layer = yp.layers[layer_idx]
+        #layer = self.layer = yp.layers[layer_idx]
+        layer = self.layer = ListItem.get_active_layer(yp)
 
         self.error_message = ''
+
+        if not layer:
+            self.error_message = "Cannot merge a base layer!"
+            return self.execute(context)
 
         enabled_chs =  [ch for ch in layer.channels if ch.enable]
         if not any(enabled_chs):
@@ -2356,6 +2847,9 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             neighbor_idx, neighbor_layer = self.neighbor_idx, self.neighbor_layer = get_upper_neighbor(layer)
         elif self.direction == 'DOWN':
             neighbor_idx, neighbor_layer = self.neighbor_idx, self.neighbor_layer = get_lower_neighbor(layer)
+
+        # Force mix blending should enabled by default if the merge direction is up since it doesn't affect blending
+        self.force_mix_blending = self.direction == 'UP'
 
         if not neighbor_layer:
             self.error_message = "No neighbor found!"
@@ -2368,22 +2862,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         elif neighbor_layer.type == 'GROUP' or layer.type == 'GROUP':
             self.error_message = "Merge doesn't works with layer group!"
-
-        # Get height channnel
-        height_root_ch = self.height_root_ch = get_root_height_channel(yp)
-
-        if height_root_ch and neighbor_layer:
-            height_ch_idx = self.height_ch_idx = get_channel_index(height_root_ch)
-            height_ch = self.height_ch = layer.channels[height_ch_idx] 
-            neighbor_height_ch = self.neighbor_height_ch = neighbor_layer.channels[height_ch_idx] 
-
-            if (layer.channels[height_ch_idx].enable and 
-                neighbor_layer.channels[height_ch_idx].enable):
-                if height_ch.normal_map_type != neighbor_height_ch.normal_map_type:
-                    self.error_message =  "These two layers has different normal map type!"
-        else:
-            height_ch = self.height_ch = None
-            neighbor_height_ch = self.neighbor_height_ch = None
 
         # Get source
         self.source = get_layer_source(layer)
@@ -2414,36 +2892,43 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         return True
 
     def draw(self, context):
-        row = split_layout(self.layout, 0.5)
-
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
         main_ch = yp.channels[int(self.channel_idx)]
         ch = self.layer.channels[int(self.channel_idx)]
-        blend_type = ch.blend_type if main_ch.type != 'NORMAL' else ch.normal_blend_type
+        if main_ch.special_type == 'HEIGHT':
+            blend_type = ch.height_blend_type
+        elif main_ch.special_type == 'NORMAL':
+            blend_type = ch.normal_blend_type
+        else: blend_type = ch.blend_type
 
-        col = row.column(align=False)
-        col.label(text='Main Channel:')
-        col.label(text='Apply Modifiers:')
-        col.label(text='Apply Neighbor Modifiers:')
-        
-        if blend_type != 'MIX':
-            col.label(text='Force Mix Blending:')
+        split_val = 0.3
+        layout = self.layout.column()
 
-        col = row.column(align=False)
-        col.prop(self, 'channel_idx', text='')
-        col.prop(self, 'apply_modifiers', text='')
-        col.prop(self, 'apply_neighbor_modifiers', text='')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Main Channel:')
+        row.prop(self, 'channel_idx', text='')
+
+        row = split_layout(layout, split_val)
+        row.label(text='')
+        row.prop(self, 'apply_modifiers', text='Apply Modifiers')
+
+        row = split_layout(layout, split_val)
+        row.label(text='')
+        row.prop(self, 'apply_neighbor_modifiers', text='Apply Neighbor Modifiers')
+
         if blend_type != 'MIX':
-            col.prop(self, 'force_mix_blending', text='')
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'force_mix_blending', text='Force Mix Blending')
 
         if self.legacy_on_non_object_mode:
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
             col.label(text="Are you sure you want to continue?", icon='BLANK1')
         elif self.any_dirty_images:
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text="Unsaved data will be LOST if you UNDO this operation.", icon='ERROR')
             col.label(text="Are you sure you want to continue?", icon='BLANK1')
 
@@ -2472,11 +2957,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         neighbor_idx = self.neighbor_idx
         source = self.source
 
-        # Height channel
-        height_root_ch = self.height_root_ch
-        height_ch = self.height_ch
-        neighbor_height_ch = self.neighbor_height_ch
-
         # Get main reference channel
         main_ch = yp.channels[int(self.channel_idx)]
         ch = layer.channels[int(self.channel_idx)]
@@ -2487,8 +2967,16 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         merge_success = False
 
-        if (layer.type == 'IMAGE' and main_ch.type == 'NORMAL' and ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
+        if layer.type == 'IMAGE' and main_ch.special_type == 'VECTOR_DISPLACEMENT_MAP':
             self.report({'ERROR'}, "Merging VDM layers is not supported yet!")
+            return self.execute_operator_cancelled(context)
+
+        if layer.type == 'IMAGE' and main_ch.special_type == 'HEIGHT' and (ch.use_height_as_normal or neighbor_ch.use_height_as_normal):
+            self.report({'ERROR'}, "Merging converted normal from height is not supported yet!")
+            return self.execute_operator_cancelled(context)
+
+        if layer.type == 'IMAGE' and main_ch.special_type == 'NORMAL' and ch.normal_space != 'TANGENT':
+            self.report({'ERROR'}, "Merging non-tangent normal is not supported yet!")
             return self.execute_operator_cancelled(context)
 
         # Merge image layers
@@ -2526,12 +3014,15 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
             # Force to use mix on layer channel
             if self.force_mix_blending:
-                if main_ch.type != 'NORMAL':
-                    ori_blend_type = ch.blend_type
-                    ch.blend_type = 'MIX'
-                else:
+                if main_ch.special_type == 'HEIGHT':
+                    ori_blend_type = ch.height_blend_type
+                    ch.height_blend_type = 'MIX'
+                elif main_ch.special_type == 'NORMAL':
                     ori_blend_type = ch.normal_blend_type
                     ch.normal_blend_type = 'MIX'
+                else:
+                    ori_blend_type = ch.blend_type
+                    ch.blend_type = 'MIX'
 
             # New alpha channel can make the merging result goes blank, so disable it first
             color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
@@ -2544,6 +3035,12 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             ori_enable_alpha = main_ch.enable_alpha
             #yp.alpha_auto_setup = False
             main_ch.enable_alpha = True
+
+            # Enable normalize height for height channel
+            ori_use_height_normalize = False
+            if main_ch.special_type == 'HEIGHT':
+                ori_use_height_normalize = main_ch.use_height_normalize
+                main_ch.use_height_normalize = True
 
             # Reconnect tree with merged layer ids
             reconnect_yp_nodes(tree, [layer_idx, neighbor_idx])
@@ -2572,13 +3069,19 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             main_ch.enable_alpha = ori_enable_alpha
             #yp.alpha_auto_setup = True
 
+            # Recover height normalize
+            if main_ch.special_type == 'HEIGHT':
+                main_ch.use_height_normalize = ori_use_height_normalize
+
             if alpha_ch and ori_alpha_pair != '':
                 alpha_ch.alpha_pair_name = ori_alpha_pair
 
             if self.force_mix_blending:
-                if main_ch.type != 'NORMAL':
-                    ch.blend_type = ori_blend_type
-                else: ch.normal_blend_type = ori_blend_type
+                if main_ch.special_type == 'HEIGHT':
+                    ch.height_blend_type = ori_blend_type
+                elif main_ch.special_type == 'NORMAL':
+                    ch.normal_blend_type = ori_blend_type
+                else: ch.blend_type = ori_blend_type
 
             # Set all channel intensity value to 1.0
             for c in layer.channels:
@@ -2665,7 +3168,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         if merge_success:
             # Remove neighbor layer
-            Layer.remove_layer(yp, neighbor_idx)
+            layer_common.remove_layer(yp, neighbor_idx)
 
             # Remap parents
             for lay in yp.layers:
@@ -2826,8 +3329,11 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
             height = img.size[1]
 
         # Activate layer preview mode
-        ori_layer_preview_mode = yp.layer_preview_mode
-        yp.layer_preview_mode = True
+        ori_preview_mode = yp.preview_mode
+        ori_preview_mode_type = yp.preview_mode_type
+
+        if yp.preview_mode_type != 'LAYER': yp.preview_mode_type = 'LAYER'
+        if not yp.preview_mode: yp.preview_mode = True
 
         # Get neighbor mask
         neighbor_mask = layer.masks[neighbor_idx]
@@ -2882,26 +3388,12 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         mat.node_tree.links.new(node.outputs[LAYER_ALPHA_VIEWER], emit.inputs[0])
         mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
-        # Bake
-        bake_object_op()
-
-        # Copy results to original image
         copy_image_pixels(img, source.image, segment)
-
         # HACK: Pack and refresh to update image in Blender 2.77 and lower
-        if not is_bl_newer_than(2, 78) and (source.image.packed_file or source.image.filepath == ''):
-            if source.image.is_float:
-                image_ops.pack_float_image_27x(source.image)
-            else: source.image.pack(as_png=True)
-            source.image.reload()
-
-        # Remove temp image
         remove_datablock(bpy.data.images, img, user=tex, user_prop='image')
-
         # Remove mask mix nodes
         for m in [mask, neighbor_mask]:
             remove_node(tree, m, 'mix')
-
             # Replace linear to less accurate ones
             linear = tree.nodes.get(m.linear)
             if linear:
@@ -2910,7 +3402,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
         # Remove modifiers
         for i, mod in reversed(list(enumerate(mask.modifiers))):
-            MaskModifier.delete_modifier_nodes(tree, mod)
+            MaskModifier.delete_mask_modifier_nodes(tree, mod)
             mask.modifiers.remove(i)
 
         # Remove neighbor mask
@@ -2932,7 +3424,10 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         recover_bake_settings(book, yp)
 
         # Revert back preview mode 
-        yp.layer_preview_mode = ori_layer_preview_mode
+        if ori_preview_mode != yp.preview_mode:
+            yp.preview_mode = ori_preview_mode
+        if ori_preview_mode_type != yp.preview_mode_type:
+            yp.preview_mode_type = ori_preview_mode_type
 
         # Point to neighbor mask for merge up
         if index > neighbor_idx:
@@ -2961,6 +3456,24 @@ def copy_default_value(inp_source, inp_target):
         for i in range(3):
             inp_target.default_value[i] = inp_source.default_value
 
+def set_outside_loc(node, loc_x, loc_y, frame):
+    node.parent = None
+    node.location.x = loc_x
+    node.location.y = loc_y
+    node.parent = frame
+
+def get_bake_target_outside_frame(yp, mat):
+    tree = yp.id_data
+
+    bt_frame = mat.node_tree.nodes.get(yp.bake_target_outside_frame)
+    if not bt_frame:
+        bt_frame = mat.node_tree.nodes.new('NodeFrame')
+        bt_frame.label = tree.name + ' Bake Targets'
+        bt_frame.name = tree.name + ' Bake Targets'
+        yp.bake_target_outside_frame = bt_frame.name
+
+    return bt_frame
+
 def update_enable_baked_outside(self, context):
     tree = self.id_data
     yp = tree.yp
@@ -2970,59 +3483,201 @@ def update_enable_baked_outside(self, context):
     scene = context.scene
     ypup = get_user_preferences()
     output_mat = get_material_output(mat)
+    height_root_ch = get_root_height_channel(yp)
 
     mtree = mat.node_tree
 
     if yp.halt_update: return
-    #if not yp.use_baked: return
 
     if yp.enable_baked_outside and yp.use_baked:
 
-        # Shift nodes to the right
+        # Get channel pairs
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
+        # Get nodes that will be shifted to the right
         shift_nodes = []
         for n in mtree.nodes:
             if n.location.x > node.location.x:
                 shift_nodes.append(n)
 
-        # Baked outside nodes should be contained inside of frame
-        frame = mtree.nodes.get(yp.baked_outside_frame)
-        if not frame:
-            frame = mtree.nodes.new('NodeFrame')
-            frame.label = tree.name + ' Baked Textures'
-            frame.name = tree.name + ' Baked Textures'
-            yp.baked_outside_frame = frame.name
-
-        # Custom bake target images also have their own frame
-        bt_frame = mtree.nodes.get(yp.bake_target_outside_frame)
-        if not bt_frame:
-            bt_frame = mtree.nodes.new('NodeFrame')
-            bt_frame.label = tree.name + ' Custom Bake Targets'
-            bt_frame.name = tree.name + ' Custom Bake Targets'
-            yp.bake_target_outside_frame = bt_frame.name
+        # Bake target outside frames
+        bt_frame = get_bake_target_outside_frame(yp, mat)
 
         loc_x = node.location.x + 180
         loc_y = node.location.y
+        ori_y = loc_y
 
-        uv = check_new_node(mtree, yp, 'baked_outside_uv', 'ShaderNodeUVMap')
-        uv.uv_map = yp.baked_uv_name
-        uv.location.x = loc_x
-        uv.location.y = loc_y
-        uv.parent = frame
+        # Bake target uvs
+        for bt in yp.bake_targets:
+            if bt.data_type == 'IMAGE':
+                uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + bt.uv_map)
+                if not uv:
+                    uv = mtree.nodes.new('ShaderNodeUVMap')
+                    uv.name = UV_OUTSIDE_PREFIX + bt.uv_map
+                    set_outside_loc(uv, loc_x, loc_y, bt_frame)
+                    loc_y -= 100
+                uv.uv_map = bt.uv_map
 
-        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+        loc_y = ori_y
+        loc_x += 250
+        max_x = loc_x
+        ori_x = loc_x
+        ori_y = loc_y
 
-        loc_x += 180
+        # Bake target nodes
+        for bt in yp.bake_targets:
+            baked_node = tree.nodes.get(bt.baked_node)
+            if baked_node:
+
+                loc_x = ori_x
+
+                baked_node_outside = check_new_node(mtree, bt, 'baked_node_outside', baked_node.bl_idname)
+                set_outside_loc(baked_node_outside, loc_x, loc_y, bt_frame)
+
+                # Set interpolation
+                baked_node = tree.nodes.get(bt.baked_node)
+                if baked_node: baked_node_outside.interpolation = baked_node.interpolation
+
+                if not is_bl_newer_than(2, 80):
+                    baked_node_outside.color_space = baked_node.color_space
+
+                if baked_node_outside.type == 'ATTRIBUTE':
+                    baked_node_outside.attribute_name = baked_node.attribute_name
+
+                elif baked_node_outside.type == 'TEX_IMAGE':
+                    baked_node_outside.image = baked_node.image
+
+                    # Connect uv 
+                    uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + bt.uv_map)
+                    if uv: mtree.links.new(uv.outputs[0], baked_node_outside.inputs[0])
+
+                separate_xyz = tree.nodes.get(bt.separate_xyz)
+                if separate_xyz:
+                    loc_x += 270
+                    separate_xyz_outside = check_new_node(mtree, bt, 'separate_xyz_outside', separate_xyz.bl_idname)
+                    set_outside_loc(separate_xyz_outside, loc_x, loc_y, bt_frame)
+
+                    mtree.links.new(baked_node_outside.outputs['Color'], separate_xyz_outside.inputs[0])
+
+                invert_r = tree.nodes.get(bt.invert_r)
+                invert_g = tree.nodes.get(bt.invert_g)
+                invert_b = tree.nodes.get(bt.invert_b)
+                invert_a = tree.nodes.get(bt.invert_a)
+
+                if invert_r or invert_g or invert_b or invert_a:
+                    loc_x += 180
+
+                if invert_r:
+                    invert_r_outside = check_new_node(mtree, bt, 'invert_r_outside', invert_r.bl_idname)
+                    invert_r_outside.operation = 'SUBTRACT'
+                    invert_r_outside.inputs[0].default_value = 1.0
+                    invert_r_outside.hide = True
+                    set_outside_loc(invert_r_outside, loc_x, loc_y, bt_frame)
+                    loc_y -= 40
+
+                    if separate_xyz_outside:
+                        mtree.links.new(separate_xyz_outside.outputs[0], invert_r_outside.inputs[1])
+
+                if invert_g:
+                    invert_g_outside = check_new_node(mtree, bt, 'invert_g_outside', invert_g.bl_idname)
+                    invert_g_outside.operation = 'SUBTRACT'
+                    invert_g_outside.inputs[0].default_value = 1.0
+                    invert_g_outside.hide = True
+                    set_outside_loc(invert_g_outside, loc_x, loc_y, bt_frame)
+                    loc_y -= 40
+
+                    if separate_xyz_outside:
+                        mtree.links.new(separate_xyz_outside.outputs[1], invert_g_outside.inputs[1])
+
+                if invert_b:
+                    invert_b_outside = check_new_node(mtree, bt, 'invert_b_outside', invert_b.bl_idname)
+                    invert_b_outside.operation = 'SUBTRACT'
+                    invert_b_outside.inputs[0].default_value = 1.0
+                    invert_b_outside.hide = True
+                    set_outside_loc(invert_b_outside, loc_x, loc_y, bt_frame)
+                    loc_y -= 40
+
+                    if separate_xyz_outside:
+                        mtree.links.new(separate_xyz_outside.outputs[2], invert_b_outside.inputs[1])
+
+                if invert_a:
+                    invert_a_outside = check_new_node(mtree, bt, 'invert_a_outside', invert_a.bl_idname)
+                    invert_a_outside.operation = 'SUBTRACT'
+                    invert_a_outside.inputs[0].default_value = 1.0
+                    invert_a_outside.hide = True
+                    set_outside_loc(invert_a_outside, loc_x, loc_y, bt_frame)
+                    loc_y -= 40
+
+                    mtree.links.new(baked_node_outside.outputs['Alpha'], invert_a_outside.inputs[1])
+
+                if loc_x > max_x: max_x = loc_x
+
+                loc_y -= 300
+
+        loc_y = ori_y
+        loc_x = max_x
+        loc_x += 300
+        ori_x = loc_x
         max_x = loc_x
 
+        # Channel nodes
         for ch in yp.channels:
+
+            loc_x = ori_x
+
+            baked_combine_xyz = tree.nodes.get(ch.baked_combine_xyz)
+            if baked_combine_xyz:
+                baked_combine_xyz_outside = check_new_node(mtree, ch, 'baked_combine_xyz_outside', baked_combine_xyz.bl_idname)
+                set_outside_loc(baked_combine_xyz_outside, loc_x, loc_y, bt_frame)
+                loc_x += 200
+
+            baked_normal = None
+            if ch.special_type == 'NORMAL':
+                baked_normal = tree.nodes.get(ch.baked_normal)
+                if baked_normal:
+                    baked_normal_outside = check_new_node(mtree, ch, 'baked_normal_outside', baked_normal.bl_idname)
+                    baked_normal_outside.uv_map = baked_normal.uv_map
+                    set_outside_loc(baked_normal_outside, loc_x, loc_y, bt_frame)
+            
+            if baked_combine_xyz or baked_normal:
+                loc_y -= 300
+
+            if loc_x > max_x: max_x = loc_x
+
+        # Create GLTF material output node so AO can be included in Blender's automated ORM texture
+        gltf_node_name = lib.GLTF_MATERIAL_OUTPUT if is_bl_newer_than(3, 4) else lib.GLTF_SETTINGS
+        gltf_node = mtree.nodes.get(gltf_node_name)
+        for ch in yp.channels:
+            if ch.name in {'Ambient Occlusion', 'Occlusion', 'AO', 'Specular', 'Specular Color', 'Thickness'} and not gltf_node:
+                gltf_node = mtree.nodes.new('ShaderNodeGroup')
+                gltf_node.node_tree = get_node_tree_lib(gltf_node_name)
+                gltf_node.name = gltf_node_name
+                gltf_node.label = gltf_node_name
+
+                if output_mat:
+                    gltf_node.location.x = output_mat.location.x
+                    gltf_node.location.y = output_mat.location.y + 200
+                shift_nodes.append(gltf_node)
+
+                break
+
+        # Channel connection
+        for ch in yp.channels:
+
+            bt = yp.bake_targets.get(ch.bake_target_name)
 
             # Remember current connection
             outp = node.outputs.get(ch.name)
-            for l in outp.links:
-                con = ch.ori_to.add()
-                con.node = l.to_node.name
-                con.socket = l.to_socket.name
-                con.socket_index = get_node_input_index(l.to_node, l.to_socket)
+            if outp:
+                for l in outp.links:
+                    con = ch.ori_to.add()
+                    con.node = l.to_node.name
+                    con.socket = l.to_socket.name
+                    con.socket_index = get_node_input_index(l.to_node, l.to_socket)
+
+                    # Set default value
+                    inp = node.inputs.get(ch.name)
+                    if inp: copy_default_value(inp, l.to_socket)
 
             outp_alpha = None
             if ch.enable_alpha:
@@ -3039,272 +3694,77 @@ def update_enable_baked_outside(self, context):
                     con.socket = l.to_socket.name
                     con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
-            outp_height = node.outputs.get(ch.name + io_suffix['HEIGHT'])
-            if outp_height:
-                for l in outp_height.links:
-                    con = ch.ori_height_to.add()
-                    con.node = l.to_node.name
-                    con.socket = l.to_socket.name
-                    con.socket_index = get_node_input_index(l.to_node, l.to_socket)
+            # Special height sockets
+            if ch.special_type == 'HEIGHT':
 
-            outp_mheight = node.outputs.get(ch.name + io_suffix['MAX_HEIGHT'])
-            if outp_mheight:
-                for l in outp_mheight.links:
-                    con = ch.ori_max_height_to.add()
-                    con.node = l.to_node.name
-                    con.socket = l.to_socket.name
-                    con.socket_index = get_node_input_index(l.to_node, l.to_socket)
+                # Get max value node
+                max_value_node = tree.nodes.get(bt.max_value_node) if bt else None
 
-            baked = tree.nodes.get(ch.baked)
-            if baked and baked.image and not ch.no_layer_using:
-                tex = check_new_node(mtree, ch, 'baked_outside', 'ShaderNodeTexImage')
-                tex.image = baked.image
-                tex.location.x = loc_x
-                tex.location.y = loc_y
-                tex.parent = frame
-                tex.interpolation = baked.interpolation
-                mtree.links.new(uv.outputs[0], tex.inputs[0])
+                outp_midlevel = node.outputs.get(ch.name + io_suffix['MIDLEVEL'])
+                if outp_midlevel:
+                    for l in outp_midlevel.links:
+                        con = ch.ori_height_to.add()
+                        con.node = l.to_node.name
+                        con.socket = l.to_socket.name
+                        con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
-                baked_vcol = tree.nodes.get(ch.baked_vcol)
-                vcol = None
-                if baked_vcol and ch.enable_bake_to_vcol:
-                    vcol = check_new_node(mtree, ch, 'baked_outside_vcol', get_vcol_bl_idname())
-                    set_source_vcol_name(vcol, ch.bake_to_vcol_name)
-                    loc_x += 280
-                    vcol.location.x = loc_x
-                    vcol.location.y = loc_y - 100
-                    vcol.parent = frame
-                    max_x = loc_x
-                    loc_x -= 280
+                        con.original_value = l.to_socket.default_value
 
-                if not is_bl_newer_than(2, 80) and baked.image.colorspace_settings.name != get_srgb_name():
-                    tex.color_space = 'NONE'
+                        # Set target socket
+                        l.to_socket.default_value = 0.5
 
-                if outp_alpha:
-                    for l in outp_alpha.links:
-                        if vcol and ch.enable_bake_to_vcol:
-                            mtree.links.new(vcol.outputs['Alpha'], l.to_socket)
-                        else:
-                            mtree.links.new(tex.outputs[1], l.to_socket)
+                outp_mheight = node.outputs.get(ch.name + io_suffix['SCALE'])
+                if outp_mheight:
+                    for l in outp_mheight.links:
+                        con = ch.ori_max_height_to.add()
+                        con.node = l.to_node.name
+                        con.socket = l.to_socket.name
+                        con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
-                if ch.type != 'NORMAL':
+                        con.original_value = l.to_socket.default_value
 
-                    for l in outp.links:
-                        if vcol and ch.enable_bake_to_vcol:
-                            outp_name = 'Alpha' if ch.bake_to_vcol_alpha else 'Color'
-                            mtree.links.new(vcol.outputs[outp_name], l.to_socket)
-                        else:
-                            mtree.links.new(tex.outputs[0], l.to_socket)
-                else:
+                        # Set target socket
+                        if max_value_node:
+                            l.to_socket.default_value = max_value_node.outputs[0].default_value
 
-                    loc_x += 280
-                    norm = check_new_node(mtree, ch, 'baked_outside_normal_process', 'ShaderNodeNormalMap')
-                    norm.uv_map = yp.baked_uv_name
-                    norm.location.x = loc_x
-                    norm.location.y = loc_y
-                    norm.parent = frame
-                    max_x = loc_x
-                    if vcol:
-                        vcol.location.x += 180
-                        max_x = loc_x + 180
-                    loc_x -= 280
+                if bt:
+                    disp = channel_common.get_closest_disp_node_backward(output_mat, 'Displacement', False)
+                    if disp:
 
-                    mtree.links.new(tex.outputs[0], norm.inputs[1])
+                        max_height = max_value_node.outputs[0].default_value if max_value_node else 1.0
 
-                    baked_normal_overlay = None
-                    if is_baked_normal_without_bump_needed(ch):
-                        baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                        if baked_normal_overlay and baked_normal_overlay.image:
-                            loc_y -= 300
-                            tex_normal_overlay = check_new_node(mtree, ch, 'baked_outside_normal_overlay', 'ShaderNodeTexImage')
-                            tex_normal_overlay.image = baked_normal_overlay.image
-                            tex_normal_overlay.location.x = loc_x
-                            tex_normal_overlay.location.y = loc_y
-                            tex_normal_overlay.parent = frame
-                            mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
+                        midlevel_inp = disp.inputs.get('Midlevel')
+                        if midlevel_inp and len(midlevel_inp.links) == 0: 
+                            midlevel_inp.default_value = 0.5 if bt.height_normalize else 0.0
 
-                            if not is_bl_newer_than(2, 80) and baked_normal_overlay.image.colorspace_settings.name != get_srgb_name():
-                                tex_normal_overlay.color_space = 'NONE'
+                        scale_inp = disp.inputs.get('Scale')
+                        if scale_inp and len(scale_inp.links) == 0: 
+                            scale_inp.default_value = max_height if bt.height_normalize else 1.0
 
-                            # NOTE: Use combined normal since displacement map is not exportable using GLTF
-                            #if ch.enable_subdiv_setup:
-                            #    mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
+            baked_soc = BakeTarget.get_baked_outside_channel_socket_to_use(mat, ch, bt)
 
-                    for l in outp.links:
-                        mtree.links.new(norm.outputs[0], l.to_socket)
+            if baked_soc:
+                connect_to_original_node(mtree, baked_soc, ch.ori_to)
 
-                    baked_disp = tree.nodes.get(ch.baked_disp)
-                    baked_vdisp = tree.nodes.get(ch.baked_vdisp)
-                    disp_add = None
-
-                    # Remember original displacement connection
-                    if output_mat:
-                        for link in output_mat.inputs['Displacement'].links:
-                            ch.baked_outside_ori_disp_from_node = link.from_node.name
-                            ch.baked_outside_ori_disp_from_socket = link.from_socket.name
-                            break
-
-                    # Displacement addition node
-                    if baked_disp and baked_disp.image and baked_vdisp and baked_vdisp.image:
-                        disp_add = check_new_node(mtree, ch, 'baked_outside_disp_addition', 'ShaderNodeVectorMath')
-                        if ch.enable_subdiv_setup and output_mat:
-                            mtree.links.new(disp_add.outputs[0], output_mat.inputs['Displacement'])
-
-                    if baked_disp and baked_disp.image:
-                        loc_y -= 300
-                        tex_disp = check_new_node(mtree, ch, 'baked_outside_disp', 'ShaderNodeTexImage')
-                        tex_disp.image = baked_disp.image
-                        tex_disp.location.x = loc_x
-                        tex_disp.location.y = loc_y
-                        tex_disp.parent = frame
-                        tex_disp.interpolation = 'Cubic'
-                        mtree.links.new(uv.outputs[0], tex_disp.inputs[0])
-
-                        if not is_bl_newer_than(2, 80) and baked_disp.image.colorspace_settings.name != get_srgb_name():
-                            tex_disp.color_space = 'NONE'
-
-                        loc_x += 280
-                        disp = create_displacement_node(mat.node_tree)
-                        disp.location.x = loc_x
-                        disp.location.y = loc_y
-                        disp.parent = frame
-                        ch.baked_outside_disp_process = disp.name
-
-                        if disp_add:
-                            loc_x += 200
-                            disp_add.location.x = loc_x
-                            disp_add.location.y = loc_y
-                            disp_add.parent = frame
-                            max_x = loc_x
-                            loc_x -= 480
-                        else:
-                            max_x = loc_x
-                            loc_x -= 280
-
-                        mtree.links.new(tex_disp.outputs[0], disp.inputs[0])
-
-                        # Set max height
-                        end_max_height = node.node_tree.nodes.get(ch.end_max_height)
-                        if end_max_height:
-                            disp.inputs['Scale'].default_value = end_max_height.outputs[0].default_value
-
-                        # Target socket
-                        target_socket = None
-                        if disp_add:
-                            target_socket = disp_add.inputs[0]
-                        elif ch.enable_subdiv_setup and output_mat:
-                            target_socket = output_mat.inputs['Displacement']
-
-                        # Connect to target socket
-                        if target_socket:
-                            mtree.links.new(disp.outputs[0], target_socket)
-
-                    if baked_vdisp and baked_vdisp.image:
-                        loc_y -= 300
-                        tex_vdisp = check_new_node(mtree, ch, 'baked_outside_vdisp', 'ShaderNodeTexImage')
-                        tex_vdisp.image = baked_vdisp.image
-                        tex_vdisp.location.x = loc_x
-                        tex_vdisp.location.y = loc_y
-                        tex_vdisp.parent = frame
-                        tex_vdisp.interpolation = 'Cubic'
-                        mtree.links.new(uv.outputs[0], tex_vdisp.inputs[0])
-
-                        if not is_bl_newer_than(2, 80) and baked_vdisp.image.colorspace_settings.name != get_srgb_name():
-                            tex_vdisp.color_space = 'NONE'
-
-                        loc_x += 280
-                        vdisp = create_vector_displacement_node(mat.node_tree)
-                        vdisp.location.x = loc_x
-                        vdisp.location.y = loc_y
-                        vdisp.parent = frame
-                        ch.baked_outside_vdisp_process = vdisp.name
-                        max_x = loc_x
-                        loc_x -= 280
-
-                        mtree.links.new(tex_vdisp.outputs[0], vdisp.inputs[0])
-
-                        # Target socket
-                        target_socket = None
-                        if disp_add:
-                            target_socket = disp_add.inputs[1]
-                        elif ch.enable_subdiv_setup and output_mat:
-                            target_socket = output_mat.inputs['Displacement']
-
-                        # Connect to target socket
-                        if target_socket:
-                            mtree.links.new(vdisp.outputs[0], target_socket)
-
-                    if ch.enable_bake_to_vcol:
-                        mtree.links.new(vcol.outputs['Color'], l.to_socket)
-                loc_y -= 300
-
-                # Create GLTF material output node so AO can be included in Blender's automated ORM texture
-                if ch.name in {'Ambient Occlusion', 'Occlusion', 'AO', 'Specular', 'Specular Color', 'Thickness'}:
-                    node_name = lib.GLTF_MATERIAL_OUTPUT if is_bl_newer_than(3, 4) else lib.GLTF_SETTINGS
-                    gltf_outp = mtree.nodes.get(node_name)
-                    if not gltf_outp:
-                        gltf_outp = mtree.nodes.new('ShaderNodeGroup')
-                        gltf_outp.node_tree = get_node_tree_lib(node_name)
-                        gltf_outp.name = node_name
-                        gltf_outp.label = node_name
-                        if output_mat:
-                            gltf_outp.location.x = output_mat.location.x
-                            gltf_outp.location.y = output_mat.location.y + 200
-                        shift_nodes.append(gltf_outp)
-
-                    if ch.name in {'Ambient Occlusion', 'Occlusion', 'AO'} and 'Occlusion' in gltf_outp.inputs:
-                        mtree.links.new(tex.outputs[0], gltf_outp.inputs['Occlusion'])
-                    elif ch.name == 'Thickness' and 'Thickness' in gltf_outp.inputs:
-                        mtree.links.new(tex.outputs[0], gltf_outp.inputs['Thickness'])
+                # Connect to GLTF node
+                if gltf_node:
+                    if ch.name in {'Ambient Occlusion', 'Occlusion', 'AO'} and 'Occlusion' in gltf_node.inputs:
+                        mtree.links.new(baked_soc, gltf_node.inputs['Occlusion'])
+                    elif ch.name == 'Thickness' and 'Thickness' in gltf_node.inputs:
+                        mtree.links.new(baked_soc, gltf_node.inputs['Thickness'])
                     elif ch.name == 'Specular':
-                        if 'Specular' in gltf_outp.inputs:
-                            mtree.links.new(tex.outputs[0], gltf_outp.inputs['Specular'])
-                        elif 'specular glTF' in gltf_outp.inputs:
-                            mtree.links.new(tex.outputs[0], gltf_outp.inputs['specular glTF'])
+                        if 'Specular' in gltf_node.inputs:
+                            mtree.links.new(baked_soc, gltf_node.inputs['Specular'])
+                        elif 'specular glTF' in gltf_node.inputs:
+                            mtree.links.new(baked_soc, gltf_node.inputs['specular glTF'])
                     elif ch.name == 'Specular Color':
-                        if 'Specular Color' in gltf_outp.inputs:
-                            mtree.links.new(tex.outputs[0], gltf_outp.inputs['Specular Color'])
-                        elif 'specularColor glTF' in gltf_outp.inputs:
-                            mtree.links.new(tex.outputs[0], gltf_outp.inputs['specularColor glTF'])
+                        if 'Specular Color' in gltf_node.inputs:
+                            mtree.links.new(baked_soc, gltf_node.inputs['Specular Color'])
+                        elif 'specularColor glTF' in gltf_node.inputs:
+                            mtree.links.new(baked_soc, gltf_node.inputs['specularColor glTF'])
 
-            else:
-
-                # Copy yp default value to connected nodes
-                inp = node.inputs.get(ch.name)
-                for l in outp.links:
-                    copy_default_value(inp, l.to_socket)
-
-                inp_alpha = node.inputs.get(ch.name + io_suffix['ALPHA'])
-                if inp_alpha and outp_alpha:
-                    for l in outp_alpha.links:
-                        copy_default_value(inp_alpha, l.to_socket)
-
-                inp_height = node.inputs.get(ch.name + io_suffix['HEIGHT'])
-                if inp_height and outp_height:
-                    for l in outp_height.links:
-                        copy_default_value(inp_height, l.to_socket)
-
-        # Bake targets
-        first_bt_found = False
-        for bt in yp.bake_targets:
-            image_node = tree.nodes.get(bt.image_node)
-            if image_node and image_node.image:
-
-                if not first_bt_found:
-                    loc_y -= 75
-                    first_bt_found = True
-
-                tex = check_new_node(mtree, bt, 'image_node_outside', 'ShaderNodeTexImage')
-                tex.image = image_node.image
-                tex.location.x = loc_x
-                tex.location.y = loc_y
-                tex.parent = bt_frame
-                mtree.links.new(uv.outputs[0], tex.inputs[0])
-
-                loc_y -= 300
-
-        if not first_bt_found:
-            remove_node(mtree, yp, 'bake_target_outside_frame')
+            #if outp_alpha:
+            #    connect_to_original_node(mtree, outp_alpha, ch.ori_alpha_to)
 
         # Remove links
         for outp in node.outputs:
@@ -3314,8 +3774,17 @@ def update_enable_baked_outside(self, context):
         loc_x = max_x + 100
         yp.baked_outside_x_shift = int(loc_x - node.location.x)
 
-        for n in shift_nodes:
-            n.location.x += yp.baked_outside_x_shift
+        # Check if any nodes in range of created nodes
+        shift_needed = False
+        for n in mtree.nodes:
+            if n == bt_frame or n.parent == bt_frame: continue
+            if n.location.x > node.location.x and n.location.x < loc_x:
+                shift_needed = True
+
+        if shift_needed:
+            for n in shift_nodes:
+                if n == bt_frame or n.parent == bt_frame: continue
+                n.location.x += yp.baked_outside_x_shift
 
     else:
         baked_outside_frame = mtree.nodes.get(yp.baked_outside_frame)
@@ -3327,7 +3796,8 @@ def update_enable_baked_outside(self, context):
         for ch in yp.channels:
 
             outp = node.outputs.get(ch.name)
-            connect_to_original_node(mtree, outp, ch.ori_to)
+            if outp:
+                connect_to_original_node(mtree, outp, ch.ori_to)
             ch.ori_to.clear()
 
             outp_alpha = None
@@ -3342,14 +3812,14 @@ def update_enable_baked_outside(self, context):
                 connect_to_original_node(mtree, outp_alpha, ch.ori_alpha_to)
                 ch.ori_alpha_to.clear()
 
-            outp_height = node.outputs.get(ch.name + io_suffix['HEIGHT'])
-            if outp_height:
-                connect_to_original_node(mtree, outp_height, ch.ori_height_to)
+            outp_midlevel = node.outputs.get(ch.name + io_suffix['MIDLEVEL'])
+            if outp_midlevel:
+                connect_to_original_node(mtree, outp_midlevel, ch.ori_height_to, set_default_value=True)
                 ch.ori_height_to.clear()
 
-            outp_mheight = node.outputs.get(ch.name + io_suffix['MAX_HEIGHT'])
+            outp_mheight = node.outputs.get(ch.name + io_suffix['SCALE'])
             if outp_mheight:
-                connect_to_original_node(mtree, outp_mheight, ch.ori_max_height_to)
+                connect_to_original_node(mtree, outp_mheight, ch.ori_max_height_to, set_default_value=True)
                 ch.ori_max_height_to.clear()
 
             # Delete nodes inside frames
@@ -3359,14 +3829,39 @@ def update_enable_baked_outside(self, context):
                 remove_node(mtree, ch, 'baked_outside_disp', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_vdisp', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_normal_overlay', parent=baked_outside_frame)
+                remove_node(mtree, ch, 'baked_outside_normal_no_disp', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_normal_process', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_disp_process', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_vdisp_process', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_disp_addition', parent=baked_outside_frame)
 
+            remove_node(mtree, ch, 'baked_combine_xyz_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, ch, 'baked_normal_outside', parent=bake_target_outside_frame)
+
+        # Recover displacement midlevel and scale
+        if height_root_ch and height_root_ch.special_type == 'HEIGHT':
+            disp = channel_common.get_closest_disp_node_backward(output_mat, 'Displacement', False)
+            if disp:
+                midlevel_inp = disp.inputs.get('Midlevel')
+                if midlevel_inp:
+                    midlevel_inp.default_value = 0.0
+
+                scale_inp = disp.inputs.get('Scale')
+                if scale_inp:
+                    scale_inp.default_value = 1.0
+
         # Bake targets
         for bt in yp.bake_targets:
-            remove_node(mtree, bt, 'image_node_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'baked_node_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'separate_xyz_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'invert_r_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'invert_g_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'invert_b_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'invert_a_outside', parent=bake_target_outside_frame)
+
+            # Remove uv
+            uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + bt.uv_map)
+            if uv: mtree.nodes.remove(uv)
 
         if baked_outside_frame:
             remove_node(mtree, yp, 'baked_outside_uv', parent=baked_outside_frame)
@@ -3403,21 +3898,30 @@ def update_enable_baked_outside(self, context):
                         scene.cycles.feature_set = 'EXPERIMENTAL'
 
                     # Set global dicing
-                    set_subdiv_global_dicing(height_ch)
+                    displacement_common.set_subdiv_global_dicing(height_ch)
 
-                check_displacement_node(mat, node, set_one=True)
+                displacement_common.check_displacement_node(mat, node, set_one=True)
 
-def connect_to_original_node(mtree, outp, ori_to):
+    # Connect to outside displacement node
+    connect_outside_displacement_node(yp)
+
+def connect_to_original_node(mtree, outp, ori_to, set_default_value=False):
     for con in ori_to:
         node = mtree.nodes.get(con.node)
         if not node: continue
         # Some mix inputs has same name so use index instead
+        inp = None
         if node.type == 'MIX':
-            try: mtree.links.new(outp, node.inputs[con.socket_index])
+            try: inp = node.inputs[con.socket_index]
             except Exception as e: print(e)
         else:
-            try: mtree.links.new(outp, node.inputs[con.socket])
+            try: inp = node.inputs[con.socket]
             except Exception as e: print(e)
+
+        if inp:
+            mtree.links.new(outp, inp)
+            if set_default_value:
+                inp.default_value = con.original_value
 
 def update_use_baked(self, context):
     tree = self.id_data
@@ -3430,24 +3934,25 @@ def update_use_baked(self, context):
     #height_ch = get_root_height_channel(yp)
     #if height_ch:
     #    if height_ch.enable_subdiv_setup and yp.use_baked and not ypup.eevee_next_displacement:
-    #        remember_subsurf_levels()
-    #    check_subdiv_setup(height_ch)
+    #        displacement_common.remember_subsurf_levels()
+    #    displacement_common.check_subdiv_setup(height_ch)
     #    if height_ch.enable_subdiv_setup and not yp.use_baked and not ypup.eevee_next_displacement:
-    #        recover_subsurf_levels()
+    #        displacement_common.recover_subsurf_levels()
 
     # Check uv nodes
     check_uv_nodes(yp)
 
-    # Check start and end nodes
-    check_start_end_root_ch_nodes(tree)
+    # Check input and outputs
+    check_all_channel_ios(yp, do_process_layers=is_layer_preview_mode_enabled(yp))
 
-    # Reconnect nodes
-    reconnect_yp_nodes(tree)
-    rearrange_yp_nodes(tree)
+    # NOTE: Already called in `update_enable_baked_outside` function
+    # Connect to outside displacement node
+    #connect_outside_displacement_node(yp)
 
     # Trigger active image update
     if yp.use_baked:
-        yp.active_channel_index = yp.active_channel_index
+        #yp.active_channel_index = yp.active_channel_index
+        BakeTarget.refresh_active_channel_bake_target(yp)
     else:
         yp.active_layer_index = yp.active_layer_index
 
@@ -3465,307 +3970,6 @@ def update_enable_bake_to_vcol(self, context):
         yp['enable_baked_outside'] = True
     update_use_baked(self, context)
 
-def is_node_a_displacement(node, is_vector_disp=False):
-    if not is_bl_newer_than(2, 80):
-        if is_vector_disp: return None
-        return node.type == 'GROUP' and node.node_tree and node.node_tree.name == lib.BL27_DISP
-
-    if is_vector_disp: return node.type == 'VECTOR_DISPLACEMENT'
-    return node.type == 'DISPLACEMENT'
-
-def get_closest_disp_node_backward(node, socket_name='', is_vector_disp=False):
-
-    # Get input list
-    if socket_name != '':
-        inp = node.inputs.get(socket_name)
-        if not inp: return None
-        inputs = [inp]
-    else: inputs = node.inputs
-
-    # Search for displacement node
-    for inp in inputs:
-        for link in inp.links:
-            n = link.from_node
-            if is_node_a_displacement(n, is_vector_disp=is_vector_disp):
-                return n
-            else:
-                n = get_closest_disp_node_backward(n, is_vector_disp=is_vector_disp)
-                if n: return n
-
-    return None
-
-def create_displacement_node(tree, connect_to=None):
-    if is_bl_newer_than(2, 80):
-        disp = tree.nodes.new('ShaderNodeDisplacement')
-    else:
-        # Set displacement mode
-        disp = tree.nodes.new('ShaderNodeGroup')
-        disp.node_tree = get_node_tree_lib(lib.BL27_DISP)
-
-    if connect_to:
-        create_link(tree, disp.outputs[0], connect_to)
-
-    return disp
-
-def create_vector_displacement_node(tree, connect_to=None):
-    vdisp = None
-    if is_bl_newer_than(2, 80):
-        vdisp = tree.nodes.new('ShaderNodeVectorDisplacement')
-
-        # Make sure vector displacement node has 1.0 scale
-        if 'Scale' in vdisp.inputs:
-            vdisp.inputs['Scale'].default_value = 1.0
-
-    if vdisp and connect_to:
-        create_link(tree, vdisp.outputs[0], connect_to)
-
-    return vdisp
-
-def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outside=False):
-
-    output_mat = get_material_output(mat)
-    if not output_mat: return None
-
-    height_ch = get_root_height_channel(node.node_tree.yp)
-    if not height_ch: return None
-
-    # Check output connection
-    norm_outp = node.outputs[height_ch.name]
-    height_outp = node.outputs.get(height_ch.name + io_suffix['HEIGHT'])
-    max_height_outp = node.outputs.get(height_ch.name + io_suffix['MAX_HEIGHT'])
-    vdisp_outp = node.outputs.get(height_ch.name + io_suffix['VDISP'])
-    disp_mat_inp = output_mat.inputs['Displacement']
-
-    disp = get_closest_disp_node_backward(output_mat, 'Displacement')
-    vdisp = get_closest_disp_node_backward(output_mat, 'Displacement', is_vector_disp=True)
-    add_disp = None
-
-    if set_one or set_outside:
-        
-        # Set add vector node
-        if is_bl_newer_than(2, 80) and ((not disp and not vdisp) or (disp and not vdisp) or (not disp and vdisp)):
-            add_disp = mat.node_tree.nodes.new('ShaderNodeVectorMath')
-
-            add_disp.location.x = output_mat.location.x
-            add_disp.location.y = node.location.y - 170
-            add_disp.hide = True
-
-        # Set displacement
-        if not disp:
-
-            # Create displacement node
-            disp = create_displacement_node(mat.node_tree) #, disp_mat_inp)
-
-            disp.location.x = output_mat.location.x
-            disp.location.y = node.location.y - 220
-
-            # Set displacement node default value
-            disp.inputs['Height'].default_value = 0.0
-            disp.inputs['Scale'].default_value = 0.0
-
-        elif set_one:
-            # Connect the original connections to yp node
-            height_inp = None
-            for l in disp.inputs['Height'].links:
-                if not l.from_socket or l.from_node == node: continue
-                height_inp = node.inputs.get(height_ch.name + io_suffix['HEIGHT'])
-                if height_inp: create_link(mat.node_tree, l.from_socket, height_inp)
-
-            for l in disp.inputs['Scale'].links:
-                if not l.from_socket or l.from_node == node: continue
-                max_height_inp = node.inputs.get(height_ch.name + io_suffix['MAX_HEIGHT'])
-                if max_height_inp: create_link(mat.node_tree, l.from_socket, max_height_inp)
-            
-            # Need to check check start and end nodes again if height input is connected
-            if height_inp: check_all_channel_ios(node.node_tree.yp, reconnect=False)
-
-        # Set vector displacement
-        if not vdisp:
-
-            # Create displacement node
-            vdisp = create_vector_displacement_node(mat.node_tree) #, disp_mat_inp)
-
-            if vdisp:
-                vdisp.location.x = output_mat.location.x
-                vdisp.location.y = node.location.y - 410
-
-                # Set displacement node default value
-                vdisp.inputs['Vector'].default_value = (0, 0, 0, 0)
-
-        elif set_one:
-            # Connect the original connections to yp node
-            vdisp_input = None
-            for l in vdisp.inputs['Vector'].links:
-                if not l.from_socket or l.from_node == node: continue
-                vdisp_input = node.inputs.get(height_ch.name + io_suffix['VDISP'])
-                if vdisp_input: create_link(mat.node_tree, l.from_socket, vdisp_input)
-
-        if add_disp and vdisp:
-            create_link(mat.node_tree, disp.outputs[0], add_disp.inputs[0])
-            create_link(mat.node_tree, vdisp.outputs[0], add_disp.inputs[1])
-            create_link(mat.node_tree, add_disp.outputs[0], disp_mat_inp)
-        elif disp and not vdisp:
-            create_link(mat.node_tree, disp.outputs[0], disp_mat_inp)
-
-        if set_one:
-            # Create links
-            if vdisp and vdisp_outp: create_link(mat.node_tree, vdisp_outp, vdisp.inputs['Vector'])
-            if disp:
-                create_link(mat.node_tree, height_outp, disp.inputs['Height'])
-                create_link(mat.node_tree, max_height_outp, disp.inputs['Scale'])
-
-    if unset_one:
-        if disp:
-            height_inp = node.inputs.get(height_ch.name + io_suffix['HEIGHT'])
-            max_height_inp = node.inputs.get(height_ch.name + io_suffix['MAX_HEIGHT'])
-
-            if height_inp and len(height_inp.links) > 0:
-                soc = height_inp.links[0].from_socket
-                create_link(mat.node_tree, soc, disp.inputs['Height'])
-                break_input_link(mat.node_tree, height_inp)
-
-            if max_height_inp and len(max_height_inp.links) > 0:
-                soc = max_height_inp.links[0].from_socket
-                create_link(mat.node_tree, soc, disp.inputs['Scale'])
-                break_input_link(mat.node_tree, max_height_inp)
-
-        if vdisp:
-            vdisp_inp = node.inputs.get(height_ch.name + io_suffix['VDISP'])
-            if vdisp_inp and len(vdisp_inp.links) > 0:
-                soc = vdisp_inp.links[0].from_socket
-                create_link(mat.node_tree, soc, vdisp.inputs['Vector'])
-                break_input_link(mat.node_tree, height_inp)
-
-    return disp
-
-def check_subdiv_setup(height_ch):
-    tree = height_ch.id_data
-    yp = tree.yp
-    ypup = get_user_preferences()
-
-    if not height_ch: return
-    mat = get_active_material()
-    scene = bpy.context.scene
-    objs = get_all_objects_with_same_materials(mat, True)
-
-    mtree = mat.node_tree
-
-    # Get active output material
-    output_mat = get_material_output(mat)
-    if not output_mat: return
-
-    # Get active ypaint node
-    node = get_active_ypaint_node()
-    norm_outp = node.outputs[height_ch.name]
-
-    # Scene and material displacement settings
-    if height_ch.enable_subdiv_setup:
-
-        # Displacement only works with experimental feature set in Blender 2.79
-        if not is_bl_newer_than(5) and (height_ch.subdiv_adaptive or not is_bl_newer_than(2, 80)):
-            scene.cycles.feature_set = 'EXPERIMENTAL'
-
-        if height_ch.subdiv_adaptive:
-            set_subdiv_global_dicing(height_ch, objs)
-
-        # Set displacement mode
-        if hasattr(mat, 'displacement_method'):
-            mat.displacement_method = 'BOTH'
-
-        # Set cycles displacement mode
-        if hasattr(mat.cycles, 'displacement_method'):
-            if is_bl_newer_than(2, 80):
-                mat.cycles.displacement_method = 'BOTH'
-            else: mat.cycles.displacement_method = 'TRUE'
-        
-        # Displacement method is inside object data for Blender 2.77 and below 
-        if not is_bl_newer_than(2, 78):
-            for obj in objs:
-                if obj.data and hasattr(obj.data, 'cycles'):
-                    obj.data.cycles.displacement_method = 'TRUE'
-
-        if not yp.use_baked or not yp.enable_baked_outside:
-            check_displacement_node(mat, node, set_one=True)
-
-    # Outside nodes connection set
-    #if yp.use_baked and yp.enable_baked_outside:
-    #    frame = get_node(mtree, yp.baked_outside_frame)
-    #    norm = get_node(mtree, height_ch.baked_outside_normal_process, parent=frame)
-    #    disp = get_node(mtree, height_ch.baked_outside_disp_process, parent=frame)
-    #    baked_outside = get_node(mtree, height_ch.baked_outside, parent=frame)
-    #    baked_outside_normal_overlay = get_node(mtree, height_ch.baked_outside_normal_overlay, parent=frame)
-
-    #    if height_ch.enable_subdiv_setup:
-    #        if disp:
-    #            create_link(mtree, disp.outputs[0], output_mat.inputs['Displacement'])
-    #        if baked_outside and norm:
-    #            create_link(mtree, baked_outside.outputs[0], norm.inputs[1])
-    #    else:
-    #        if baked_outside and norm:
-    #            create_link(mtree, baked_outside.outputs[0], norm.inputs[1])
-    #    
-    #    if norm and not baked_outside_normal_overlay and height_ch.enable_subdiv_setup:
-    #        for l in norm.outputs[0].links:
-    #            mtree.links.remove(l)
-    #    elif norm:
-    #        for con in height_ch.ori_to:
-    #            n = mtree.nodes.get(con.node)
-    #            if n:
-    #                s = n.inputs.get(con.socket)
-    #                if s:
-    #                    create_link(mtree, norm.outputs[0], s)
-
-    # Remember active object
-    ori_active_obj = bpy.context.object
-
-    # Iterate all objects with same materials
-    proportions = get_objs_size_proportions(objs)
-    for obj in objs:
-
-        # Set active object to modify modifier order
-        set_active_object(obj)
-
-        # Subsurf / Multires Modifier
-        subsurf = get_subsurf_modifier(obj)
-        multires = get_multires_modifier(obj, include_hidden=True)
-
-        if multires:
-            if height_ch.enable_subdiv_setup and (height_ch.subdiv_subsurf_only or height_ch.subdiv_adaptive):
-                multires.show_render = False
-                multires.show_viewport = False
-            else:
-                if subsurf: 
-                    obj.modifiers.remove(subsurf)
-                multires.show_render = True
-                multires.show_viewport = True
-                subsurf = multires
-
-        if height_ch.enable_subdiv_setup:
-            if not subsurf:
-                subsurf = obj.modifiers.new('Subsurf', 'SUBSURF')
-                if obj.type == 'MESH' and is_mesh_flat_shaded(obj.data):
-                    subsurf.subdivision_type = 'SIMPLE'
-
-            setup_subdiv_to_max_polys(obj, height_ch.subdiv_on_max_polys * 1000 * proportions[obj.name], subsurf)
-
-        # Set subsurf to visible
-        if subsurf:
-            subsurf.show_render = True
-            subsurf.show_viewport = True
-
-        # Adaptive subdiv
-        subsurf = get_subsurf_modifier(obj)
-        if height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
-            if not is_bl_newer_than(5):
-                obj.cycles.use_adaptive_subdivision = True
-            elif subsurf: subsurf.use_adaptive_subdivision = True
-        else: 
-            if not is_bl_newer_than(5):
-                obj.cycles.use_adaptive_subdivision = False
-            elif subsurf: subsurf.use_adaptive_subdivision = False
-
-    set_active_object(ori_active_obj)
-
 def update_subdiv_setup(self, context):
     tree = self.id_data
     yp = tree.yp
@@ -3774,13 +3978,13 @@ def update_subdiv_setup(self, context):
     if not self.enable_subdiv_setup:
         mat = get_active_material()
         node = get_active_ypaint_node()
-        check_displacement_node(mat, node, unset_one=True)
+        displacement_common.check_displacement_node(mat, node, unset_one=True)
 
     # Check input and outputs
     check_all_channel_ios(yp, reconnect=False)
 
     # Check subdiv setup
-    check_subdiv_setup(self)
+    displacement_common.check_subdiv_setup(self)
 
     # Reconnect layers
     for layer in yp.layers:
@@ -3791,106 +3995,18 @@ def update_subdiv_setup(self, context):
     reconnect_yp_nodes(tree)
     rearrange_yp_nodes(tree)
 
-def remember_subsurf_levels():
-    #print('Remembering')
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat, True)
-
-    for obj in objs:
-        subsurf = get_subsurf_modifier(obj)
-        if subsurf:
-            obj.yp.ori_subsurf_render_levels = subsurf.render_levels
-            obj.yp.ori_subsurf_levels = subsurf.levels
-
-        multires = get_multires_modifier(obj)
-        if multires:
-            obj.yp.ori_multires_render_levels = multires.render_levels
-            obj.yp.ori_multires_levels = multires.levels
-
-def recover_subsurf_levels():
-    #print('Recovering')
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat, True)
-
-    for obj in objs:
-        subsurf = get_subsurf_modifier(obj)
-        if subsurf:
-            if subsurf.render_levels != obj.yp.ori_subsurf_render_levels:
-                subsurf.render_levels = obj.yp.ori_subsurf_render_levels
-            if subsurf.levels != obj.yp.ori_subsurf_levels:
-                subsurf.levels = obj.yp.ori_subsurf_levels
-
-        multires = get_multires_modifier(obj)
-        if multires:
-            render_levels = obj.yp.ori_multires_render_levels if obj.yp.ori_multires_render_levels <= multires.total_levels else multires.total_levels
-            if multires.render_levels != render_levels:
-                multires.render_levels = render_levels
-
-            levels = obj.yp.ori_multires_levels if obj.yp.ori_multires_levels <= multires.total_levels else multires.total_levels
-            if multires.levels != levels:
-                multires.levels = levels
-
 def update_enable_subdiv_setup(self, context):
     tree = self.id_data
     yp = tree.yp
     height_ch = self
 
     if height_ch.enable_subdiv_setup:
-        remember_subsurf_levels()
+        displacement_common.remember_subsurf_levels()
 
     update_subdiv_setup(self, context)
 
     if not height_ch.enable_subdiv_setup:
-        recover_subsurf_levels()
-
-def setup_subdiv_to_max_polys(obj, max_polys, subsurf=None):
-    
-    if obj.type != 'MESH': return
-    if not subsurf: subsurf = get_subsurf_modifier(obj)
-    if not subsurf: return
-
-    # Check object polygons
-    num_poly = len(obj.data.polygons)
-
-    # Get levels
-    level = int(math.log(max_polys / num_poly, 4))
-
-    if subsurf.type == 'MULTIRES':
-        if level > subsurf.total_levels: 
-            set_active_object(obj)
-            for i in range(level - subsurf.total_levels):
-                if not is_bl_newer_than(2, 90):
-                    bpy.ops.object.multires_subdivide(modifier=subsurf.name)
-                else:
-                    if is_mesh_flat_shaded(obj.data):
-                        bpy.ops.object.multires_subdivide(modifier=subsurf.name, mode='SIMPLE')
-                    else: bpy.ops.object.multires_subdivide(modifier=subsurf.name, mode='CATMULL_CLARK')
-            level = subsurf.total_levels
-    else:
-        # Maximum subdivision is 10
-        if level > 10: level = 10
-
-    subsurf.render_levels = level
-    subsurf.levels = level
-
-def get_objs_size_proportions(objs):
-
-    sizes = []
-    
-    for obj in objs:
-        sorted_dim = sorted(obj.dimensions, reverse=True)
-        # Object size is only measured on its largest 2 dimensions because this should work on a plane too
-        size = sorted_dim[0] * sorted_dim[1]
-        sizes.append(size)
-
-    total_size = sum(sizes)
-
-    # Measure object size compared to total size
-    proportions = {}
-    for i, size in enumerate(sizes):
-        proportions[objs[i].name] = size/total_size
-
-    return proportions
+        displacement_common.recover_subsurf_levels()
 
 def update_subdiv_max_polys(self, context):
     mat = get_active_material()
@@ -3903,7 +4019,7 @@ def update_subdiv_max_polys(self, context):
     #if not ypup.eevee_next_displacement and (not yp.use_baked or not height_ch.enable_subdiv_setup or self.subdiv_adaptive): return
     if not height_ch.enable_subdiv_setup: return
 
-    proportions = get_objs_size_proportions(objs)
+    proportions = displacement_common.get_objs_size_proportions(objs)
 
     for obj in objs:
 
@@ -3915,7 +4031,7 @@ def update_subdiv_max_polys(self, context):
 
         if not subsurf: continue
 
-        setup_subdiv_to_max_polys(obj, height_ch.subdiv_on_max_polys * 1000 * proportions[obj.name], subsurf)
+        displacement_common.setup_subdiv_to_max_polys(obj, height_ch.subdiv_on_max_polys * 1000 * proportions[obj.name], subsurf)
 
 #def update_subdiv_standard_type(self, context):
 #    obj = context.object
@@ -3929,46 +4045,24 @@ def update_subdiv_max_polys(self, context):
 #
 #    subsurf.subdivision_type = height_ch.subdiv_standard_type
 
-def set_subdiv_global_dicing(height_ch, objs=[]):
-    scene = bpy.context.scene
-
-    # Blender 5.0 will set the pixel size in the modifiers rather than setting global settings
-    if is_bl_newer_than(5):
-        if len(objs) == 0:
-            mat = get_active_material()
-            objs = get_all_objects_with_same_materials(mat)
-
-        for obj in objs:
-            subsurf = get_subsurf_modifier(obj)
-            if subsurf:
-                subsurf.adaptive_pixel_size = height_ch.subdiv_global_dicing
-
-        scene.cycles.dicing_rate = 1.0
-        scene.cycles.preview_dicing_rate = 1.0
-
-    else:
-        scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
-        scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
-
 def update_subdiv_global_dicing(self, context):
-    set_subdiv_global_dicing(self)
+    displacement_common.set_subdiv_global_dicing(self)
+
+classes = (
+    YTransferSomeLayerUV,
+    YTransferLayerUV,
+    YResizeImage,
+    #YBakeChannels, # Deprecated
+    YBakeChannelToVcol,
+    YMergeLayer,
+    YMergeMask,
+    YDeleteBakedChannelImages,
+    YBakeAllTargets,
+    YBakeSingleTarget,
+)
 
 def register():
-    bpy.utils.register_class(YTransferSomeLayerUV)
-    bpy.utils.register_class(YTransferLayerUV)
-    bpy.utils.register_class(YResizeImage)
-    bpy.utils.register_class(YBakeChannels)
-    bpy.utils.register_class(YBakeChannelToVcol)
-    bpy.utils.register_class(YMergeLayer)
-    bpy.utils.register_class(YMergeMask)
-    bpy.utils.register_class(YDeleteBakedChannelImages)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YTransferSomeLayerUV)
-    bpy.utils.unregister_class(YTransferLayerUV)
-    bpy.utils.unregister_class(YResizeImage)
-    bpy.utils.unregister_class(YBakeChannels)
-    bpy.utils.unregister_class(YBakeChannelToVcol)
-    bpy.utils.unregister_class(YMergeLayer)
-    bpy.utils.unregister_class(YMergeMask)
-    bpy.utils.unregister_class(YDeleteBakedChannelImages)
+    for cls in classes: bpy.utils.unregister_class(cls)

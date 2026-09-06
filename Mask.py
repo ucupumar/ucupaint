@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator, Decal
+from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator, Decal, mask_common
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -10,187 +10,6 @@ from .input_outputs import *
 
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
-
-def setup_color_id_source(mask, source, color_id=None):
-    if is_bl_newer_than(2, 82):
-        source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL_282)
-    else: source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL)
-
-    if color_id != None:
-        mask.color_id = color_id
-    else: color_id = mask.color_id
-
-    col = (color_id[0], color_id[1], color_id[2], 1.0)
-    source.inputs[0].default_value = col
-
-def setup_object_idx_source(mask, source, object_index=None):
-    source.node_tree = get_node_tree_lib(lib.OBJECT_INDEX_EQUAL)
-
-    if object_index != None:
-        mask.object_index = object_index
-    else: object_index = mask.object_index
-
-    source.inputs[0].default_value = object_index
-
-def setup_edge_detect_source(entity, source, edge_detect_radius=None, edge_detect_method=None):
-    yp = entity.id_data.yp
-
-    if edge_detect_method == None:
-        edge_detect_method = entity.edge_detect_method
-    elif entity.edge_detect_method != edge_detect_method:
-        ori_halt_update = yp.halt_update
-        yp.halt_update = True
-        entity.edge_detect_method = edge_detect_method
-        yp.halt_update = ori_halt_update
-
-    if edge_detect_method == 'CROSS':
-        if entity.hemi_use_prev_normal:
-            lib_name = lib.EDGE_DETECT_CUSTOM_NORMAL
-        else: lib_name = lib.EDGE_DETECT
-    else:
-        if entity.hemi_use_prev_normal:
-            lib_name = lib.EDGE_DETECT_CUSTOM_NORMAL_DOT
-        else: lib_name = lib.EDGE_DETECT_DOT
-
-    ori_lib = source.node_tree
-    if not ori_lib or ori_lib.name != lib_name:
-        source.node_tree = get_node_tree_lib(lib_name)
-        if ori_lib and ori_lib.users == 0:
-            remove_datablock(bpy.data.node_groups, ori_lib)
-
-    if edge_detect_radius != None:
-        source.inputs[0].default_value = entity.edge_detect_radius = edge_detect_radius
-    else: source.inputs[0].default_value = entity.edge_detect_radius
-
-    enable_eevee_ao()
-
-def setup_modifier_mask_source(tree, mask, modifier_type):
-    source = None
-    if modifier_type == 'INVERT':
-        source = new_node(tree, mask, 'source', 'ShaderNodeInvert', 'Mask Source')
-    elif modifier_type == 'RAMP':
-        source = new_node(tree, mask, 'source', 'ShaderNodeValToRGB', 'Mask Source')
-        #ramp_mix = new_mix_node(tree, mask, 'ramp_mix', 'Ramp Mix', 'FLOAT')
-    elif modifier_type == 'CURVE':
-        source = new_node(tree, mask, 'source', 'ShaderNodeRGBCurve', 'Mask Source')
-
-    return source
-
-def add_new_mask(
-        layer, name, mask_type, texcoord_type, uv_name, 
-        image=None, vcol_name='', segment=None,
-        object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False,
-        color_id=(1, 0, 1), edge_detect_radius=0.05, edge_detect_method='CROSS',
-        modifier_type='INVERT', interpolation='Linear', ao_distance=1.0, socket_input_name='Color'
-    ):
-    yp = layer.id_data.yp
-    ori_halt_update = yp.halt_update
-    yp.halt_update = True
-    ypup = get_user_preferences()
-
-    tree = get_tree(layer)
-    nodes = tree.nodes
-
-    mask = layer.masks.add()
-    mask.name = get_unique_name(name, layer.masks)
-    mask.type = mask_type
-    mask.texcoord_type = texcoord_type
-    mask.socket_input_name = socket_input_name
-
-    # Uniform Scale
-    if is_bl_newer_than(2, 81) and is_mask_using_vector(mask):
-        mask.enable_uniform_scale = ypup.enable_uniform_uv_scale_by_default
-
-    if segment:
-        mask.segment_name = segment.name
-
-    source = None
-    if mask_type == 'VCOL':
-        source = new_node(tree, mask, 'source', get_vcol_bl_idname(), 'Mask Source')
-    elif mask_type == 'MODIFIER':
-        source = setup_modifier_mask_source(tree, mask, modifier_type)
-        mask.modifier_type = modifier_type
-
-    elif mask.type != 'BACKFACE': source = new_node(tree, mask, 'source', layer_node_bl_idnames[mask_type], 'Mask Source')
-
-    if image:
-        source.image = image
-        if hasattr(source, 'color_space'):
-            source.color_space = 'NONE'
-        source.interpolation = interpolation
-    elif mask_type == 'VCOL':
-        if vcol_name != '': set_source_vcol_name(source, vcol_name)
-        else: set_source_vcol_name(source, name)
-
-    if mask_type == 'HEMI':
-        source.node_tree = get_node_tree_lib(lib.HEMI)
-        duplicate_lib_node_tree(source)
-        mask.hemi_space = hemi_space
-        mask.hemi_use_prev_normal = hemi_use_prev_normal
-
-    elif mask_type == 'OBJECT_INDEX':
-        setup_object_idx_source(mask, source, object_index)
-
-    elif mask_type == 'COLOR_ID':
-        setup_color_id_source(mask, source, color_id)
-
-    elif mask_type == 'EDGE_DETECT':
-        mask.hemi_use_prev_normal = hemi_use_prev_normal
-        setup_edge_detect_source(mask, source, edge_detect_radius, edge_detect_method)
-
-    elif mask_type == 'AO':
-        mask.hemi_use_prev_normal = hemi_use_prev_normal
-        mask.ao_distance = ao_distance
-        enable_eevee_ao()
-
-    # Set default uv name if it's an empty string
-    if uv_name == '':
-        uv_name = get_default_uv_name()
-
-    mask.uv_name = uv_name
-
-    if is_mapping_possible(mask_type):
-
-        mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
-        mapping.vector_type = 'POINT' #if segment else 'TEXTURE'
-
-        if segment:
-            ImageAtlas.set_segment_mapping(mask, segment, image)
-            refresh_temp_uv(bpy.context.object, mask)
-
-    for i, root_ch in enumerate(yp.channels):
-        c = mask.channels.add()
-
-    mask.blend_type = blend_type
-
-    # Check mask multiplies
-    check_mask_mix_nodes(layer, tree)
-
-    # Check mask source tree
-    check_mask_source_tree(layer)
-
-    # Check the need of bump process
-    check_layer_bump_process(layer, tree)
-
-    # Check uv maps
-    check_uv_nodes(yp)
-
-    # Check layer io
-    check_all_layer_channel_io_and_nodes(layer, tree)
-
-    # Check mask linear
-    check_mask_image_linear_node(mask)
-
-    if ori_halt_update != yp.halt_update:
-        yp.halt_update = ori_halt_update
-
-    # Update coords
-    update_mask_texcoord_type(mask, None, False)
-
-    # Update list items
-    ListItem.refresh_list_items(yp)
-
-    return mask
 
 def remove_mask_channel_nodes(tree, c):
     remove_node(tree, c, 'mix')
@@ -270,7 +89,7 @@ def remove_mask(layer, mask, obj, refresh_list=True):
 
     # Remove mask modifiers
     for m in mask.modifiers:
-        MaskModifier.delete_modifier_nodes(tree, m)
+        MaskModifier.delete_mask_modifier_nodes(tree, m)
 
     # Remove mask channel nodes
     for c in mask.channels:
@@ -282,38 +101,6 @@ def remove_mask(layer, mask, obj, refresh_list=True):
     # Update list items
     if refresh_list:
         ListItem.refresh_list_items(yp)
-
-def get_new_mask_name(obj, layer, mask_type, modifier_type='', ignore_images=False):
-    surname = '(' + layer.name + ')'
-    items = layer.masks
-    if mask_type == 'IMAGE':
-        name = 'Mask'
-        name = get_unique_name(name, layer.masks, surname)
-        if not ignore_images:
-            name = get_unique_name(name, bpy.data.images)
-        return name
-    elif mask_type == 'VCOL' and obj.type == 'MESH':
-        name = 'Mask Attribute' if is_bl_newer_than(3, 2) else 'Mask VCol'
-        items = get_vertex_color_names(obj)
-        return get_unique_name(name, items, surname)
-    elif mask_type == 'MODIFIER':
-        name = 'Mask ' + modifier_type.title()
-        return get_unique_name(name, items, surname)
-    else:
-        name = 'Mask ' + mask_type_labels[mask_type]
-        return get_unique_name(name, items, surname)
-
-def update_new_mask_uv_map(self, context):
-    if not UDIM.is_udim_supported(): return
-    if self.type != 'IMAGE': 
-        self.use_udim = False
-        return
-
-    if get_user_preferences().enable_auto_udim_detection:
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat)
-        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_name)
-
 
 def get_mask_cache_name(mask_type, modifier_type=''):
     name = 'cache_' + mask_type.lower()
@@ -407,13 +194,13 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     else:
 
         if new_type == 'MODIFIER':
-            source = setup_modifier_mask_source(tree, mask, modifier_type)
+            source = mask_common.setup_modifier_mask_source(tree, mask, modifier_type)
         elif new_type != 'BACKFACE': source = new_node(tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
 
         if new_type == 'IMAGE':
             image = bpy.data.images.get(item_name)
             source.image = image
-            check_mask_image_projections(mask, source)
+            mask_common.check_mask_image_projections(mask, source)
 
             if mask.texcoord_type == 'Decal':
                 source.extension = 'CLIP'
@@ -435,13 +222,13 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
             mat = get_active_material()
             objs = get_all_objects_with_same_materials(mat)
             check_colorid_vcol(objs, set_as_active=True)
-            setup_color_id_source(mask, source)
+            mask_common.setup_color_id_source(mask, source)
 
         elif new_type == 'OBJECT_INDEX':
-            setup_object_idx_source(mask, source)
+            mask_common.setup_object_idx_source(mask, source)
 
         elif new_type == 'EDGE_DETECT':
-            setup_edge_detect_source(mask, source)
+            lib.setup_edge_detect_source(mask, source)
 
         elif new_type == 'AO':
             enable_eevee_ao()
@@ -649,13 +436,13 @@ class YNewLayerMask(bpy.types.Operator):
         default = 'UV'
     )
 
-    uv_name : StringProperty(
+    uv_map : StringProperty(
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '',
-        update = update_new_mask_uv_map
+        update = BaseOperator.update_uv_map_name
     )
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     use_udim : BoolProperty(
         name = 'Use UDIM Tiles',
@@ -758,7 +545,7 @@ class YNewLayerMask(bpy.types.Operator):
         yp = layer.id_data.yp
         ypup = get_user_preferences()
 
-        self.name = get_new_mask_name(obj, layer, self.type, self.modifier_type)
+        self.name = mask_common.get_new_mask_name(obj, layer, self.type, self.modifier_type)
 
         # Use user preference default image size
         if ypup.default_image_resolution == 'CUSTOM':
@@ -787,7 +574,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
 
-            self.uv_name = get_default_uv_name(obj, yp)
+            self.uv_map = get_default_uv_name(obj, yp)
 
             # UV Map collections update
             self.uv_map_coll.clear()
@@ -839,144 +626,113 @@ class YNewLayerMask(bpy.types.Operator):
         yp = node.node_tree.yp
         layer = get_active_layer(yp)
 
-        row = split_layout(self.layout, 0.4)
+        split_val = 0.4
+        layout = self.layout.column()
 
-        col = row.column(align=False)
-        col.label(text='Name:')
-        if self.type == 'IMAGE' and self.use_custom_resolution == False:
-            col.label(text='')
-            col.label(text='Resolution:')
-        elif self.type == 'IMAGE' and self.use_custom_resolution == True:
-            col.label(text='')
-            col.label(text='Width:')
-            col.label(text='Height:')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Name:')
+        row.prop(self, 'name', text='')
 
         if self.type == 'IMAGE':
-            col.label(text='Interpolation:')
-
-        if self.type in {'VCOL', 'IMAGE'}:
-            col.label(text='Color:')
+            BaseOperator.draw_base_image_settings(self, layout, split_val)
 
         if self.type == 'COLOR_ID':
-            col.label(text='Color ID:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Color ID:')
+            row.prop(self, 'color_id', text='')
+
             if obj.mode == 'EDIT':
-                col.label(text='')
+                row = split_layout(layout, split_val)
+                row.label(text='')
+                row.prop(self, 'vcol_fill', text='Fill Selected Faces')
 
         if self.type == 'VCOL':
             if is_bl_newer_than(3, 2):
-                col.label(text='Domain:')
-                col.label(text='Data Type:')
-            if obj.mode == 'EDIT' and self.color_option == 'BLACK':
-                col.label(text='')
-
-        if self.type == 'HEMI':
-            col.label(text='Space:')
-
-        if self.type == 'EDGE_DETECT':
-            col.label(text='Radius:')
-
-        if self.type == 'AO':
-            col.label(text='AO Distance:')
-
-        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
-            col.label(text='')
-
-        if self.type == 'IMAGE':
-            col.label(text='')
-
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
-            col.label(text='Vector:')
-            if self.type == 'IMAGE':
-                if UDIM.is_udim_supported():
-                    col.label(text='')
-                col.label(text='')
-
-        if self.type == 'OBJECT_INDEX':
-            col.label(text='Object Index')
-
-        col.label(text='Blend:')
-
-        col = row.column(align=False)
-        col.prop(self, 'name', text='')
-        if self.type == 'IMAGE' and self.use_custom_resolution == False:
-            crow = col.row(align=True)
-            crow.prop(self, 'use_custom_resolution')
-            crow = col.row(align=True)
-            crow.prop(self, 'image_resolution', expand= True,)
-        elif self.type == 'IMAGE' and self.use_custom_resolution == True:
-            crow = col.row(align=True)
-            crow.prop(self, 'use_custom_resolution')
-            col.prop(self, 'width', text='')
-            col.prop(self, 'height', text='')
-
-        if self.type == 'IMAGE':
-            col.prop(self, 'interpolation', text='')
-
-        if self.type in {'VCOL', 'IMAGE'}:
-            col.prop(self, 'color_option', text='')
-
-        if self.type == 'COLOR_ID':
-            col.prop(self, 'color_id', text='')
-            if obj.mode == 'EDIT':
-                col.prop(self, 'vcol_fill', text='Fill Selected Faces')
-
-        if self.type == 'HEMI':
-            col.prop(self, 'hemi_space', text='')
-
-        if self.type == 'EDGE_DETECT':
-            col.prop(self, 'edge_detect_radius', text='')
-
-        if self.type == 'AO':
-            col.prop(self, 'ao_distance', text='')
-
-        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
-            col.prop(self, 'hemi_use_prev_normal')
-
-        if self.type == 'VCOL':
-            if is_bl_newer_than(3, 2):
-                crow = col.row(align=True)
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Domain:')
+                crow = row.row(align=True)
                 crow.prop(self, 'vcol_domain', expand=True)
-                crow = col.row(align=True)
+
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Data Type:')
+                crow = row.row(align=True)
                 crow.prop(self, 'vcol_data_type', expand=True)
-
+                
             if obj.mode == 'EDIT' and self.color_option == 'BLACK':
-                col.prop(self, 'vcol_fill', text='Fill Selected Faces')
+                row = split_layout(layout, split_val)
+                row.label(text='')
+                row.prop(self, 'vcol_fill', text='Fill Selected Faces')
 
-        if self.type == 'IMAGE':
-            col.prop(self, 'hdr')
+        if self.type == 'HEMI':
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Space:')
+            row.prop(self, 'hemi_space', text='')
+
+        if self.type == 'EDGE_DETECT':
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Radius:')
+            row.prop(self, 'edge_detect_radius', text='')
+
+        if self.type == 'AO':
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'AO Distance:')
+            row.prop(self, 'ao_distance', text='')
+
+        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'hemi_use_prev_normal')
 
         if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
-            crow = col.row(align=True)
+
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Mapping:')
+            crow = row.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
-                crow.prop_search(self, "uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+                crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-            if self.type == 'IMAGE':
-                if UDIM.is_udim_supported():
-                    col.prop(self, 'use_udim')
-                ccol = col.column()
-                ccol.prop(self, 'use_image_atlas')
+        if self.type == 'OBJECT_INDEX':
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Object Index')
+            row.prop(self, 'object_index', text='')
+
+        if self.type == 'IMAGE':
+            acol = layout.column(align=True)
+            if is_udim_supported():
+                row = split_layout(acol, split_val)
+                row.label(text='')
+                row.prop(self, 'use_udim')
+
+            row = split_layout(acol, split_val)
+            row.label(text='')
+            row.prop(self, 'use_image_atlas')
+
+        acol = layout.column(align=False)
+        if self.type in {'VCOL', 'IMAGE'}:
+            row = split_layout(acol, split_val)
+            right_aligned_label(row, text='Color:')
+            row.prop(self, 'color_option', text='')
+
+        row = split_layout(acol, split_val)
+        right_aligned_label(row, 'Blend:')
+        row.prop(self, 'blend_type', text='')
 
         if self.get_to_be_cleared_image_atlas(context, yp):
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='INFO: An unused atlas segment can be used.', icon='ERROR')
             col.label(text='It will take a couple seconds to clear.')
         
-        if self.type == 'OBJECT_INDEX':
-            col.prop(self, 'object_index', text='')
-
-        col.prop(self, 'blend_type', text='')
-
         if self.type == 'AO':
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='Realtime AO can look different in baked/rendered view!', icon='ERROR')
 
         elif self.type == 'EDGE_DETECT':
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='Realtime Edge Detect can look different in baked/rendered view!', icon='ERROR')
 
         elif self.type == 'BACKFACE':
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='Backface mask can\'t be baked!', icon='ERROR')
 
     def execute(self, context):
@@ -1037,7 +793,7 @@ class YNewLayerMask(bpy.types.Operator):
 
             if self.use_udim:
                 objs = get_all_objects_with_same_materials(mat)
-                tilenums = UDIM.get_tile_numbers(objs, self.uv_name)
+                tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
 
             if self.use_image_atlas:
                 if self.use_udim:
@@ -1111,8 +867,8 @@ class YNewLayerMask(bpy.types.Operator):
                     bpy.ops.mesh.y_vcol_fill_face_custom(color=(self.color_id[0], self.color_id[1], self.color_id[2], 1.0))
 
         # Add new mask
-        mask = add_new_mask(
-            layer, self.name, self.type, self.texcoord_type, self.uv_name, 
+        mask = mask_common.add_new_mask(
+            layer, self.name, self.type, self.texcoord_type, self.uv_map, 
             image=img, vcol_name=vcol_name, segment=segment, 
             object_index = self.object_index, 
             blend_type = self.blend_type, 
@@ -1168,7 +924,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -1256,39 +1012,44 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
     def draw(self, context):
         obj = context.object
 
-        row = self.layout.row()
+        split_val = 0.325
+        layout = self.layout
 
-        col = row.column()
         if self.file_browser_filepath != '':
-            col.label(text='Image:')
-        col.label(text='Interpolation:')
-        col.label(text='Vector:')
-        if len(self.layer.masks) > 0:
-            col.label(text='Blend:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Image:')
+            row.label(text=os.path.basename(self.file_browser_filepath), icon='IMAGE_DATA')
 
-        col.label(text='Image Channel:')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Interpolation:')
+        row.prop(self, 'interpolation', text='')
 
-        col = row.column()
-        if self.file_browser_filepath != '':
-            col.label(text=os.path.basename(self.file_browser_filepath), icon='IMAGE_DATA')
-        col.prop(self, 'interpolation', text='')
-        crow = col.row(align=True)
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, text='Mapping:')
+        crow = row.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         if len(self.layer.masks) > 0:
-            col.prop(self, 'blend_type', text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Blend:')
+            row.prop(self, 'blend_type', text='')
 
-        crow = col.row(align=True)
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Image Channel:')
+        crow = row.row(align=True)
         crow.prop(self, 'socket_input_name', expand=True)
 
-        layout = col if self.file_browser_filepath != '' else self.layout
+        # Toggle column
+        if self.file_browser_filepath != '':
+            row = split_layout(layout, split_val)
+            layout = row.column()
+            layout = row.column()
 
         layout.prop(self, 'relative')
 
-        if UDIM.is_udim_supported():
+        if is_udim_supported():
             layout.prop(self, 'use_udim_detecting')
 
     def execute(self, context):
@@ -1310,7 +1071,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
             import_list = [os.path.basename(self.file_browser_filepath)]
             directory = os.path.dirname(self.file_browser_filepath)
 
-        if not UDIM.is_udim_supported():
+        if not is_udim_supported():
             images = tuple(load_image(path, directory) for path in import_list)
         else:
             ori_ui_type = bpy.context.area.type
@@ -1338,7 +1099,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
                 image.colorspace_settings.name = get_noncolor_name()
 
             # Add new mask
-            mask = add_new_mask(
+            mask = mask_common.add_new_mask(
                 layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, 
                 image=image, vcol_name='', 
                 blend_type=self.blend_type, socket_input_name=self.socket_input_name,
@@ -1405,13 +1166,13 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     image_name : StringProperty(name="Image")
-    image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    image_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     vcol_name : StringProperty(name=get_vertex_color_label())
-    vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    vcol_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -1526,46 +1287,43 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
         yp = node.node_tree.yp
         layer = get_active_layer(yp)
 
-        row = self.layout.row()
-
-        col = row.column()
-        if self.type == 'IMAGE':
-            col.label(text='Image:')
-        elif self.type == 'VCOL':
-            col.label(text=get_vertex_color_label()+':')
+        split_val = 0.4
+        layout = self.layout
 
         if self.type == 'IMAGE':
-            col.label(text='Interpolation:')
-            col.label(text='Vector:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Image:')
+            row.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
 
-        if len(layer.masks) > 0:
-            col.label(text='Blend:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Interpolation:')
+            row.prop(self, 'interpolation', text='')
 
-        if self.type == 'IMAGE':
-            col.label(text='Image Channel:')
-        elif self.type == 'VCOL' and is_bl_newer_than(2, 92):
-            col.label(text=get_vertex_color_label()+' Data:')
-
-        col = row.column()
-
-        if self.type == 'IMAGE':
-            col.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
-        elif self.type == 'VCOL':
-            col.prop_search(self, "vcol_name", self, "vcol_coll", text='', icon='GROUP_VCOL')
-
-        if self.type == 'IMAGE':
-            col.prop(self, 'interpolation', text='')
-            crow = col.row(align=True)
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Mapping:')
+            crow = row.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
-                #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-        if len(layer.masks) > 0:
-            col.prop(self, 'blend_type', text='')
+        elif self.type == 'VCOL':
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, get_vertex_color_label()+':')
+            row.prop_search(self, "vcol_name", self, "vcol_coll", text='', icon='GROUP_VCOL')
 
-        if is_bl_newer_than(2, 92) or self.type != 'VCOL':
-            crow = col.row(align=True)
+        if len(layer.masks) > 0:
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Blend:')
+            row.prop(self, 'blend_type', text='')
+
+        if (self.type == 'VCOL' and is_bl_newer_than(2, 92)) or self.type == 'IMAGE':
+            row = split_layout(layout, split_val)
+            if self.type == 'IMAGE':
+                right_aligned_label(row, 'Image Channel:')
+            elif self.type == 'VCOL' and is_bl_newer_than(2, 92):
+                right_aligned_label(row, get_vertex_color_label()+' Data:')
+
+            crow = row.row(align=True)
             crow.prop(self, 'socket_input_name', expand=True)
 
     def execute(self, context):
@@ -1612,7 +1370,7 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
                     set_active_vertex_color(o, other_v)
 
         # Add new mask
-        mask = add_new_mask(
+        mask = mask_common.add_new_mask(
             layer, name, self.type, self.texcoord_type, self.uv_map, 
             image=image, vcol_name=self.vcol_name, 
             blend_type=self.blend_type, socket_input_name=self.socket_input_name,
@@ -1868,7 +1626,7 @@ class YReplaceMaskType(bpy.types.Operator):
     )
 
     item_name : StringProperty(name="Item")
-    item_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    item_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     load_item : BoolProperty(default=False)
 
@@ -1959,10 +1717,13 @@ class YFixEdgeDetectAO(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'layer')
+        scene = context.scene
+        return scene and hasattr(scene, 'eevee') and hasattr(scene.eevee, 'use_gtao')
 
     def execute(self, context):
-        bpy.context.scene.eevee.use_gtao = True
+        eevee = context.scene.eevee
+        if hasattr(eevee, 'use_gtao'):
+            eevee.use_gtao = True
         return {'FINISHED'}
 
 def update_mask_active_edit(self, context):
@@ -2138,37 +1899,6 @@ def update_enable_layer_masks(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
-def check_mask_image_projections(mask, source=None):
-    if source == None: source = get_mask_source(mask)
-    source.projection = 'BOX' if mask.texcoord_type in {'Generated', 'Object'} else 'FLAT'
-
-def update_mask_texcoord_type(self, context, reconnect=True):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(match.group(1))]
-    mask_idx = int(match.group(2))
-    mask = self
-    tree = get_tree(layer)
-
-    # Update global uv
-    check_uv_nodes(yp)
-
-    # Update layer tree inputs
-    check_all_layer_channel_io_and_nodes(layer, tree)
-
-    # Set image source projection
-    if mask.type == 'IMAGE':
-        check_mask_image_projections(mask)
-
-    if reconnect:
-        reconnect_layer_nodes(layer)
-        rearrange_layer_nodes(layer)
-
-        reconnect_yp_nodes(self.id_data)
-        rearrange_yp_nodes(self.id_data)
-
 def update_mask_uv_name(self, context):
     obj = context.object
     yp = self.id_data.yp
@@ -2234,7 +1964,7 @@ def update_mask_hemi_use_prev_normal(self, context):
 
     if self.type == 'EDGE_DETECT':
         source = get_mask_source(self)
-        setup_edge_detect_source(self, source)
+        lib.setup_edge_detect_source(self, source)
 
     check_layer_tree_ios(layer, tree)
     check_layer_bump_process(layer, tree)
@@ -2370,7 +2100,7 @@ def update_mask_edge_detect_method(self, context):
     mask = self
     
     source = get_mask_source(mask)
-    setup_edge_detect_source(mask, source)
+    lib.setup_edge_detect_source(mask, source)
 
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
@@ -2506,7 +2236,7 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
         default = 'UV',
         # Using a lambda because update function is expected to have an arity of 2
         update = lambda self, context:
-            update_mask_texcoord_type(self, context)
+            mask_common.update_mask_texcoord_type(self, context)
     )
 
     modifier_type : EnumProperty(
@@ -2756,28 +2486,22 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     expand_source : BoolProperty(default=False)
     expand_vector : BoolProperty(default=False)
 
+classes = (
+    YNewLayerMask,
+    YOpenImageAsMask,
+    YOpenExistingDataAsMask,
+    YOpenImageToReplaceMask,
+    YMoveLayerMask,
+    YRemoveLayerMask,
+    YReplaceMaskType,
+    YSetMaskInput,
+    YFixEdgeDetectAO,
+    YLayerMaskChannel,
+    YLayerMask,
+)
+
 def register():
-    bpy.utils.register_class(YNewLayerMask)
-    bpy.utils.register_class(YOpenImageAsMask)
-    bpy.utils.register_class(YOpenExistingDataAsMask)
-    bpy.utils.register_class(YOpenImageToReplaceMask)
-    bpy.utils.register_class(YMoveLayerMask)
-    bpy.utils.register_class(YRemoveLayerMask)
-    bpy.utils.register_class(YReplaceMaskType)
-    bpy.utils.register_class(YSetMaskInput)
-    bpy.utils.register_class(YFixEdgeDetectAO)
-    bpy.utils.register_class(YLayerMaskChannel)
-    bpy.utils.register_class(YLayerMask)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YNewLayerMask)
-    bpy.utils.unregister_class(YOpenImageAsMask)
-    bpy.utils.unregister_class(YOpenExistingDataAsMask)
-    bpy.utils.unregister_class(YOpenImageToReplaceMask)
-    bpy.utils.unregister_class(YMoveLayerMask)
-    bpy.utils.unregister_class(YRemoveLayerMask)
-    bpy.utils.unregister_class(YReplaceMaskType)
-    bpy.utils.unregister_class(YSetMaskInput)
-    bpy.utils.unregister_class(YFixEdgeDetectAO)
-    bpy.utils.unregister_class(YLayerMaskChannel)
-    bpy.utils.unregister_class(YLayerMask)
+    for cls in classes: bpy.utils.unregister_class(cls)

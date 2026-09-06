@@ -9,6 +9,27 @@ def update_icons(self, context):
     lib.unload_custom_icons()
     lib.load_custom_icons()
 
+    # Reload panel icon
+    if is_bl_newer_than(5, 2):
+        from . import ui
+        ui.register_panels()
+
+def update_legacy_add_layer_menu(self, context):
+    # Reload menus
+    if is_bl_newer_than(4):
+        from . import ui
+        ui.register_new_entity_menus()
+
+def update_default_bake_device(self, context):
+    if self.default_bake_device != 'DEFAULT':
+        # Get all yp trees
+        yp_trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]
+
+        # Update global settings bake device
+        for tree in yp_trees:
+            yp = tree.yp
+            yp.bake_target_global_settings.bake_device = self.default_bake_device
+
 class YPaintPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
@@ -91,9 +112,11 @@ class YPaintPreferences(AddonPreferences):
         items = (
             ('DEFAULT', 'Default', 'Use last selected bake device'),
             ('CPU', 'CPU', 'Use CPU by default'),
-            ('GPU', 'GPU Compute', 'Use GPU by default')
+            ('GPU', 'GPU Compute', 'Use GPU by default'),
+            ('OSL', 'CPU (OSL)', 'Use CPU with OSL enabled by default (slower but higher compatibility for complex shader)')
         ),
-        default = 'DEFAULT'
+        default = 'DEFAULT',
+        update = update_default_bake_device
     )
 
     enable_baked_outside_by_default : BoolProperty(
@@ -129,6 +152,13 @@ class YPaintPreferences(AddonPreferences):
         ),
         default = 'DYNAMIC'
     )
+
+    ui_legacy_add_layer_menu : BoolProperty(
+        name = 'Use Legacy Add Layer Menu UI',
+        description = "Use legacy add layer menu like Blender 3.6 or older",
+        default = False,
+        update = update_legacy_add_layer_menu
+    )
     
     default_image_resolution : EnumProperty(
         name = 'Default Image Size',
@@ -155,6 +185,12 @@ class YPaintPreferences(AddonPreferences):
         default = False
     )
 
+    ui_non_popup_settings : BoolProperty(
+        name = 'Use Non-Popup Channels and Bake Targets UI',
+        description = 'Use non popup UI for channels and bake targets panel',
+        default = False
+    )
+
     def draw(self, context):
         if is_bl_newer_than(2, 80):
             self.layout.prop(self, 'default_bake_device')
@@ -168,8 +204,7 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'hdr_image_atlas_size')
         self.layout.prop(self, 'unique_image_atlas_per_yp')
 
-        from . import UDIM
-        if UDIM.is_udim_supported():
+        if is_udim_supported():
             self.layout.prop(self, 'enable_auto_udim_detection')
 
         self.layout.prop(self, 'enable_material_view_warning')
@@ -180,6 +215,10 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'always_evaluate_frame')
         if is_bl_newer_than(2, 81):
             self.layout.prop(self, 'enable_uniform_uv_scale_by_default')
+        if is_bl_newer_than(2, 80):
+            self.layout.prop(self, 'ui_non_popup_settings')
+        if is_bl_newer_than(4):
+            self.layout.prop(self, 'ui_legacy_add_layer_menu')
         self.layout.prop(self, 'hide_update_notification')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')

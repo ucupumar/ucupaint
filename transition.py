@@ -25,7 +25,7 @@ def update_transition_bump_chain(self, context):
 
     # Trigger normal channel update
     #ch.normal_map_type = ch.normal_map_type
-    check_channel_normal_map_nodes(tree, layer, root_ch, ch)
+    check_layer_height_channel_nodes(tree, layer, root_ch, ch)
 
     reconnect_layer_nodes(layer) #, mod_reconnect=True)
     rearrange_layer_nodes(layer)
@@ -66,8 +66,8 @@ def show_transition(self, context, ttype):
 
     if ttype == 'BUMP':
 
-        if root_ch.type != 'NORMAL': 
-            self.report({'ERROR'}, "Transition bump only works on Normal channel!")
+        if root_ch.special_type != 'HEIGHT': 
+            self.report({'ERROR'}, "Transition bump only works on height channel!")
             return {'CANCELLED'}
 
         if bump_ch and ch != bump_ch:
@@ -89,10 +89,6 @@ def show_transition(self, context, ttype):
 
     elif ttype == 'RAMP':
 
-        if root_ch.type == 'NORMAL': 
-            self.report({'ERROR'}, "Transition ramp only works on color or value channel!")
-            return {'CANCELLED'}
-
         ch.show_transition_ramp = True
 
         if ch.enable_transition_ramp:
@@ -102,10 +98,6 @@ def show_transition(self, context, ttype):
         ch.enable_transition_ramp = True
 
     elif ttype == 'AO':
-
-        if root_ch.type == 'NORMAL': 
-            self.report({'ERROR'}, "Transition AO only works on color or value channel!")
-            return {'CANCELLED'}
 
         if not bump_ch:
             self.report({'ERROR'}, "Transition AO only works if there's transition bump enabled on other channel!")
@@ -199,11 +191,11 @@ class YHideTransitionEffect(bpy.types.Operator):
         root_ch = yp.channels[int(match.group(2))]
         ch = context.parent
 
-        if self.type == 'BUMP' and root_ch.type != 'NORMAL':
+        if self.type == 'BUMP' and root_ch.special_type != 'HEIGHT':
             self.report({'ERROR'}, "Context is incorrect!")
             return {'CANCELLED'}
 
-        if self.type != 'BUMP' and root_ch.type == 'NORMAL':
+        if self.type != 'BUMP' and root_ch.special_type == 'HEIGHT':
             self.report({'ERROR'}, "Context is incorrect!")
             return {'CANCELLED'}
 
@@ -303,14 +295,15 @@ def update_enable_transition_bump(self, context):
         print('INFO: Transition bump is enabled in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     else: print('INFO: Transition bump is disabled in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
+classes = (
+    YShowTransitionBump,
+    YShowTransitionRamp,
+    YShowTransitionAO,
+    YHideTransitionEffect,
+)
+
 def register():
-    bpy.utils.register_class(YShowTransitionBump)
-    bpy.utils.register_class(YShowTransitionRamp)
-    bpy.utils.register_class(YShowTransitionAO)
-    bpy.utils.register_class(YHideTransitionEffect)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YShowTransitionBump)
-    bpy.utils.unregister_class(YShowTransitionRamp)
-    bpy.utils.unregister_class(YShowTransitionAO)
-    bpy.utils.unregister_class(YHideTransitionEffect)
+    for cls in classes: bpy.utils.unregister_class(cls)
