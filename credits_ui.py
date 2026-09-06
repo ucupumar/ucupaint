@@ -12,12 +12,12 @@ class YForceUpdateSponsors(bpy.types.Operator):
     bl_label = "Force Update Sponsors"
 
     # debugging purpose
-    clear_image_cache : BoolProperty(
+    clear_image_cache = BoolProperty(
         default = False,
         description = "Clear image cache",
     )
 
-    use_dummy_users : BoolProperty(
+    use_dummy_users = BoolProperty(
         default = False,
         description = "Use dummy users",
     )
@@ -74,9 +74,9 @@ class YTierPagingButton(bpy.types.Operator):
     bl_idname = "wm.y_sponsor_paging"
     bl_label = "Next Page"
 
-    is_next_button : BoolProperty(default=True)
-    tier_index : bpy.props.IntProperty(default=0)
-    max_page : bpy.props.IntProperty(default=0)
+    is_next_button = BoolProperty(default=True)
+    tier_index = bpy.props.IntProperty(default=0)
+    max_page = bpy.props.IntProperty(default=0)
 
     def execute(self, context):
         goal_ui = context.window_manager.ypui_credits
@@ -98,8 +98,8 @@ class YCollaboratorPagingButton(bpy.types.Operator):
     bl_idname = "wm.y_collaborator_paging"
     bl_label = "Next Page"
 
-    is_next_button : BoolProperty(default=True)
-    max_page : bpy.props.IntProperty(default=0)
+    is_next_button = BoolProperty(default=True)
+    max_page = bpy.props.IntProperty(default=0)
 
     def execute(self, context):
         goal_ui = context.window_manager.ypui_credits
@@ -178,7 +178,7 @@ class YSponsorPopover(bpy.types.Panel):
         col.label(text="~ "+maintaner)
 
 class YSponsorProp(bpy.types.PropertyGroup):
-    progress : FloatProperty(
+    progress = FloatProperty(
         default = 0.0,
         min = 0.0,
         max = 100.0,
@@ -186,35 +186,35 @@ class YSponsorProp(bpy.types.PropertyGroup):
         subtype = 'PERCENTAGE'
     )
 
-    expand_tiers : bpy.props.BoolVectorProperty(
+    expand_tiers = bpy.props.BoolVectorProperty(
         name = "Expand Tiers",
         description = "Expand Tiers List",
         size = 8, # cannot be dynamic
     )
 
-    page_tiers : bpy.props.IntVectorProperty(
+    page_tiers = bpy.props.IntVectorProperty(
         name = "Page Tiers",
         description = "Page Tiers",
         size = 8, # cannot be dynamic
     )
 
-    page_collaborators : IntProperty(
+    page_collaborators = IntProperty(
         default = 0)
 
-    expand_description : BoolProperty(
+    expand_description = BoolProperty(
         default = False,
         description = get_addon_title() + "'s sponsor is updated daily",
     )
 
-    initialized : BoolProperty(
+    initialized = BoolProperty(
         default = False,
     )
 
-    expanded : BoolProperty(
+    expanded = BoolProperty(
         default = False,
     )
 
-    connection_status : bpy.props.EnumProperty(
+    connection_status = bpy.props.EnumProperty(
         name = 'connection status',
         items = (
             ('INIT', "INIT", 'Initial'),
@@ -226,7 +226,7 @@ class YSponsorProp(bpy.types.PropertyGroup):
     )
 
     # debugging purpose
-    use_dummy_users : BoolProperty(
+    use_dummy_users = BoolProperty(
         default = False,
         description = "Use dummy users",
     )
