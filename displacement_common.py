@@ -536,7 +536,7 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
     bl_description = "Disable material displacement settings and remove or use lower subdivision modifer to all objects with the same material.\nNOTE: This will also make the height output no longer accessible."
     bl_options = {'REGISTER', 'UNDO'}
 
-    action : EnumProperty(
+    action = EnumProperty(
         name = 'Remove Displacement Action',
         items = (
             ('ORIGINAL', 'Recover Original State', 'Recover original object modifier states before displacement setup.'),
@@ -546,7 +546,7 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
         default = 'ORIGINAL'
     )
 
-    subdiv_level : IntProperty(
+    subdiv_level = IntProperty(
         name = 'Subdivision Level',
         description = 'Set subdivision level on all objects with the same material',
         default=1, min=0, max=10, 
@@ -602,7 +602,7 @@ class YQuickDisplacementSetup(bpy.types.Operator):
     bl_description = "Enable material displacement settings and add subdivision modifer to all objects with the same material.\nNOTE: This will also make the height output accessible."
     bl_options = {'REGISTER', 'UNDO'}
 
-    displacement_method : EnumProperty(
+    displacement_method = EnumProperty(
         name = 'Displacement Method',
         items = (
             #('BUMP', 'Bump Only', 'Bump mapping to simulate the appearance of displacement.'),
@@ -612,19 +612,19 @@ class YQuickDisplacementSetup(bpy.types.Operator):
         default = 'BOTH'
     )
 
-    max_polys : IntProperty(
+    max_polys = IntProperty(
         name = 'Subdivision Max Polygons',
         description = 'Add subdivision modifier with number of max polygons (in thousand)',
         default=1000, min=1, max=10000, 
     )
 
-    use_adaptive_subdivision : BoolProperty(
+    use_adaptive_subdivision = BoolProperty(
         name = 'Use Adaptive Subdivision',
         description = 'Use adaptive subdivion (Cycles Only)',
         default = False
     )
 
-    dicing_rate : FloatProperty(
+    dicing_rate = FloatProperty(
         name = 'Adaptive Subdivision Dicing Rate',
         description = 'Adaptive subdivision dicing rate in pixels',
         default=1.0, min=0.5, max=1000,
