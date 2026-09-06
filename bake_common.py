@@ -476,10 +476,10 @@ def measure_curvature_edges(points, normals, ed, weights, sigma, chunk=1024):
         for r in range(0, len(cell_points), chunk):
             pi = cell_points[r:r + chunk]
             T = p32[pi]
-            d2 = (T * T).sum(1)[:, None] + Q_[None, :] - 2 * (T @ P_.T)
+            d2 = (T * T).sum(1)[:, None] + Q_[None, :] - 2 * (T * P_.T)
             g = numpy.exp(-numpy.maximum(d2, 0) * inv2s2)
-            g *= numpy.clip((n32[pi] @ N_.T + 0.1) * 2.5, 0, 1)
-            out[pi] = g @ W_
+            g *= numpy.clip((n32[pi] * N_.T + 0.1) * 2.5, 0, 1)
+            out[pi] = g * W_
 
     return out
 
@@ -576,8 +576,8 @@ def get_world_mesh_arrays(objs):
 
         co, ls, lt, ev, le, lv, cn = get_mesh_corner_arrays(me)
         mw = numpy.array(ob.matrix_world, dtype=numpy.float64)
-        co = co.astype(numpy.float64) @ mw[:3, :3].T + mw[:3, 3]
-        cn = cn.astype(numpy.float64) @ numpy.linalg.inv(mw[:3, :3])
+        co = co.astype(numpy.float64) * mw[:3, :3].T + mw[:3, 3]
+        cn = cn.astype(numpy.float64) * numpy.linalg.inv(mw[:3, :3])
         cn /= numpy.maximum(numpy.linalg.norm(cn, axis=1), 1e-12)[:, None]
         scale = numpy.full(len(ls), abs(numpy.linalg.det(mw[:3, :3])) ** (1.0 / 3.0))
 
@@ -4179,7 +4179,7 @@ def fill_wireframe_uvs(obj, temp_uv, scale_uv):
     lv = numpy.empty(nl, dtype=numpy.int64); me.loops.foreach_get('vertex_index', lv)
     co = numpy.empty(nv * 3, dtype=numpy.float32); me.vertices.foreach_get('co', co); co.shape = (-1, 3)
     mw = numpy.array(obj.matrix_world, dtype=numpy.float32)
-    cow = co @ mw[:3, :3].T + mw[:3, 3]
+    cow = co * mw[:3, :3].T + mw[:3, 3]
 
     # Face world extents, the first edge spans u and the closing edge v
     v0 = cow[lv[ls]]
@@ -6777,36 +6777,36 @@ def get_output_uv_names_from_geometry_nodes(obj):
 
 class BaseBakeProps():
     # Image related
-    width : IntProperty(name='Width', default=1024, min=1, max=16384)
-    height : IntProperty(name='Height', default=1024, min=1, max=16384)
+    width = IntProperty(name='Width', default=1024, min=1, max=16384)
+    height = IntProperty(name='Height', default=1024, min=1, max=16384)
 
-    image_resolution : EnumProperty(
+    image_resolution = EnumProperty(
         name = 'Image Resolution',
         items = image_resolution_items,
         default = '1024'
         #update = update_bake_image_resolution
     )
     
-    use_custom_resolution : BoolProperty(
+    use_custom_resolution = BoolProperty(
         name = 'Custom Resolution',
         description = 'Use custom Resolution to adjust the width and height individually',
         default = False
     )
 
-    samples : IntProperty(
+    samples = IntProperty(
         name = 'Bake Samples', 
         description = 'Bake Samples, more means less jagged on generated textures', 
         default=1, min=1
     )
 
-    margin : IntProperty(
+    margin = IntProperty(
         name = 'Bake Margin',
         description = 'Bake margin in pixels',
         default = 5,
         subtype = 'PIXEL'
     )
 
-    margin_type : EnumProperty(
+    margin_type = EnumProperty(
         name = 'Margin Type',
         description = '',
         items = (
@@ -6818,14 +6818,14 @@ class BaseBakeProps():
 
     # Vertex color related
 
-    vcol_data_type : EnumProperty(
+    vcol_data_type = EnumProperty(
         name = get_vertex_color_label()+' Data Type',
         description = get_vertex_color_label(10)+' data type',
         items = vcol_data_type_items,
         default = 'BYTE_COLOR'
     )
 
-    vcol_domain : EnumProperty(
+    vcol_domain = EnumProperty(
         name = get_vertex_color_label()+' Domain',
         description = get_vertex_color_label(10)+' domain',
         items = vcol_domain_items,
@@ -6833,7 +6833,7 @@ class BaseBakeProps():
     )
 
 class BaseBakeOperator(BaseBakeProps):
-    bake_device : EnumProperty(
+    bake_device = EnumProperty(
         name = 'Bake Device',
         description = 'Device to use for baking',
         items = bake_device_items,
