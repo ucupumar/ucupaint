@@ -1644,6 +1644,7 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
         if self.with_prompt and (any_global_image_bts or any_global_vcol_bts):
             props = BakeTarget.get_global_settings_props()
             for prop in props:
+                if prop == 'baked_counters': continue
                 setattr(gloset, prop, getattr(self, prop))
 
         return status

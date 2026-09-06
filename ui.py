@@ -2266,15 +2266,14 @@ def draw_base_layer_ui(context, layout, yp, node):
             if len(inputs[input_index].links) > 0:
                 rcrow.label(text='', icon='LINKED')
 
-            # NOTE: Always show the base values because it will affect the bake result
-            if root_ch.type == 'VALUE':
-                rcrow.prop(inputs[input_index], 'default_value', text='') #, emboss=False)
-            elif root_ch.type == 'RGB':
-                rcrow.prop(inputs[input_index], 'default_value', text='', icon='COLOR')
+            bt = yp.bake_targets.get(root_ch.bake_target_name)
+            baked = tree.nodes.get(bt.baked_node) if bt else None       
 
-            #output_index = get_output_index(root_ch)
-            #if is_output_unconnected(node, output_index, root_ch):
-            #    rcrow.label(text='', icon='ERROR')
+            if len(inputs[input_index].links) == 0 or baked:
+                if root_ch.type == 'VALUE':
+                    rcrow.prop(inputs[input_index], 'default_value', text='') #, emboss=False)
+                elif root_ch.type == 'RGB':
+                    rcrow.prop(inputs[input_index], 'default_value', text='', icon='COLOR')
 
             if ypup.developer_mode and root_ch.type=='RGB' and root_ch.enable_alpha:
                 if len(inputs[input_index + 1].links) == 0:
@@ -6075,7 +6074,8 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                 # Color input
                 if root_ch.io_index < len(node.inputs):
                     inp = node.inputs[root_ch.io_index]
-                    baked = group_tree.nodes.get(root_ch.baked)
+                    bt = yp.bake_targets.get(root_ch.bake_target_name)
+                    baked = group_tree.nodes.get(bt.baked_node) if bt else None       
                     if len(inp.links) > 0:
                         row.label(text='', icon='LINKED')
 
