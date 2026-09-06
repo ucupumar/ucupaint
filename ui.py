@@ -5008,23 +5008,11 @@ class VIEW3D_PT_YPaint_main_ui(bpy.types.Panel, BaseMainUI):
         return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
     def draw_header(self, context):
-        self.base_draw_header(context)
+        if is_bl_newer_than(2, 80):
+            self.base_draw_header(context)
 
     def draw_header_preset(self, context):
         self.base_draw_header_preset(context)
-
-    def draw(self, context):
-        self.base_draw(context)
-
-class VIEW3D_PT_YPaint_legacy_main_ui(bpy.types.Panel, BaseMainUI):
-    bl_label = 'Layers'
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = get_addon_title()
-
-    @classmethod
-    def poll(cls, context):
-        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
     def draw(self, context):
         self.base_draw(context)
@@ -5041,24 +5029,11 @@ class NODE_PT_YPaint_main_ui(bpy.types.Panel, BaseMainUI):
                 and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'} and context.space_data.tree_type == 'ShaderNodeTree')
 
     def draw_header(self, context):
-        self.base_draw_header(context)
+        if is_bl_newer_than(2, 80):
+            self.base_draw_header(context)
 
     def draw_header_preset(self, context):
         self.base_draw_header_preset(context)
-
-    def draw(self, context):
-        self.base_draw(context)
-
-class NODE_PT_YPaint_legacy_main_ui(bpy.types.Panel, BaseMainUI):
-    bl_space_type = 'NODE_EDITOR'
-    bl_label = 'Layers'
-    bl_region_type = 'TOOLS'
-    bl_category = get_addon_title()
-
-    @classmethod
-    def poll(cls, context):
-        return (context.object and context.object.type in possible_object_types 
-                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'} and context.space_data.tree_type == 'ShaderNodeTree')
 
     def draw(self, context):
         self.base_draw(context)
@@ -5086,36 +5061,11 @@ class BaseObjectMaterialSettingsUI():
 
         ### Object settings
 
-        #icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
-        #row = layout.row(align=True)
-        #rrow = row.row(align=True)
         text_object = pgettext_iface('Object: ')
         if obj: text_object += obj.name
         else: text_object += '-'
 
-        #if is_bl_newer_than(2, 80):
-        #    rrow.alignment = 'LEFT'
-        #    rrow.scale_x = 0.95
-        #    rrow.prop(ypui, 'show_object', emboss=False, text=text_object, icon=icon)
-        #else:
-        #    rrow.prop(ypui, 'show_object', emboss=False, text='', icon=icon)
-        #    rrow.label(text=text_object)
-
-        #rrow = row.row(align=True)
-        #rrow.alignment = 'RIGHT'
-        #if not is_bl_newer_than(2, 80):
-        #    rrow.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
-        #else: 
-        #    row.popover("NODE_PT_ypaint_about_popover", text='', icon='HELP')
-        #    if is_package_module_exists('.credits_ui'):
-        #        row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
-
-        #header, panel = self.layout.panel("MAT_YP_ObjectSettingsPanel", default_closed=True)
-        #header.label(text=text_object, icon_value=lib.get_icon('object_data'))
-        #if panel:
         box = layout
-        #box = layout.box()
-        #box = panel
         col = box.column()
         row = split_layout(col, 0.6)
         row.label(text='Object Index ('+obj.name+'):')
@@ -5123,32 +5073,15 @@ class BaseObjectMaterialSettingsUI():
 
         ### Material settings
 
-        #icon = 'TRIA_DOWN' if ypui.show_materials else 'TRIA_RIGHT'
-        #rrow = row.row(align=True)
         text_material = pgettext_iface('Material: ')
         if mat: text_material += mat.name
         else: text_material += '-'
 
-        #if is_bl_newer_than(2, 80):
-        #    rrow.alignment = 'LEFT'
-        #    rrow.scale_x = 0.95
-        #    rrow.prop(ypui, 'show_materials', emboss=False, text=text_material, icon=icon)
-        #else:
-        #    rrow.prop(ypui, 'show_materials', emboss=False, text='', icon=icon)
-        #    rrow.label(text=text_material)
-
-        #header, panel = self.layout.panel("MAT_YP_MaterialSettingsPanel", default_closed=True)
-        #header.label(text=text_material, icon_value=lib.get_icon('material'))
-
-        ##if ypui.show_materials:
-        #if panel:
         is_sortable = len(obj.material_slots) > 1
         rows = 2
         if (is_sortable):
             rows = 4
         box = layout
-        #box = layout.box()
-        #box = panel
         row = box.row()
         row.template_list("MATERIAL_UL_matslots", "", obj, "material_slots", obj, "active_material_index", rows=rows)
         col = row.column(align=True)
@@ -5214,23 +5147,6 @@ class BaseObjectMaterialSettingsUI():
                 rrow = col.row(align=True)
                 rrow.label(text='Transparent Shadows:')
                 rrow.prop(mat, 'use_transparent_shadow', text='')
-
-        #node = get_active_ypaint_node()
-        #if not node: return
-
-        #### Channel Settings
-
-        #header, panel = self.layout.panel("MAT_YP_ChannelSettingsPanel", default_closed=True)
-        #header.label(text="Channels", icon_value=lib.get_icon('channels'))
-        #if panel:
-        #    draw_root_channels_ui(context, panel, node)
-
-        #### Bake Target Settings
-
-        #header, panel = self.layout.panel("MAT_YP_ChannelBakeTargetsPanel", default_closed=True)
-        #header.label(text="Bake Targets", icon_value=lib.get_icon('bake'))
-        #if panel:
-        #    draw_bake_targets_ui(context, panel, node)
 
 class VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools(bpy.types.Panel, BaseObjectMaterialSettingsUI):
     bl_space_type = 'VIEW_3D'
@@ -5331,32 +5247,6 @@ class NODE_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsUI)
     def draw(self, context):
         self.base_draw(context)
 
-class NODE_PT_YPaint_legacy_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsUI):
-    bl_space_type = 'NODE_EDITOR'
-    bl_label = 'Channel Settings'
-    bl_region_type = 'TOOLS'
-    bl_category = get_addon_title()
-    bl_options = {'DEFAULT_CLOSED'} 
-
-    @classmethod
-    def poll(cls, context):
-        ypup = get_user_preferences()
-        if not ypup.ui_non_popup_settings and is_bl_newer_than(2, 80): return False
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp if node else None
-        use_baked = yp.use_baked if yp else False
-        sculpt_mode = yp.sculpt_mode if yp else False
-        return yp and not use_baked and not sculpt_mode and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
-
-    def draw_header(self, context):
-        self.base_draw_header(context)
-
-    def draw_header_preset(self, context):
-        self.base_draw_header_preset(context)
-
-    def draw(self, context):
-        self.base_draw(context)
-
 class VIEW3D_PT_YPaint_legacy_channel_settings_tools(bpy.types.Panel, BaseChannelSettingsUI):
     bl_space_type = 'VIEW_3D'
     bl_label = 'Channel Settings'
@@ -5425,32 +5315,6 @@ class NODE_PT_YPaint_bake_target_settings_ui(bpy.types.Panel, BaseBakeTargetSett
     bl_space_type = 'NODE_EDITOR'
     bl_label = 'Bake Target Settings'
     bl_region_type = 'UI'
-    bl_category = get_addon_title()
-    bl_options = {'DEFAULT_CLOSED'} 
-
-    @classmethod
-    def poll(cls, context):
-        ypup = get_user_preferences()
-        if not ypup.ui_non_popup_settings and is_bl_newer_than(2, 80): return False
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp if node else None
-        use_baked = yp.use_baked if yp else False
-        sculpt_mode = yp.sculpt_mode if yp else False
-        return yp and not use_baked and not sculpt_mode and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
-
-    def draw_header(self, context):
-        self.base_draw_header(context)
-
-    def draw_header_preset(self, context):
-        self.base_draw_header_preset(context)
-
-    def draw(self, context):
-        self.base_draw(context)
-
-class NODE_PT_YPaint_legacy_bake_target_settings_ui(bpy.types.Panel, BaseBakeTargetSettingsUI):
-    bl_space_type = 'NODE_EDITOR'
-    bl_label = 'Bake Target Settings'
-    bl_region_type = 'TOOLS'
     bl_category = get_addon_title()
     bl_options = {'DEFAULT_CLOSED'} 
 
@@ -9415,35 +9279,24 @@ def unregister_new_entity_menus():
 panels = [
     VIEW3D_PT_YPaint_about_ui,
     VIEW3D_PT_YPaint_obj_mat_settings_ui,
-]
-if not is_bl_newer_than(2, 80):
-    panels.append(VIEW3D_PT_YPaint_legacy_main_ui)
-else: panels.append(VIEW3D_PT_YPaint_main_ui)
-panels.extend([
+    VIEW3D_PT_YPaint_main_ui,
     VIEW3D_PT_YPaint_channel_settings_ui,
     VIEW3D_PT_YPaint_bake_target_settings_ui,
     #VIEW3D_PT_YPaint_stats_ui,
     VIEW3D_PT_YPaint_test_ui,
-])
+
+    NODE_PT_YPaint_about_ui,
+    NODE_PT_YPaint_main_ui,
+    NODE_PT_YPaint_channel_settings_ui,
+    NODE_PT_YPaint_bake_target_settings_ui,
+]
 if not is_bl_newer_than(2, 80):
     panels.extend([
-        NODE_PT_YPaint_legacy_about_ui,
-        NODE_PT_YPaint_legacy_main_ui,
-        NODE_PT_YPaint_legacy_channel_settings_ui,
-        NODE_PT_YPaint_legacy_bake_target_settings_ui,
-
         VIEW3D_PT_YPaint_legacy_about_tools,
         VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools,
         VIEW3D_PT_YPaint_legacy_main_tools,
         VIEW3D_PT_YPaint_legacy_channel_settings_tools,
         VIEW3D_PT_YPaint_legacy_bake_target_settings_tools,
-    ])
-else: 
-    panels.extend([
-        NODE_PT_YPaint_about_ui,
-        NODE_PT_YPaint_main_ui,
-        NODE_PT_YPaint_channel_settings_ui,
-        NODE_PT_YPaint_bake_target_settings_ui,
     ])
 
 def register_panels():
@@ -9452,8 +9305,20 @@ def register_panels():
     for panel in panels:
         if hasattr(bpy.types, panel.__name__):
             bpy.utils.unregister_class(panel)
+
+        if not is_bl_newer_than(2, 80):
+            # Blender 2.7x UI will use `Layers` header
+            if panel.bl_label == ' ':
+                panel.bl_label = 'Layers'
+
+            # Blender 2.7x will use Node editor toolshelf
+            if panel.__name__.startswith('NODE_PT_'):
+                panel.bl_region_type = 'TOOLS'
+
+        # Blender 5.2 has tab icon
         if is_bl_newer_than(5, 2):
             panel.bl_icon_value = icon_value
+
         bpy.utils.register_class(panel)
 
 def unregister_panels():
