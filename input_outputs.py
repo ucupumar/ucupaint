@@ -937,15 +937,15 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
                         try: setattr(root_tree.path_resolve(entity_path), prop_name, (val[0], val[1], val[2]))
                         except Exception as e: print(e)
+                    elif socket_type in {'NodeSocketVector'}:
+                        for v in val:
+                            if v < inp.min_value or v > inp.max_value:
+                                do_remove = False  
+                        try: setattr(root_tree.path_resolve(entity_path), prop_name, val)
+                        except Exception as e: print(e)
                     else:
-                        bpytypes = get_bpytypes()
-                        if isinstance(val, bpytypes.bpy_prop_array): vals = val
-                        else: vals = [val]
-                        for val in vals:
-                            # Do not remove input if it has value outside of min max
-                            if val < inp.min_value or val > inp.max_value:
-                                do_remove = False
-
+                        if val < inp.min_value or val > inp.max_value:
+                            do_remove = False
                         try: setattr(root_tree.path_resolve(entity_path), prop_name, val)
                         except Exception as e: print(e)
 
