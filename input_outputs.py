@@ -937,7 +937,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
                         try: setattr(root_tree.path_resolve(entity_path), prop_name, (val[0], val[1], val[2]))
                         except Exception as e: print(e)
-                    elif socket_type in {'NodeSocketVector'}:
+                    elif socket_type in {'NodeSocketVector', 'VECTOR'}:
                         for v in val:
                             if v < inp.min_value or v > inp.max_value:
                                 do_remove = False  
