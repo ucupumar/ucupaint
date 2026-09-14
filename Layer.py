@@ -29,7 +29,7 @@ class YRefreshNeighborUV(bpy.types.Operator):
     """Refresh Neighbor UV"""
     bl_idname = "wm.y_refresh_neighbor_uv"
     bl_label = "Refresh Neighbor UV"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -43,7 +43,7 @@ class YUseLinearColorSpace(bpy.types.Operator):
     """This addon need to linear color space image to works properly"""
     bl_idname = "wm.y_use_linear_color_space"
     bl_label = "Use Linear Color Space"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -60,7 +60,7 @@ class YFixMissingSource(bpy.types.Operator):
     """Fix missing source of the layer"""
     bl_idname = "wm.y_fix_missing_layer_source"
     bl_label = "Fix Missing Layer Source"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -72,10 +72,10 @@ class YFixMissingSource(bpy.types.Operator):
         rearrange_layer_nodes(context.layer)
         return {'FINISHED'}
 
-class YNewVcolToOverrideChannel(bpy.types.Operator):
-    bl_idname = "wm.y_new_vcol_to_override_channel"
-    bl_label = "New "+get_vertex_color_label()+" to Layer Channel Source"
-    bl_description = "New "+get_vertex_color_label()+" to custom layer channel source"
+class YNewVcolAsLayerChannelSource(bpy.types.Operator):
+    bl_idname = "wm.y_new_vcol_as_layer_channel_source"
+    bl_label = "New "+get_vertex_color_label()+" as Layer Channel Source"
+    bl_description = "New "+get_vertex_color_label()+" as custom layer channel source"
     bl_options = {'UNDO'}
 
     name : StringProperty(default='')
@@ -1397,11 +1397,11 @@ class YNewLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
-    """Open Image to Override Channel"""
-    bl_idname = "wm.y_open_image_to_override_layer_channel"
-    bl_label = "Open Image to Override Channel Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+class YOpenImageAsLayerChannelSource(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
+    """Open Image as layer channel source"""
+    bl_idname = "wm.y_open_image_as_layer_channel_source"
+    bl_label = "Open Image as Layer Channel Source"
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -2017,10 +2017,10 @@ def search_for_image_node(node, channel_name, channel_image_dict={}):
                 if channel_name in channel_image_dict:
                     break
                 
-class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
-    bl_idname = "wm.y_open_images_from_material_to_single_layer"
-    bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
-    bl_description = "Open images inside material node tree to single " + get_addon_title() + " layer"
+class YOpenImagesFromMaterialAsLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
+    bl_idname = "wm.y_open_images_from_material_as_single_layer"
+    bl_label = "Open Images from Material as single " + get_addon_title() + " Layer"
+    bl_description = "Open images inside material node tree as single " + get_addon_title() + " layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     mat_name : StringProperty(name='Material', default='')
@@ -2254,7 +2254,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
 class YOpenLayersFromMaterial(bpy.types.Operator):
     bl_idname = "wm.y_open_layers_from_material"
     bl_label = "Open Layers from " + get_addon_title() + " Material"
-    bl_description = "Open layers from material to current " + get_addon_title() + " material"
+    bl_description = "Open layers from material into current active " + get_addon_title() + " node"
     bl_options = {'REGISTER', 'UNDO'}
 
     mat_name : StringProperty(name='Material', default='')
@@ -2355,11 +2355,11 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
-    bl_idname = "wm.y_open_images_to_single_layer"
-    bl_label = "Open Images to single Layer"
-    bl_description = "Open images to single layer"
-    bl_options = {'REGISTER', 'UNDO'}
+class YOpenImagesAsSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
+    bl_idname = "wm.y_open_images_as_single_layer"
+    bl_label = "Open Images as single Layer"
+    bl_description = "Open images as single layer"
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -2386,7 +2386,7 @@ class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleIma
 
 class YOpenImageAsLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
     """Open Image as Layer"""
-    bl_idname = "wm.y_open_image_to_layer"
+    bl_idname = "wm.y_open_image_as_layer"
     bl_label = "Open Image as Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -2834,10 +2834,10 @@ class YOpenImageAsLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
 
         return {'FINISHED'}
 
-class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
-    """Open Existing Data to Override Channel Layer"""
-    bl_idname = "wm.y_open_existing_data_to_override_channel"
-    bl_label = "Open Existing Data to Override Channel Layer"
+class YOpenExistingDataAsLayerChannelSource(bpy.types.Operator):
+    """Open Existing Data as layer channel source"""
+    bl_idname = "wm.y_open_existing_data_as_layer_channel_source"
+    bl_label = "Open Existing Data as Layer Channel Source"
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
@@ -2999,9 +2999,9 @@ class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YOpenExistingDataToLayer(bpy.types.Operator):
+class YOpenExistingDataAsLayer(bpy.types.Operator):
     """Open Existing Data as Layer"""
-    bl_idname = "wm.y_open_existing_data_to_layer"
+    bl_idname = "wm.y_open_existing_data_as_layer"
     bl_label = "Open Existing Data as Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -3244,7 +3244,7 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
     bl_idname = "wm.y_move_in_out_layer_group"
     bl_label = "Move In/Out Layer Group"
     bl_description = "Move in or out layer group"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
@@ -3378,7 +3378,7 @@ class YMoveLayer(bpy.types.Operator):
     bl_idname = "wm.y_move_layer"
     bl_label = "Move Layer"
     bl_description = "Move layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
@@ -3553,7 +3553,6 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
     bl_label = "Move In/Out Layer Group"
     bl_description = "Move inside or outside layer group"
     bl_options = {'UNDO'}
-    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
@@ -3606,7 +3605,6 @@ class YRemoveLayerMenu(bpy.types.Operator):
     bl_idname = "wm.y_remove_layer_menu"
     bl_label = "Remove Layer Menu"
     bl_description = "Remove Layer Menu"
-    #bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -3786,11 +3784,11 @@ class YRemoveLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YReplaceLayerChannelOverride(bpy.types.Operator):
-    bl_idname = "wm.y_replace_layer_channel_override"
-    bl_label = "Replace Layer Channel Override"
-    bl_description = "Replace Layer Channel Override"
-    bl_options = {'REGISTER', 'UNDO'}
+class YReplaceLayerChannelSource(bpy.types.Operator):
+    bl_idname = "wm.y_replace_layer_channel_source"
+    bl_label = "Replace Layer Channel Source"
+    bl_description = "Replace Layer Channel Source"
+    bl_options = {'UNDO'}
 
     type : EnumProperty(
         name = 'Layer Type',
@@ -3814,39 +3812,11 @@ class YReplaceLayerChannelOverride(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YReplaceLayerChannelOverride1(bpy.types.Operator):
-    bl_idname = "wm.y_replace_layer_channel_override_1"
-    bl_label = "Replace Layer Channel Normal Override"
-    bl_description = "Replace Layer Channel Normal Override"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    type : EnumProperty(
-        name = 'Layer Type',
-        items = channel_override_1_type_items,
-        default = 'IMAGE'
-    )
-
-    @classmethod
-    def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
-
-    def execute(self, context):
-        ch = context.parent
-        ch.override_1_type = self.type
-        ch.override_1 = True
-        if not ch.enable: ch.enable = True
-
-        # Update list items
-        ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
-
-        return {'FINISHED'}
-
-class YRemoveLayerChannelOverrideSource(bpy.types.Operator):
+class YRemoveLayerChannelCustomDataSource(bpy.types.Operator):
     bl_idname = "wm.y_remove_channel_override_source"
-    bl_label = "Replace Layer Channel Override Source"
-    bl_description = "Replace Layer Channel Override Source"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_label = "Replace Layer Channel Custom Data Source"
+    bl_description = "Replace layer channel custom data source"
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -3995,7 +3965,7 @@ class YReplaceLayerType(bpy.types.Operator):
     bl_idname = "wm.y_replace_layer_type"
     bl_label = "Replace Layer Type"
     bl_description = "Replace Layer Type"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     type : EnumProperty(
         name = 'Layer Type',
@@ -4272,7 +4242,7 @@ class YCopyLayer(bpy.types.Operator):
     bl_idname = "wm.y_copy_layer"
     bl_label = "Copy Layer"
     bl_description = "Copy Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     all_layers : BoolProperty(
         name = 'Copy All Layers',
@@ -6354,15 +6324,15 @@ classes = (
     YFixMissingSource,
     YNewLayer,
     YNewVDMLayer,
-    YNewVcolToOverrideChannel,
+    YNewVcolAsLayerChannelSource,
     YOpenImageAsLayer,
-    YOpenImagesToSingleLayer,
-    YOpenImagesFromMaterialToLayer,
+    YOpenImagesAsSingleLayer,
+    YOpenImagesFromMaterialAsLayer,
     YOpenLayersFromMaterial,
     YOpenImageToReplaceLayer,
-    YOpenImageToOverrideChannel,
-    YOpenExistingDataToLayer,
-    YOpenExistingDataToOverrideChannel,
+    YOpenImageAsLayerChannelSource,
+    YOpenExistingDataAsLayer,
+    YOpenExistingDataAsLayerChannelSource,
     YMoveLayer,
     YMoveInOutLayerGroup,
     YMoveInOutLayerGroupMenu,
@@ -6372,9 +6342,8 @@ classes = (
     YSetLayerChannelBlendType,
     YSetLayerChannelNormalBlendType,
     YSetLayerChannelInput,
-    YReplaceLayerChannelOverride,
-    YReplaceLayerChannelOverride1,
-    YRemoveLayerChannelOverrideSource,
+    YReplaceLayerChannelSource,
+    YRemoveLayerChannelCustomDataSource,
     YDuplicateLayer,
     YCopyLayer,
     YPasteLayer,

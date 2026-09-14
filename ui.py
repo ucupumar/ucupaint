@@ -6270,7 +6270,7 @@ class YPAssetBrowserMenu(bpy.types.Menu):
         mat_name = mat_asset.name if mat_asset else ''
         asset_library_path = mat_asset.full_library_path if mat_asset else ''
 
-        op = self.layout.operator("wm.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Material Images to Layer')
+        op = self.layout.operator("wm.y_open_images_from_material_as_single_layer", icon_value=lib.get_icon('image'), text='Open Material Images to Layer')
         op.mat_name = mat_name
         op.asset_library_path = asset_library_path
         op.fail_self_load = active_mat != None and active_mat.asset_data != None and mat_name == active_mat.name and asset_library_path == ''
@@ -6325,7 +6325,7 @@ class YPFileBrowserMenu(bpy.types.Menu):
 
             self.layout.label(text='Image: ' + filename)
 
-            op = self.layout.operator("wm.y_open_image_to_layer", icon_value=lib.get_icon('image'), text="Open Image as Layer")
+            op = self.layout.operator("wm.y_open_image_as_layer", icon_value=lib.get_icon('image'), text="Open Image as Layer")
             op.file_browser_filepath = filepath
             op.texcoord_type = 'UV'
 
@@ -6342,7 +6342,7 @@ class YPFileBrowserMenu(bpy.types.Menu):
 
             self.layout.separator()
 
-            op = self.layout.operator("wm.y_open_image_to_layer", icon_value=lib.get_icon('image'), text="Open Image as Decal Layer")
+            op = self.layout.operator("wm.y_open_image_as_layer", icon_value=lib.get_icon('image'), text="Open Image as Decal Layer")
             op.file_browser_filepath = filepath
             op.texcoord_type = 'Decal'
 
@@ -6744,13 +6744,13 @@ class YNewChannelMenu(bpy.types.Menu):
 def draw_new_image_layer_menu(layout, show_vdm=True):
     layout.operator("wm.y_new_layer", text='New Image', icon_value=lib.get_icon('image')).type = 'IMAGE'
 
-    op = layout.operator("wm.y_open_image_to_layer", text='Open Image...')
+    op = layout.operator("wm.y_open_image_as_layer", text='Open Image...')
     op.texcoord_type = 'UV'
     op.file_browser_filepath = ''
-    layout.operator("wm.y_open_existing_data_to_layer", text='Open Existing Image').type = 'IMAGE'
+    layout.operator("wm.y_open_existing_data_as_layer", text='Open Existing Image').type = 'IMAGE'
 
-    layout.operator("wm.y_open_images_to_single_layer", text='Open Images to Single Layer...')
-    layout.operator("wm.y_open_images_from_material_to_single_layer", text='Open Images from Material').asset_library_path = ''
+    layout.operator("wm.y_open_images_as_single_layer", text='Open Images as Single Layer...')
+    layout.operator("wm.y_open_images_from_material_as_single_layer", text='Open Images from Material').asset_library_path = ''
 
     # NOTE: Dedicated menu for opening images to single layer is kinda hard to see, so it's probably better be hidden for now
     #layout.menu("NODE_MT_y_open_images_to_single_layer_menu", text='Open Images to Single Layer')
@@ -6761,7 +6761,7 @@ def draw_new_image_layer_menu(layout, show_vdm=True):
 
 def draw_new_vcol_layer_menu(layout):
     layout.operator("wm.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New '+get_vertex_color_label()).type = 'VCOL'
-    layout.operator("wm.y_open_existing_data_to_layer", text='Open Existing '+get_vertex_color_label()).type = 'VCOL'
+    layout.operator("wm.y_open_existing_data_as_layer", text='Open Existing '+get_vertex_color_label()).type = 'VCOL'
 
 def draw_new_color_layer_menu(layout):
     icon_value = lib.get_icon("color")
@@ -7433,8 +7433,8 @@ class YOpenImagesToSingleLayerMenu(bpy.types.Menu):
     def draw(self, context):
         col = self.layout.column()
 
-        col.operator("wm.y_open_images_to_single_layer", icon='FILE_FOLDER', text='From Directory')
-        col.operator("wm.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material').asset_library_path = ''
+        col.operator("wm.y_open_images_as_single_layer", icon='FILE_FOLDER', text='From Directory')
+        col.operator("wm.y_open_images_from_material_as_single_layer", icon='MATERIAL_DATA', text='From Material').asset_library_path = ''
 
 class YImageConvertToMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_image_convert_menu"
@@ -7950,8 +7950,8 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         #icon = 'RADIOBUT_ON' if ch.override_type == 'DEFAULT' else 'RADIOBUT_OFF'
         #if root_ch.type == 'VALUE':
-        #    col.operator('wm.y_replace_layer_channel_override', text='Value', icon=icon).type = 'DEFAULT'
-        #else: col.operator('wm.y_replace_layer_channel_override', text='Color', icon=icon).type = 'DEFAULT'
+        #    col.operator('wm.y_replace_layer_channel_source', text='Value', icon=icon).type = 'DEFAULT'
+        #else: col.operator('wm.y_replace_layer_channel_source', text='Color', icon=icon).type = 'DEFAULT'
 
         col.separator()
 
@@ -7966,15 +7966,15 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         icon = 'RADIOBUT_ON' if ch.override and ch.override_type == 'IMAGE' else 'RADIOBUT_OFF'
         if cache_image and (ch.override_type != 'IMAGE' or not ch.override):
-            col.operator('wm.y_replace_layer_channel_override', text=label, icon=icon).type = 'IMAGE'
+            col.operator('wm.y_replace_layer_channel_source', text=label, icon=icon).type = 'IMAGE'
         else:
             col.label(text=label, icon=icon)
 
         row = col.row(align=True)
 
         ccol = row.column(align=True)
-        ccol.operator('wm.y_open_image_to_override_layer_channel', text='Open Image...', icon_value=lib.get_icon('open_image'))
-        ccol.operator('wm.y_open_existing_data_to_override_channel', text='Open Existing Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        ccol.operator('wm.y_open_image_as_layer_channel_source', text='Open Image...', icon_value=lib.get_icon('open_image'))
+        ccol.operator('wm.y_open_existing_data_as_layer_channel_source', text='Open Existing Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
         
         col.separator()
 
@@ -7988,15 +7988,15 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         icon = 'RADIOBUT_ON' if ch.override and ch.override_type == 'VCOL' else 'RADIOBUT_OFF'
         if cache_vcol and (ch.override_type != 'VCOL' or not ch.override):
-            col.operator('wm.y_replace_layer_channel_override', text=label, icon=icon).type = 'VCOL'
+            col.operator('wm.y_replace_layer_channel_source', text=label, icon=icon).type = 'VCOL'
         else:
             col.label(text=label, icon=icon)
 
         row = col.row(align=True)
 
         ccol = row.column(align=True)
-        ccol.operator('wm.y_new_vcol_to_override_channel', text='New '+get_vertex_color_label(), icon_value=lib.get_icon('vertex_color'))
-        ccol.operator('wm.y_open_existing_data_to_override_channel', text='Use Existing '+get_vertex_color_label(), icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        ccol.operator('wm.y_new_vcol_as_layer_channel_source', text='New '+get_vertex_color_label(), icon_value=lib.get_icon('vertex_color'))
+        ccol.operator('wm.y_open_existing_data_as_layer_channel_source', text='Use Existing '+get_vertex_color_label(), icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
 
         col.separator()
 
@@ -8010,7 +8010,7 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
             if item[0] in {'DEFAULT', 'IMAGE', 'VCOL'}: continue
 
-            col.operator('wm.y_replace_layer_channel_override', text=item[1], icon=icon).type = item[0]
+            col.operator('wm.y_replace_layer_channel_source', text=item[1], icon=icon).type = item[0]
 
 class YChannelSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_channel_experimental_menu"

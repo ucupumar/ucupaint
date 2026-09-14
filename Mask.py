@@ -1403,7 +1403,7 @@ class YMoveLayerMask(bpy.types.Operator):
     bl_idname = "wm.y_move_layer_mask"
     bl_label = "Move Layer Mask"
     bl_description = "Move layer mask"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
@@ -1476,7 +1476,7 @@ class YRemoveLayerMask(bpy.types.Operator):
     bl_idname = "wm.y_remove_layer_mask"
     bl_label = "Remove Layer Mask"
     bl_description = "Remove Layer Mask"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -1611,7 +1611,7 @@ class YReplaceMaskType(bpy.types.Operator):
     bl_idname = "wm.y_replace_mask_type"
     bl_label = "Replace Mask Type"
     bl_description = "Replace Mask Type"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     type : EnumProperty(
         name = 'Layer Type',
@@ -1713,7 +1713,7 @@ class YFixEdgeDetectAO(bpy.types.Operator):
     """Eevee Ambient Occlusion must be enabled to make edge detect mask to work"""
     bl_idname = "wm.y_fix_edge_detect_ao"
     bl_label = "Fix Edge Detect Mask AO"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
