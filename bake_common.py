@@ -3197,7 +3197,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         force_denoise_off = False
         if (any_height_ch and not bt.height_normalize) or any_non_clamped_ch: 
             force_denoise_off = True
-        img = do_image_post_process(img, bt, alpha_enabled, bake_device=bake_device, force_denoise_off=force_denoise_off)
+        img = do_image_post_process(img, btprops, alpha_enabled, bake_device=bake_device, force_denoise_off=force_denoise_off)
 
     return img
 
