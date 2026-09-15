@@ -38,7 +38,15 @@ def setup_modifier_mask_source(tree, mask, modifier_type):
     return source
 
 def get_new_mask_name(obj, layer, mask_type, modifier_type='', ignore_images=False):
-    surname = '(' + layer.name + ')'
+    surname = '('
+    source = get_layer_source(layer)
+    if layer.type == 'IMAGE' and source and source.image:
+        surname += source.image.name
+    elif layer.type == 'VCOL' and source:
+        surname += source.attribute_name
+    else: surname += layer.name
+    surname += ')'
+
     items = layer.masks
     if mask_type == 'IMAGE':
         name = 'Mask'
