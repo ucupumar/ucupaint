@@ -4117,22 +4117,39 @@ def ypaint_object_changes_update(scene):
     yp = node.node_tree.yp if node else None
 
     if ypwm.last_object != obj.name or (mat and mat.name != ypwm.last_material):
-        ypwm.last_object = obj.name
-        if mat: ypwm.last_material = mat.name
+
+        # Check if the material is the only thing that changes
+        only_material_change = False
+        if ypwm.last_object != obj.name:
+            # Remember selected object
+            ypwm.last_object = obj.name
+        elif mat and mat.name != ypwm.last_material:
+            only_material_change = True
+
+        if mat: 
+            # Remember selected material
+            ypwm.last_material = mat.name
 
         # NOTE: This code can causes context error with some file
         # Multiple materials will create temporary image in non-active materials
         # since it's the only way texture paint mode won't mess with other material image
         #check_other_mats_to_use_temp_image(obj)
 
-        # Refresh layer index to update editor image
-        if yp:
-            if yp.use_baked and len(yp.channels) > 0:
-                update_active_yp_channel(yp, bpy.context)
+        # Material changes
+        if only_material_change:
+            if yp:
+                if yp.use_baked and len(yp.channels) > 0:
+                    update_active_yp_channel(yp, bpy.context)
 
-            elif len(yp.layers) > 0:
-                try: set_active_paint_slot_entity(yp)
-                except: print('EXCEPTIION: Cannot set image canvas!')
+                elif len(yp.layers) > 0:
+                    # Update paint slot
+                    try: set_active_paint_slot_entity(yp)
+                    except: print('EXCEPTIION: Cannot set image canvas!')
+        # Object changes
+        else:
+            # Update image editor image
+            image = get_material_active_image(mat) if mat else None
+            update_image_editor_image(bpy.context, image)
 
     # HACK: Remember original image editor images before entering texture paint mode
     if yp and obj.type == 'MESH' and obj.mode != 'TEXTURE_PAINT':
@@ -4153,7 +4170,7 @@ def ypaint_object_changes_update(scene):
 
             ypwm.last_mode = obj.mode
             if yp and len(yp.layers) > 0:
-                image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
+                image, _, src_of_img, _, _, _ = get_active_image_and_stuffs(obj, yp)
 
                 # Store original uv mirror offsets
                 if obj.mode == 'TEXTURE_PAINT':

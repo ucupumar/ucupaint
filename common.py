@@ -5314,6 +5314,23 @@ def get_bake_target_label(bt=None):
 
     return label
 
+def get_material_active_image(mat):
+    if not mat.node_tree: return None
+    obj = bpy.context.object
+
+    # Check if active node is an image node
+    node = mat.node_tree.nodes.active
+    if node and node.type == 'TEX_IMAGE':
+        return node.image 
+
+    # Check for active yp node
+    node = get_active_ypaint_node(mat=mat)
+    if node:
+        image, _, _, _, _, _ = get_active_image_and_stuffs(obj, node.node_tree.yp)
+        return image
+
+    return None
+
 def set_active_paint_slot_entity(yp):
     image = None
     mat = get_active_material()
@@ -5488,7 +5505,7 @@ def get_active_image_and_stuffs(obj, yp):
     entity = None
     mapping = None
 
-    vcols = get_vertex_colors(obj)
+    vcols = get_vertex_colors(obj) if obj else []
 
     layer = yp.layers[yp.active_layer_index]
     tree = get_tree(layer)
@@ -5509,14 +5526,14 @@ def get_active_image_and_stuffs(obj, yp):
             elif mask.type == 'IMAGE':
                 image = source.image
                 src_of_img = mask
-            elif mask.type == 'VCOL' and obj.type == 'MESH':
+            elif mask.type == 'VCOL' and obj and obj.type == 'MESH':
                 # If source is empty, still try to get vertex color
                 if get_source_vcol_name(source) == '':
-                    vcol = vcols.get(mask.name)
+                    vcol = vcols.get(mask.name) if vcols else None
                     if vcol: set_source_vcol_name(source, vcol.name)
-                else: vcol = vcols.get(get_source_vcol_name(source))
-            elif mask.type == 'COLOR_ID' and obj.type == 'MESH':
-                vcol = vcols.get(COLOR_ID_VCOL_NAME)
+                else: vcol = vcols.get(get_source_vcol_name(source)) if vcols else None
+            elif mask.type == 'COLOR_ID' and obj and obj.type == 'MESH':
+                vcol = vcols.get(COLOR_ID_VCOL_NAME) if vcols else None
 
     for ch in layer.channels:
         if ch.active_edit and ch.override and ch.override_type != 'DEFAULT':
@@ -5530,8 +5547,8 @@ def get_active_image_and_stuffs(obj, yp):
                 src_of_img = ch
                 mapping = get_layer_mapping(layer)
 
-            elif ch.override_type == 'VCOL' and obj.type == 'MESH':
-                vcol = vcols.get(get_source_vcol_name(source))
+            elif ch.override_type == 'VCOL' and obj and obj.type == 'MESH':
+                vcol = vcols.get(get_source_vcol_name(source)) if vcols else None
 
         if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT':
             source = tree.nodes.get(ch.source_1)
@@ -5554,9 +5571,9 @@ def get_active_image_and_stuffs(obj, yp):
         src_of_img = layer
         mapping = get_layer_mapping(layer)
 
-    if not vcol and layer.type == 'VCOL' and obj.type == 'MESH':
+    if not vcol and layer.type == 'VCOL' and obj and obj.type == 'MESH':
         source = get_layer_source(layer, tree)
-        vcol = vcols.get(get_source_vcol_name(source))
+        vcol = vcols.get(get_source_vcol_name(source)) if vcols else None
 
     return image, uv_name, src_of_img, entity, mapping, vcol
 
