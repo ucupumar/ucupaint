@@ -2764,7 +2764,8 @@ def update_active_yp_channel(self, context):
         yp.active_bake_target_index = bt_idx
 
     # Set active baked image to paint slot
-    set_active_paint_slot_entity(yp)
+    try: set_active_image_for_editor_and_painting(yp)
+    except Exception as e: print('EXCEPTIION: Cannot set active image! Error: '+str(e))
 
     if yp.use_baked:
         if obj.type == 'MESH':
@@ -2808,7 +2809,8 @@ def update_layer_index(self, context):
     image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
     # Set active image to paint slot
-    set_active_paint_slot_entity(yp)
+    try: set_active_image_for_editor_and_painting(yp)
+    except Exception as e: print('EXCEPTIION: Cannot set active image! Error: '+str(e))
 
     # Update active vertex color
     if vcol and get_active_vertex_color(obj) != vcol:
@@ -4135,21 +4137,8 @@ def ypaint_object_changes_update(scene):
         # since it's the only way texture paint mode won't mess with other material image
         #check_other_mats_to_use_temp_image(obj)
 
-        # Material changes
-        if only_material_change:
-            if yp:
-                if yp.use_baked and len(yp.channels) > 0:
-                    update_active_yp_channel(yp, bpy.context)
-
-                elif len(yp.layers) > 0:
-                    # Update paint slot
-                    try: set_active_paint_slot_entity(yp)
-                    except: print('EXCEPTIION: Cannot set image canvas!')
-        # Object changes
-        else:
-            # Update image editor image
-            image = get_material_active_image(mat) if mat else None
-            update_image_editor_image(bpy.context, image)
+        try: set_active_image_for_editor_and_painting(yp)
+        except Exception as e: print('EXCEPTIION: Cannot set active image! Error: '+str(e))
 
     # HACK: Remember original image editor images before entering texture paint mode
     if yp and obj.type == 'MESH' and obj.mode != 'TEXTURE_PAINT':
@@ -4184,12 +4173,9 @@ def ypaint_object_changes_update(scene):
                                 obj.yp.ori_offset_v = mirror.offset_v
                         except: print('EXCEPTIION: Cannot remember original mirror offset!')
 
-                # HACK: Just in case active image is not correct (Necessary for Blender 5.0 and lower)
-                if image and not is_bl_newer_than(5, 1): 
-                    ypwm.correct_paint_image_name = image.name
-
-                # Set image editor image
-                update_image_editor_image(bpy.context, image)
+                # Set active image
+                try: set_active_image_for_editor_and_painting(yp)
+                except Exception as e: print('EXCEPTIION: Cannot set active image! Error: '+str(e))
 
                 # Refresh temporary UV
                 refresh_temp_uv(obj, src_of_img)
