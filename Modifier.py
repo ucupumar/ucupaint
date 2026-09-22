@@ -502,11 +502,21 @@ def update_oc_col(self, context):
         if oc: oc.inputs['Override Color'].default_value = col
 
 class YPaintModifier(bpy.types.PropertyGroup):
-    enable : BoolProperty(default=True, update=update_modifier_enable)
-    name : StringProperty(default='')
+    enable : BoolProperty(
+        name = 'Enable Modifier',
+        description = 'Enable modifier',
+        default=True, update=update_modifier_enable
+    )
+
+    name : StringProperty(
+        name = 'Modifier Name',
+        description = 'Modifier name',
+        default=''
+    )
 
     type : EnumProperty(
         name = 'Modifier Type',
+        description = 'Modifier type',
         items = modifier_type_items,
         default = 'INVERT'
     )

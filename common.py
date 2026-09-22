@@ -5824,13 +5824,15 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
                     if cc.enable and not cc.unpair_alpha:
                         continue
 
+                height_c = l.channels[height_ch_idx] if height_ch else None
+
                 # NOTE: Normal will automatically enabled if a layer height channel uses 'Height as Normal'
                 if channel_idx == normal_ch_idx and height_ch_idx < len(l.channels):
-                    height_c = l.channels[height_ch_idx]
                     if height_c.enable and height_c.use_height_as_normal:
                         return True
 
-                if c.enable:
+                # Height channel converted to normal won't be not counted
+                if c.enable and (not height_c or c != height_c or not c.use_height_as_normal):
                     return True
 
             if l.type == 'GROUP' and get_channel_enabled(l.channels[channel_idx], l, root_ch):
@@ -5839,6 +5841,12 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
         return False
 
     else:
+        # Converted height to normal will check normal channel on the parents
+        if root_ch.special_type == 'HEIGHT' and ch.use_height_as_normal:
+            root_normal_ch = get_root_normal_channel(yp)
+            if root_normal_ch:
+                channel_idx = get_channel_index(root_normal_ch)
+
         for pid in get_list_of_parent_ids(layer):
             parent = yp.layers[pid]
             if len(parent.channels) > channel_idx and not parent.channels[channel_idx].enable:

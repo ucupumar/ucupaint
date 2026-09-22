@@ -3064,7 +3064,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         if root_ch.special_type == 'HEIGHT':
 
-            if layer.type != 'GROUP':
+            if layer.type not in {'GROUP', 'PREV_LAYERS'}:
                 # Height
                 row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
@@ -3283,17 +3283,18 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     bcol = box.column(align=False)
 
                     brow = bcol.row(align=True)
-                    brow.label(text='Intensity:')
+                    brow.label(text='Opacity:')
                     draw_input_prop(brow, ch, 'transition_ramp_intensity_value', layer=layer)
 
                     brow = bcol.row(align=True)
                     brow.label(text='Blend:')
                     brow.prop(ch, 'transition_ramp_blend_type', text='')
 
-                    brow = bcol.row(align=True)
-                    brow.active = bump_ch_found
-                    brow.label(text='Transition Factor:')
-                    draw_input_prop(brow, ch, 'transition_bump_second_fac', layer=layer)
+                    if showed_bump_ch_found:
+                        brow = bcol.row(align=True)
+                        brow.active = bump_ch_found
+                        brow.label(text='Transition Factor:')
+                        draw_input_prop(brow, ch, 'transition_bump_second_fac', layer=layer)
 
                     if tr_ramp.type == 'GROUP':
                         ramp = tr_ramp.node_tree.nodes.get('_RAMP')
@@ -3333,7 +3334,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     bcol = box.column(align=False)
 
                     brow = bcol.row(align=True)
-                    brow.label(text='Intensity:')
+                    brow.label(text='Opacity:')
                     draw_input_prop(brow, ch, 'transition_ao_intensity', layer=layer)
 
                     brow = bcol.row(align=True)
@@ -3353,7 +3354,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     draw_input_prop(brow, ch, 'transition_ao_inside_intensity', layer=layer)
 
             # Transition Bump Intensity
-            if showed_bump_ch_found:
+            if showed_bump_ch_found and ch != height_ch:
                 row = mcol.row(align=True)
                 row.active = bump_ch_found
                 row.label(text='', icon='BLANK1')
@@ -5643,7 +5644,11 @@ def layer_listing(layout, layer, show_expand=False):
                 ch = color_ch
                 preview_ch = root_color_ch
 
-            if ch:
+            # Height channel will inactive if height is converted to normal
+            if yp.preview_mode_type == 'LAYER' and height_ch and height_ch.enable and height_ch.use_height_as_normal and ch in {height_ch, normal_ch}:
+                if ch == height_ch: is_active = False
+                else: is_active = get_channel_enabled(height_ch, layer, root_height_ch)
+            elif ch:
                 is_active = get_channel_enabled(ch, layer, preview_ch)
 
     master = layout.row(align=True)
@@ -7622,7 +7627,7 @@ class YTransitionRampMenu(bpy.types.Menu):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
             return
 
-        col.prop(context.parent, 'transition_ramp_intensity_unlink', text='Unlink Ramp with Channel Intensity')
+        col.prop(context.parent, 'transition_ramp_intensity_unlink', text='Unlink Ramp with Channel Opacity')
 
         col.separator()
 
@@ -7654,7 +7659,7 @@ class YTransitionAOMenu(bpy.types.Menu):
             return
 
         col.active = not trans_bump_flip
-        col.prop(context.parent, 'transition_ao_intensity_unlink', text='Unlink AO with Channel Intensity')
+        col.prop(context.parent, 'transition_ao_intensity_unlink', text='Unlink AO with Channel Opacity')
 
         col.separator()
 

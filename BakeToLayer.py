@@ -1004,8 +1004,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
 class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_entity_to_image"
-    bl_label = "Bake Layer/Mask To Image"
-    bl_description = "Bake Layer/Mask to an image"
+    bl_label = "Bake Layer/Mask As Image"
+    bl_description = "Bake Layer/Mask as an image"
     bl_options = {'UNDO'}
 
     name : StringProperty(

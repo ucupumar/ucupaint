@@ -190,7 +190,8 @@ def update_preview_mode(self, context):
 
         else:
             ch = layer.channels[yp.preview_mode_channel_index] if layer else None
-            normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer) if layer else None, None
+            if layer: normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
+            else: normal_ch = height_ch = None
 
             if channel.special_type == 'NORMAL':
                 preview = get_preview(mat, output, True, True, normal_space=yp.preview_mode_normal_space)
@@ -220,6 +221,8 @@ def update_preview_mode(self, context):
             if ch:
                 if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
                     channel_enabled = True
+                elif ch == height_ch and height_ch.use_height_as_normal:
+                    channel_enabled = False
                 else: channel_enabled = get_channel_enabled(ch, layer)
             else: channel_enabled = True
 

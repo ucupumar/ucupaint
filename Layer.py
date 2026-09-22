@@ -4897,6 +4897,10 @@ def update_use_height_as_normal(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
+    # Update preview mode
+    if yp.preview_mode:
+        yp.preview_mode = yp.preview_mode
+
 def update_voronoi_feature(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
