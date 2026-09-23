@@ -3206,7 +3206,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                     #row.label(text='', icon='BLANK1')
 
-        if root_ch.special_type == 'NORMAL' and layer.type != 'GROUP':
+        if root_ch.special_type == 'NORMAL' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
             #height_as_normal_disabled = ch == normal_ch and (height_ch == None or not height_ch.enable or not height_ch.use_height_as_normal)
 
@@ -3232,7 +3232,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 row.scale_x = 1.4
             row.prop(ch, 'normal_space', text='')
 
-        if root_ch.special_type == 'VDISP' and layer.type != 'GROUP':
+        if root_ch.special_type == 'VDISP' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
             # Vector Displacement Strength
             row = mcol.row(align=True)

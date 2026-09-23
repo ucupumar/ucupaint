@@ -4891,6 +4891,9 @@ def update_use_height_as_normal(self, context):
     check_start_end_root_ch_nodes(self.id_data)
     check_uv_nodes(yp)
 
+    # Update modifiers tree
+    modifier_common.check_layer_modifier_tree(layer)
+
     reconnect_layer_nodes(layer) #, ch_index)
     rearrange_layer_nodes(layer)
 

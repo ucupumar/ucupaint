@@ -688,6 +688,14 @@ def check_layer_modifier_tree(layer):
 
         # Get channel socket name
         if layer.type == 'PREV_LAYERS':
+
+            # NOTE: Add extra sockets for normal channel if it's converted from height
+            # This will add an excess modifier node group, but it's the only way the connections work right now
+            if root_ch.special_type == 'HEIGHT' and ch.use_height_as_normal:
+                normal_root_ch = get_root_normal_channel(yp)
+                if normal_root_ch.name not in socket_names:
+                    socket_names.append(normal_root_ch.name)
+
             socket_name = root_ch.name
         else: socket_name = get_channel_input_socket_name(layer, ch)
 
