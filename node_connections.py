@@ -885,15 +885,13 @@ def do_height_mask_loops(tree, layer, ch_idx, chain, alpha):
         mask_mix = nodes.get(c.mix)
         mix_pure = nodes.get(c.mix_pure)
         mix_remains = nodes.get(c.mix_remains)
-        mix_normal = nodes.get(c.mix_normal)
-        mix_vdisp = nodes.get(c.mix_vdisp)
-        mix_limit_normal = nodes.get(c.mix_limit_normal)
+        #mix_normal = nodes.get(c.mix_normal)
+        #mix_limit_normal = nodes.get(c.mix_limit_normal)
 
         mmixcol0, mmixcol1, mmixout = get_mix_color_indices(mask_mix)
         mp_mixcol0, mp_mixcol1, mp_mixout = get_mix_color_indices(mix_pure)
         mr_mixcol0, mr_mixcol1, mr_mixout = get_mix_color_indices(mix_remains)
-        mn_mixcol0, mn_mixcol1, mn_mixout = get_mix_color_indices(mix_normal)
-        mv_mixcol0, mv_mixcol1, mv_mixout = get_mix_color_indices(mix_vdisp)
+        #mn_mixcol0, mn_mixcol1, mn_mixout = get_mix_color_indices(mix_normal)
 
         if tb_falloff and (j == chain-1 or (j == chain_local-1 and not trans_bump_ch)):
             pure = tb_falloff.outputs[0]
@@ -1139,7 +1137,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     tb_value = None
     tb_second_value = None
     if trans_bump_ch:
-        chain = min(len(layer.masks), trans_bump_ch.transition_bump_chain)
+        # Get the earliest enabled mask
+        for i, mask in enumerate(layer.masks):
+            if mask.enable: chain = i+1
+
+        chain = min(chain, trans_bump_ch.transition_bump_chain)
 
         tb_value = get_essential_node(tree, TREE_START).get(get_entity_input_name(trans_bump_ch, 'transition_bump_value'))
         tb_second_value = get_essential_node(tree, TREE_START).get(get_entity_input_name(trans_bump_ch, 'transition_bump_second_edge_value'))
@@ -1399,7 +1401,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         else:
             prev_alpha = get_essential_node(tree, TREE_START).get(root_ch.name + io_suffix['ALPHA'])
 
-        #normal_alpha = None
         group_alpha = None
 
         if layer.type == 'GROUP':
