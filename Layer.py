@@ -802,6 +802,11 @@ class YNewLayer(bpy.types.Operator):
         yp = node.node_tree.yp
         obj = context.object
 
+        # Make sure channel index is not out of bound
+        if not BaseOperator.is_self_channel_idx_accessible(self):
+            try: self.channel_idx = str(0)
+            except: pass
+
         if self.type == 'IMAGE':
             name = obj.active_material.name + DEFAULT_NEW_IMG_SUFFIX
             items = bpy.data.images

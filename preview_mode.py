@@ -403,7 +403,7 @@ class YTogglePreviewMode(bpy.types.Operator):
     bl_idname = "wm.y_toggle_preview_mode"
     bl_label = "Toggle Preview Mode"
     bl_description = "Toggle preview mode"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     type : EnumProperty(
         name = 'Preview Mode Type',
