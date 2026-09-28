@@ -2640,16 +2640,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     #            rearrange_layer_nodes(lay)
 
     # Check for hdr
-    use_hdr = False
-    if not bt or bt.bake_settings == 'GLOBAL':
-        if hasattr(btprops, 'use_float_for_displacement') and btprops.use_float_for_displacement and any_height_ch:
-            use_hdr = True
-        if hasattr(btprops, 'use_float_for_normal') and btprops.use_float_for_normal and any_normal_ch:
-            use_hdr = True
-        if hasattr(btprops, 'use_float_for_vector_displacement') and btprops.use_float_for_vector_displacement and any_vdm_ch:
-            use_hdr = True
-    elif bt:
-        use_hdr = bt.hdr
+    use_hdr = bt.hdr
 
     # Get default color
     color = get_bake_target_default_color(node, bt, any_linear_ch)

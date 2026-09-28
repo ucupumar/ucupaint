@@ -348,9 +348,8 @@ def add_new_channel_bake_target(context, channel, name='', data_type='IMAGE'):
     bt.a.default_value = 1.0
 
     # Set default props
-    if channel.special_type != 'NORMAL':
-        bt.fxaa = True
-    bt.denoise = False
+    if channel.special_type == 'NORMAL':
+        bt.fxaa = False
 
     # Set UV Map
     obj = context.object
@@ -694,7 +693,7 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
     bl_idname = "wm.y_set_channel_active_bake_target"
     bl_label = "Set Channel Active Bake Target"
     bl_description = "Set channel active bake target"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     bake_target_name : StringProperty(
         name = 'Bake Target Name',
@@ -981,10 +980,6 @@ class YNewBakeTarget(bpy.types.Operator):
         bt.data_type = self.data_type
 
         bt.uv_map = get_active_render_uv(context.object)
-
-        # Set some default values
-        bt.fxaa = True
-        bt.denoise = False
 
         if root_ch:
             color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)

@@ -1697,6 +1697,12 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
             if ch.special_type == 'NORMAL':
                 has_normal_channel = True
 
+        if bt.data_type == 'IMAGE':
+            crow = col.row(align=True)
+            crow.label(text='', icon='BLANK1')
+            crow.label(text='32-bit Float:')
+            crow.prop(bt, 'hdr', text='')
+
         if has_height_channel:
             crow = col.row(align=True)
             crow.label(text='', icon='BLANK1')

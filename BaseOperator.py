@@ -244,7 +244,7 @@ def draw_base_mask_image_settings(parent, layout, split_val=0.4):
     #    right_aligned_label(row, 'Interpolation:')
     #    row.prop(parent, 'mask_interpolation', text='')
 
-def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image_props=True, show_vcol_props=True, show_general_props=True, show_hdr=True, show_udim=True, yp=None):
+def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image_props=True, show_vcol_props=True, show_general_props=True, show_hdr=False, show_udim=True, yp=None):
 
     #layout = layout.column(align=True)
 
@@ -259,25 +259,12 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
         any_non_clamped_ch = any([c for c in channels if not c.use_clamp and c.special_type not in {'HEIGHT', 'NORMAL'}])
         any_color_channel = any([c for c in channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
 
-    show_float_normal_option = False
-    show_float_height_option = False
-    show_float_vdm_option = False
     if yp:
         for c in yp.channels:
             if c.special_type == 'NORMAL':
-                bt = yp.bake_targets.get(c.bake_target_name)
-                if bt and bt.bake_settings == 'GLOBAL' and hasattr(btprops, 'use_float_for_normal'):
-                    show_float_normal_option = True
                 any_normal_ch = True
             if c.special_type == 'HEIGHT':
-                bt = yp.bake_targets.get(c.bake_target_name)
-                if bt and bt.bake_settings == 'GLOBAL' and hasattr(btprops, 'use_float_for_displacement'):
-                    show_float_height_option = True
                 any_height_ch = True
-            if c.special_type == 'VDISP':
-                bt = yp.bake_targets.get(c.bake_target_name)
-                if bt and bt.bake_settings == 'GLOBAL' and hasattr(btprops, 'use_float_for_vector_displacement'):
-                    show_float_vdm_option = True
             if not c.use_clamp:
                 any_non_clamped_ch = True
             if c.colorspace == 'SRGB' and c.type == 'RGB':
@@ -290,61 +277,13 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
     # Image properties
     if show_image_props:
 
-        draw_base_image_settings(btprops, layout, factor, show_hdr=show_hdr, show_interpolation=True)
+        draw_base_image_settings(btprops, layout, factor, show_hdr=False, show_interpolation=True)
 
         row = split_layout(layout, factor)
         right_aligned_label(row, 'UV Map:')
         if obj and obj.type == 'MESH':
             row.prop_search(btprops, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
         else: row.prop(btprops, "uv_map", text='')
-
-        if show_float_normal_option or show_float_height_option or show_float_vdm_option:
-            row = split_layout(layout, factor)
-
-            if (
-                (show_float_normal_option and not show_float_height_option and not show_float_vdm_option) or
-                (show_float_height_option and not show_float_normal_option and not show_float_vdm_option) or
-                (show_float_vdm_option and not show_float_height_option and not show_float_normal_option)
-            ):
-                row.label(text='')
-            else:
-                right_aligned_label(row, 'Use 32-bit Float:')
-
-            crow = row.row()
-
-            if show_float_normal_option:
-                if not show_float_height_option and not show_float_vdm_option:
-                    title = 'Use 32-bit float for Normal'
-                    crow.prop(btprops, 'use_float_for_normal', text=title)
-                else: 
-                    title = 'Normal'
-                    if show_float_height_option and show_float_vdm_option:
-                        rrow = crow.row(align=True)
-                        rrow.scale_x = 1.1
-                        rrow.prop(btprops, 'use_float_for_normal', text=title)
-                    else:
-                        crow.prop(btprops, 'use_float_for_normal', text=title)
-
-            if show_float_height_option:
-                if not show_float_normal_option and not show_float_vdm_option:
-                    title = 'Use 32-bit float for Height'
-                    crow.prop(btprops, 'use_float_for_displacement', text=title)
-                else:
-                    title = 'Height'
-                    if show_float_normal_option and show_float_vdm_option:
-                        rrow = crow.row(align=True)
-                        rrow.scale_x = 1.1
-                        rrow.prop(btprops, 'use_float_for_displacement', text=title)
-                    else:
-                        crow.prop(btprops, 'use_float_for_displacement', text=title)
-
-            if show_float_vdm_option:
-                if not show_float_height_option and not show_float_normal_option:
-                    title = 'Use 32-bit float for VDM'
-                else: title = 'VDM'
-                crow.prop(btprops, 'use_float_for_vector_displacement', text=title)
-
-        #layout.separator()
 
         row = split_layout(layout, factor)
         rcol = row.column(align=True)

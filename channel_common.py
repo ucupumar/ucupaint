@@ -167,9 +167,6 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             bt.use_udim = yp.bake_target_global_settings.use_udim
             yp.halt_update = ori_halt_update
 
-        # Set denoise default values
-        bt.denoise = False
-
         if special_type == 'HEIGHT':
             bt.interpolation = 'Cubic'
 
@@ -178,10 +175,6 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
         elif special_type == 'NORMAL':
             bt.fxaa = False
-            #create_normal_without_bump_bake_target(yp)
-        else:
-            # FXAA is enabled by default
-            bt.fxaa = True
 
     if bt: channel.bake_target_name = bt.name
         
