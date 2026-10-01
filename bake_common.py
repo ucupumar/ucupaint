@@ -2317,6 +2317,9 @@ def recover_rested_armature_objects(armature_objs):
 
 def prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons=False):
 
+    scene = bpy.context.scene
+    obj = bpy.context.object
+
     obook = dotdict()
 
     obook.temp_objs = []
@@ -2325,6 +2328,10 @@ def prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons=Fa
     obook.ori_loop_locs = {}
 
     any_uv_geonodes = False
+
+    # Original active object
+    obook.obj = bpy.context.object
+    obook.obj_select = get_object_select(obook.obj) if obook.obj else False
 
     for ob in objs:
 
@@ -2368,7 +2375,7 @@ def prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons=Fa
         fix_missing_object_vcols(yp, objs, enabled_only=True)
 
         obook.ori_objs = objs
-        objs = obook.temp_objs = [get_merged_mesh_objects(bpy.context.scene, objs)]
+        objs = obook.temp_objs = [get_merged_mesh_objects(scene, objs)]
 
     return objs, obook
 
@@ -2398,6 +2405,12 @@ def recover_objs_after_baking(objs, obook, uv_map):
     # Remove temporary objects
     for o in obook.temp_objs:
         remove_mesh_obj(o)
+
+    # Recover active object
+    if obook.obj != None:
+        set_active_object(obook.obj)
+        if get_object_select(obook.obj) != obook.obj_select:
+            set_object_select(obook.obj, obook.obj_select)
 
     return objs
 
