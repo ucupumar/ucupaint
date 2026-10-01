@@ -2368,13 +2368,13 @@ def prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons=Fa
         fix_missing_object_vcols(yp, objs, enabled_only=True)
 
         obook.ori_objs = objs
-        objs = obook.temp_objs = [get_merged_mesh_objects(scene, objs)]
+        objs = obook.temp_objs = [get_merged_mesh_objects(bpy.context.scene, objs)]
 
     return objs, obook
 
 def recover_objs_after_baking(objs, obook, uv_map):
     # Return to original objects
-    if any(obook.ori_objs): objs = ori_objs
+    if any(obook.ori_objs): objs = obook.ori_objs
 
     # Recover material index
     for ob in objs:

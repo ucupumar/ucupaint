@@ -1314,7 +1314,7 @@ def update_image_editor_image(context, image):
     obj = context.object
     scene = context.scene
 
-    if obj.mode == 'EDIT':
+    if obj and obj.mode == 'EDIT':
         space = get_edit_image_editor_space(context)
         if space:
             space.use_image_pin = True
