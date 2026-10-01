@@ -5469,8 +5469,8 @@ def set_active_image_for_editor_and_painting(yp):
         # HACK: Revert back to original editor images
         set_editor_images(ori_editor_imgs, ori_editor_pins)
 
-    # Update image editor image
-    update_image_editor_image(bpy.context, image)
+    # Update image editor image (will only happen if yp exists)
+    if yp: update_image_editor_image(bpy.context, image)
 
 def get_active_image_and_stuffs(obj, yp):
 
