@@ -1513,7 +1513,7 @@ def get_active_ypaint_node(obj=None, mat=None):
     return None
 
 def is_mat_use_nodes(mat):
-    return mat.node_tree != None and (not hasattr(mat, 'use_nodes') or mat.use_nodes)
+    return mat and mat.node_tree != None and (not hasattr(mat, 'use_nodes') or mat.use_nodes)
 
 def is_yp_on_material(yp, mat):
     if not is_mat_use_nodes(mat): return False
@@ -5824,7 +5824,7 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
                     if cc.enable and not cc.unpair_alpha:
                         continue
 
-                height_c = l.channels[height_ch_idx] if height_ch else None
+                height_c = l.channels[height_ch_idx] if height_ch and height_ch_idx < len(l.channels) else None
 
                 # NOTE: Normal will automatically enabled if a layer height channel uses 'Height as Normal'
                 if channel_idx == normal_ch_idx and height_ch_idx < len(l.channels):
@@ -6087,6 +6087,7 @@ def get_all_materials_with_yp_nodes(mesh_only=True):
         if mesh_only and obj.type != 'MESH': continue
         if not hasattr(obj, 'data') or not hasattr(obj.data, 'materials'): continue
         for mat in obj.data.materials:
+            if not mat: continue
             if any([n for n in mat.node_tree.nodes if n.type == 'GROUP' and n.node_tree and n.node_tree.yp.is_ypaint_node]):
                 if mat not in mats:
                     mats.append(mat)

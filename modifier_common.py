@@ -220,7 +220,7 @@ def save_math_props(tree, m, channel_type):
                             elif index == 5: fc.data_path = m.path_from_id() + '.math_a_val'
 
         m.math_r_val = math.inputs[2].default_value
-        if channel_type == 'VALUE':
+        if channel_type == 'VALUE' or len(math.inputs) == 4:
             m.math_a_val = math.inputs[3].default_value
         else:
             m.math_g_val = math.inputs[3].default_value

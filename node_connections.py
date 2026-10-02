@@ -66,7 +66,8 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
         invert = tree.nodes.get(mod.invert)
         if invert:
             rgb = create_link(tree, rgb, invert.inputs[0])[0]
-            alpha = create_link(tree, alpha, invert.inputs[1])[1]
+            create_link(tree, alpha, invert.inputs[1])
+            if len(invert.outputs) > 1: alpha = invert.outputs[1]
 
     elif mod.type == 'RGB_TO_INTENSITY':
 

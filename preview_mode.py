@@ -154,7 +154,6 @@ def set_srgb_view_transform():
 def update_preview_mode(self, context):
     yp = self
     mat = get_active_material()
-    mtree = mat.node_tree
 
     if is_yp_on_material(yp, mat):
         group_node = get_active_ypaint_node()
