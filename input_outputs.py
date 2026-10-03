@@ -399,6 +399,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
+    if not tree: return
 
     # Check uv maps
     #if check_uvs:
@@ -534,6 +535,7 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty, float
         return False # Not implemented yet
 
     layer_node = root_tree.nodes.get(layer.group_node)
+    if not layer_node: return dirty
     tree = layer_node.node_tree
     input_name = get_entity_input_name(entity, prop_name)
 

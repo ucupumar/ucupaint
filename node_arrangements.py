@@ -603,6 +603,7 @@ def rearrange_layer_nodes(layer, tree=None):
     if yp.halt_reconnect: return
 
     if not tree: tree = get_tree(layer)
+    if not tree: return
     nodes = tree.nodes
 
     #print('Rearrange layer ' + layer.name)

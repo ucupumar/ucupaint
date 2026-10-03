@@ -4016,14 +4016,16 @@ def any_yp_problems(yp, vcols=[]):
     gtao_not_used = is_bl_newer_than(2, 93) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao
 
     for layer in yp.layers:
-        layer_tree = None
+        layer_tree = get_tree(layer)
+        if not layer_tree: missing_data = True
+
         layer_source = None
         layer_enabled = get_layer_enabled(layer)
 
         # Check for missing data
         if not missing_data:
+
             if layer.type in {'IMAGE' , 'VCOL'}:
-                if layer_tree == None: layer_tree = get_tree(layer) # Optimization
                 if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
 
                 if (
@@ -4077,7 +4079,6 @@ def any_yp_problems(yp, vcols=[]):
             # Check for missing mask source data
             if not missing_data:
                 if mask.type in {'IMAGE' , 'VCOL'}:
-                    if layer_tree == None: layer_tree = get_tree(layer) # Optimization
                     if mask_tree == None: mask_tree = get_mask_tree(mask, layer_tree) # Optimization
                     if mask_source == None: mask_source = mask_tree.nodes.get(mask.source)
 
@@ -4101,7 +4102,6 @@ def any_yp_problems(yp, vcols=[]):
 
             # Check for linear problem on mask
             if not linear_problem:
-                if layer_tree == None: layer_tree = get_tree(layer) # Optimization
                 if mask_tree == None: mask_tree = get_mask_tree(mask, layer_tree) # Optimization
                 if mask_source == None: mask_source = mask_tree.nodes.get(mask.source) # Optimization
 
@@ -4122,7 +4122,6 @@ def any_yp_problems(yp, vcols=[]):
 
             # Blender 2.7x has color space option on the node 
             if not is_bl_newer_than(2, 80) and layer.type == 'IMAGE':
-                if layer_tree == None: layer_tree = get_tree(layer) # Optimization
                 if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
 
                 if layer_source:
@@ -4133,7 +4132,6 @@ def any_yp_problems(yp, vcols=[]):
 
         # Check for linear problem on layer source
         if not linear_problem:
-            if layer_tree == None: layer_tree = get_tree(layer) # Optimization
             if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
 
             gamma = get_layer_gamma_value(layer, layer_source, layer_enabled=True)

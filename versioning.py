@@ -1412,12 +1412,14 @@ def update_yp_tree(tree):
             bump_found = False
             vdm_found = False
             for layer in yp.layers:
-                nch = layer.channels[normal_ch_idx]
-                #if nch.enable:
-                if nch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                    bump_found = True
-                elif nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                    vdm_found = True
+                try: nch = layer.channels[normal_ch_idx]
+                except Exception as e: nch = None
+
+                if nch:
+                    if nch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                        bump_found = True
+                    elif nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                        vdm_found = True
 
             yp.halt_update = True
 

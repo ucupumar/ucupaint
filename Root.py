@@ -2433,9 +2433,10 @@ class YFixMissingData(bpy.types.Operator):
         # Fix missing sources
         for i, layer in reversed(list(enumerate(yp.layers))):
 
-            # Delete layer if source is not found
+            # Delete layer if layer tree or layer source is not found
+            layer_tree = get_tree(layer)
             src = get_layer_source(layer)
-            if not src:
+            if not layer_tree or not src:
                 layer_common.remove_layer(yp, i)
                 continue
 

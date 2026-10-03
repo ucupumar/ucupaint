@@ -132,6 +132,7 @@ def check_transition_ao_nodes(tree, layer, ch, bump_ch=None):
         else: tao.inputs['Gamma'].default_value = 1.0
 
 def save_ramp(tree, ch):
+    if not tree: return
     tr_ramp = tree.nodes.get(ch.tr_ramp)
     if not tr_ramp or tr_ramp.type != 'GROUP': return
 
@@ -144,6 +145,7 @@ def save_ramp(tree, ch):
     copy_node_props(ramp, cache_ramp)
 
 def load_ramp(tree, ch):
+    if not tree: return
     tr_ramp = tree.nodes.get(ch.tr_ramp)
     if not tr_ramp: return
 

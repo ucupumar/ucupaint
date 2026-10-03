@@ -445,6 +445,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         for j, layer in reversed(list(enumerate(yp.layers))):
 
             node = nodes.get(layer.group_node)
+            if not node: continue
             layer_ch = layer.channels[i]
 
             # Get layer channel pairs
@@ -933,6 +934,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if yp.halt_reconnect: return
 
     tree = get_tree(layer)
+    if not tree: return
     nodes = tree.nodes
 
     # Get layer source

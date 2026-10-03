@@ -2387,6 +2387,7 @@ def get_mod_tree(entity):
     if m:
         layer = yp.layers[int(m.group(1))]
         tree = get_tree(layer)
+        if not tree: return None
 
         source_group = tree.nodes.get(layer.source_group)
         if source_group and source_group.type == 'GROUP': 
