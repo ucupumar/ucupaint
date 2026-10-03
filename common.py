@@ -1414,7 +1414,8 @@ def get_unique_name(name, items, surname = ''):
         m = re.match(r'^(.+)\s(\d*)$', name)
         if m:
             name = m.group(1)
-            i = int(m.group(2))
+            try: i = int(m.group(2))
+            except: i = 1
         else:
             i = 1
 
