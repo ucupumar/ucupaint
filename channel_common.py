@@ -127,9 +127,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         if non_color:
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
-    else:
-        # NOTE: Smooth bump is no longer enabled by default for realtime bump capable blender
-        channel.enable_smooth_bump = False
+    #else:
+    #    # NOTE: Smooth bump is no longer enabled by default for realtime bump capable blender
+    #    channel.enable_smooth_bump = False
 
     # Special Bake target setup
     alpha_bt_setup = False
@@ -213,7 +213,7 @@ def set_default_height_channel_prop(channel):
     yp.halt_update = True
 
     # Disable smooth bump by default
-    channel.enable_smooth_bump = False
+    #channel.enable_smooth_bump = False
 
     # NOTE: Height as bump is default for all blender versions 
     # since Cycles doesn't produce correct bump if material displacement setting is set to `Bump Only`.

@@ -775,7 +775,8 @@ def update_yp_tree(tree):
                     end_max_height.outputs[0].default_value /= 5.0
 
                 # Set normal scale
-                if height_root_ch.enable_smooth_bump:
+                # NOTE: Smooth bump used to be enabled by default
+                if height_root_ch.enable_smooth_bump or 'enable_smooth_bump' not in height_root_ch:
                     height_root_ch.enable_smooth_normal_tweak = True
                     set_entity_prop_value(height_root_ch, 'smooth_normal_tweak', 5.0)
 
@@ -1436,7 +1437,7 @@ def update_yp_tree(tree):
                 # Create height channel
                 height_ch = channel_common.create_new_yp_channel(tree, height_ch_name, 'VALUE', non_color=True, special_type='HEIGHT', add_bake_target=False)
                 height_ch.use_height_as_bump = not displacement_setup_needed
-                height_ch.enable_smooth_bump = False
+                #height_ch.enable_smooth_bump = False
 
                 # Move index
                 channel_common.set_channel_index(height_ch, normal_ch_idx, move_fcurves=False)
@@ -2446,7 +2447,8 @@ def remove_smooth_bump_setup(check_io=True):
         norm_chs = [ch for ch in yp.channels if ch.type == 'VECTOR']
         norm_ch = norm_chs[0] if any(norm_chs) else None
 
-        if norm_ch and norm_ch.enable_smooth_bump:
+        # NOTE: Smooth bump used to be enabled by default
+        if norm_ch and (norm_ch.enable_smooth_bump or (version_tuple(yp.version) < (3, 0, 0) and 'enable_smooth_bump' not in norm_ch)):
 
             norm_ch_idx = get_channel_index(norm_ch)
 

@@ -3386,8 +3386,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
     enable_smooth_bump : BoolProperty(
         name = 'Enable Smooth Bump',
         description = 'Enable smooth bump map.\nLooks better but bump height scaling will be different than standard bump map.\nSmooth bump map -> Texture space.\nStandard bump map -> World space',
-        default = True,
-        update = update_enable_smooth_bump
+        default = False,
+        #update = update_enable_smooth_bump
     )
 
     use_clamp : BoolProperty(
