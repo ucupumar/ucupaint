@@ -540,6 +540,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                     self.channel_idx = str(i)
                     break
 
+        if self.type == 'MULTIRES_DISPLACEMENT':
+            self.interpolation = 'Cubic'
+        else: self.interpolation = 'Linear'
+
         suffix = bake_type_suffixes[self.type]
         self.name = get_unique_name(mat.name + ' ' + suffix, bpy.data.images)
 
