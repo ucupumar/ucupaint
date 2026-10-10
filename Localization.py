@@ -186,7 +186,7 @@ langs = {
         ('*', 'Active Image: '): '激活的图像: ',
         ('*', 'Shortcut on layer list:'): '在列表中显示:',
         ('*', 'Connect To:'): '连接至:',
-        ('Operator', 'Fix Active '+get_vertex_color_label()+' Missmatch!'): '修复当前顶点色不匹配!',
+        ('Operator', 'Fix Active '+get_vertex_color_label()+' Mismatch!'): '修复当前顶点色不匹配!',
         ('*', 'Fill '): '填充 ',
         ('Operator', 'White'): '白色',
         ('Operator', 'Black'): '黑色',
