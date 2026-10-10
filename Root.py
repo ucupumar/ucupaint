@@ -1924,10 +1924,10 @@ class YSwitchToMaterialView(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YFixChannelMissmatch(bpy.types.Operator):
-    bl_idname = "wm.y_fix_channel_missmatch"
+class YFixChannelMismatch(bpy.types.Operator):
+    bl_idname = "wm.y_fix_channel_mismatch"
     bl_label = "Fix Channels Mistmatch"
-    bl_description = "Fix channels missmatch because of error"
+    bl_description = "Fix channels mismatch because of error"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -4214,7 +4214,7 @@ def ypaint_object_changes_update(scene):
             ypwm.last_mode = obj.mode
 
 @persistent
-def ypaint_missmatch_paint_slot_hack(scene):
+def ypaint_mismatch_paint_slot_hack(scene):
     # HACK: Update material active slot when necessary
     wmyp = bpy.context.window_manager.ypprops
     if wmyp.use_paint_slot_hacks and wmyp.correct_paint_image_name != '':
@@ -4374,7 +4374,7 @@ classes = (
     YRemoveYPaintChannel,
     YAddSimpleUVs,
     YSwitchToMaterialView,
-    YFixChannelMissmatch,
+    YFixChannelMismatch,
     YFixMissingUV,
     YRenameYPaintTree,
     YChangeActiveYPaintNode,
@@ -4415,7 +4415,7 @@ def register():
     if is_bl_newer_than(2, 80):
         # Paint slot hack is no longer necessary with Blender 5.1
         if not is_bl_newer_than(5, 1):
-            bpy.app.handlers.depsgraph_update_post.append(ypaint_missmatch_paint_slot_hack)
+            bpy.app.handlers.depsgraph_update_post.append(ypaint_mismatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_object_changes_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
@@ -4436,7 +4436,7 @@ def unregister():
     # Remove handlers
     if is_bl_newer_than(2, 80):
         if not is_bl_newer_than(5, 1):
-            bpy.app.handlers.depsgraph_update_post.remove(ypaint_missmatch_paint_slot_hack)
+            bpy.app.handlers.depsgraph_update_post.remove(ypaint_mismatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
         bpy.app.handlers.scene_update_pre.remove(ypaint_object_changes_update)

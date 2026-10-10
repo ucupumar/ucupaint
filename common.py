@@ -3663,7 +3663,7 @@ def get_transformation(mapping, entity=None):
 
     return translation, rotation, scale
 
-def is_active_uv_map_missmatch_active_entity(obj, layer):
+def is_active_uv_map_mismatch_active_entity(obj, layer):
 
     yp = layer.id_data.yp
 

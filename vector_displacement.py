@@ -1721,8 +1721,8 @@ class YRemoveVDMandAddMultires(bpy.types.Operator):
         return {'FINISHED'}
 
 class YFixVDMMismatchUV(bpy.types.Operator):
-    bl_idname = "object.y_fix_vdm_missmatch_uv"
-    bl_label = "Fix Missmatch VDM UV"
+    bl_idname = "object.y_fix_vdm_mismatch_uv"
+    bl_label = "Fix Mismatch VDM UV"
     bl_description = "Active VDM layer has different UV than the active render UV, use this operator to fix it"
     bl_options = {'REGISTER', 'UNDO'}
 

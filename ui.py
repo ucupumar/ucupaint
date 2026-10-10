@@ -1306,7 +1306,7 @@ def draw_main_ui(context, layout):
     if channel_mismatch:
         row = layout.row(align=True)
         row.alert = True
-        row.operator("wm.y_fix_channel_missmatch", text='Fix Missmatched Channels!', icon='ERROR')
+        row.operator("wm.y_fix_channel_mismatch", text='Fix Mismatched Channels!', icon='ERROR')
         row.alert = False
         return
 
@@ -4611,7 +4611,7 @@ def draw_layers_ui(context, layout, node):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
-                row.operator('mesh.y_set_active_vcol', text='Fix Active '+get_vertex_color_label()+' Missmatch!', icon='ERROR').vcol_name = active_vcol.name
+                row.operator('mesh.y_set_active_vcol', text='Fix Active '+get_vertex_color_label()+' Mismatch!', icon='ERROR').vcol_name = active_vcol.name
                 row.alert = False
 
             elif obj.mode == 'EDIT' and active_vcol != colorid_vcol:
@@ -4747,7 +4747,7 @@ def draw_layers_ui(context, layout, node):
                     row.alert = True
                     row.operator('wm.y_back_to_original_uv', icon='EDITMODE_HLT', text='Edit Original UV')
         else:
-            if yp.need_temp_uv_refresh or is_active_uv_map_missmatch_active_entity(obj, layer):
+            if yp.need_temp_uv_refresh or is_active_uv_map_mismatch_active_entity(obj, layer):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -4768,7 +4768,7 @@ def draw_layers_ui(context, layout, node):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
-                row.operator('object.y_fix_vdm_missmatch_uv')
+                row.operator('object.y_fix_vdm_mismatch_uv')
                 row.alert = False
 
         draw_switch_material_button(col)

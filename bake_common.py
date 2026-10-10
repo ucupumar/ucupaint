@@ -98,7 +98,7 @@ def get_compositor_output_node(tree):
 
     return n
 
-def is_there_any_missmatched_attribute_types(objs):
+def is_there_any_mismatched_attribute_types(objs):
     # Get number of attributes founds
     attr_counts = {}
     for obj in objs:
@@ -114,7 +114,7 @@ def is_there_any_missmatched_attribute_types(objs):
         if count == len(objs):
             same_attrs.append(name)
             
-    # Is there any missmatched type data
+    # Is there any mismatched type data
     for name in same_attrs:
         data_type = ''
         domain = ''
@@ -158,11 +158,11 @@ def is_join_objects_problematic(yp, mat=None):
                 print('INFO: Merged bake is not happening because there\'s problematic texcoord used outside node')
                 return True
 
-        # Check for missmatched color attribute data
+        # Check for mismatched color attribute data
         if is_bl_newer_than(3, 2):
             objs = get_all_objects_with_same_materials(mat, True)
-            if is_there_any_missmatched_attribute_types(objs):
-                print('INFO: Merged bake is not happening because there\'s missmatched attribute data types')
+            if is_there_any_mismatched_attribute_types(objs):
+                print('INFO: Merged bake is not happening because there\'s mismatched attribute data types')
                 return True
 
     return False
