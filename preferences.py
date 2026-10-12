@@ -48,14 +48,14 @@ class YPaintPreferences(AddonPreferences):
     )
 
     hdr_image_atlas_size : IntProperty(
-        name = 'HDR Image Atlas Size',
-        description = 'HDR Image Atlas Size',
+        name = 'Float Image Atlas Size',
+        description = 'Float Image Atlas Size',
         default=4096, min=1024, max=8192
     )
 
     unique_image_atlas_per_yp : BoolProperty(
-        name = 'Use unique Image Atlas per ' + get_addon_title() + ' tree',
-        description = 'Try to use different image atlas per ' + get_addon_title() + ' tree',
+        name = 'Use unique Image Atlas per ' + get_addon_title() + ' node tree',
+        description = 'Try to use different image atlas per ' + get_addon_title() + ' node tree',
         default = True
     )
 
@@ -72,7 +72,7 @@ class YPaintPreferences(AddonPreferences):
     )
 
     use_image_preview : BoolProperty(
-        name = 'Use Image Preview/Thumbnail',
+        name = 'Use Image Thumbnail for Icon',
         description = 'Use image preview or thumbnail on the layers list',
         default = False
     )
@@ -95,8 +95,8 @@ class YPaintPreferences(AddonPreferences):
     )
 
     make_preview_mode_srgb : BoolProperty(
-        name = 'Make Preview Mode use sRGB',
-        description = 'Make sure preview mode use sRGB color',
+        name = 'Make Preview Mode uses sRGB',
+        description = 'Make sure preview mode uses sRGB color',
         default = True
     )
 
@@ -126,8 +126,8 @@ class YPaintPreferences(AddonPreferences):
     )
 
     enable_uniform_uv_scale_by_default : BoolProperty(
-        name = 'Enable Uniform UV Scale by default',
-        description = "Enable uniform UV scale by default in Layer and Mask UVs. This will make all scale axes have the same value",
+        name = 'Enable Uniform Mapping Scale by default',
+        description = "Enable uniform mapping scale by default in Layer and Mask UVs. This will make all scale axes have the same value",
         default = False
     )
 
@@ -138,8 +138,8 @@ class YPaintPreferences(AddonPreferences):
     )
 
     enable_material_view_warning : BoolProperty(
-        name = 'Enable "Switch to Material View" warning',
-        description = "Enable warning popup when ucupaint parent window is not in a Material render/preview mode",
+        name = 'Show `Switch to Material View` warning',
+        description = "Show warning popup when ucupaint parent window is not in a Material render/preview mode",
         default = True
     )
 
@@ -154,8 +154,8 @@ class YPaintPreferences(AddonPreferences):
     )
 
     ui_legacy_add_layer_menu : BoolProperty(
-        name = 'Use Legacy Add Layer Menu UI',
-        description = "Use legacy add layer menu like Blender 3.6 or older",
+        name = 'Use Legacy Add Layer/Mask Menu UI',
+        description = "Use legacy add layer/mask menu like Blender 3.6 or older",
         default = False,
         update = update_legacy_add_layer_menu
     )
@@ -195,7 +195,6 @@ class YPaintPreferences(AddonPreferences):
         if is_bl_newer_than(2, 80):
             self.layout.prop(self, 'default_bake_device')
             self.layout.prop(self, 'icons')
-        self.layout.prop(self, 'layer_list_mode')
 
         self.layout.prop(self, 'default_image_resolution')
         if self.default_image_resolution == 'CUSTOM':
@@ -223,6 +222,10 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')
+
+        if self.developer_mode:
+            box = self.layout.box()
+            box.prop(self, 'layer_list_mode')
 
         # Extra module preferences UI
         extra_module_paths = ('.credits_ui', '.addon_updater_preferences')

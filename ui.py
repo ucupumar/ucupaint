@@ -1188,6 +1188,12 @@ def draw_main_ui(context, layout):
         row.alert = False
         return
 
+    # Add warning if developer mode mistakenly enabled
+    if ypup.developer_mode:
+        row = layout.row(align=True)
+        row.alert = True
+        row.operator('wm.y_disable_developer_mode', icon='ERROR')
+
     # Check if uv is found
     is_a_mesh = True if obj and obj.type == 'MESH' else False
     uv_layers = get_uv_layers(obj)
@@ -1985,7 +1991,6 @@ def draw_root_channels_ui(context, layout, node, show_header=False, rows=3):
                 special_type_available = not vdisp_ch_exists
 
             # NOTE: Replaced by base layer
-            #if ypup.layer_list_mode == 'CLASSIC' and channel.type in {'RGB', 'VALUE'}:
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
 
@@ -2964,7 +2969,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     label = get_layer_channel_input_label(layer, ch)
                     rrrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
 
-                    #if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
                     if ch.enable or ch == alpha_ch and color_ch.enable:
                         if ch.override_type == 'IMAGE':
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
@@ -3434,7 +3438,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             if swizzle_shortcut:
                 rrow.prop(ch, "swizzle_input_mode", text='')
 
-        #if ch.enable and ch.override: #and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
         if (ch.enable or (ch == alpha_ch and color_ch.enable)) and ch.override:
             if ch.override_type == 'IMAGE':
                 row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
@@ -3597,7 +3600,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             mrow.label(text='', icon='BLANK1')
         mrow.active = mask.enable
 
-        if not maskui.expand_content: # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
+        if not maskui.expand_content:
             srow = split_layout(mrow, 0.35, align=True)
         else: 
             srow = mrow
@@ -3624,7 +3627,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         #if mask.baked_source != '':
         #    rrow.prop(mask, 'use_baked', text='Use Baked', toggle=True)
 
-        if not maskui.expand_content: # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
+        if not maskui.expand_content:
             rrow.prop(mask, 'blend_type', text='')
             draw_input_prop(rrow, mask, 'intensity_value', layer=layer)
 
@@ -3661,7 +3664,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             else:
                 mask_icon = 'texture'
 
-        if mask_icon != '' and not maskui.expand_content: # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
+        if mask_icon != '' and not maskui.expand_content:
             rrow.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon(mask_icon))
 
         rrow.context_pointer_set('mask', mask)
@@ -3763,7 +3766,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         #rrrow.label(text=label)
         rrrow.menu("NODE_MT_y_mask_type_menu", text=label) #, icon_value=icon_value)
         
-        if mask_icon != '': # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
+        if mask_icon != '':
             rrrow.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon(mask_icon))
 
         if maskui.expand_source and (mask.type not in {'BACKFACE', 'MODIFIER'} or 
@@ -4318,6 +4321,14 @@ def draw_baked_ui(context, layout, node):
 
     return
 
+def get_layer_list_mode():
+    ypup = get_user_preferences()
+
+    if ypup.developer_mode:
+        return ypup.layer_list_mode
+
+    return 'DYNAMIC'
+
 def draw_layers_ui(context, layout, node):
     #T = time.time()
     scene = context.scene
@@ -4414,7 +4425,7 @@ def draw_layers_ui(context, layout, node):
     entity = None
     missing_source = False
 
-    is_base_layer_selected = ypup.layer_list_mode in {'DYNAMIC', 'BOTH'} and yp.active_item_index == len(yp.list_items)-1
+    is_base_layer_selected = get_layer_list_mode() in {'DYNAMIC', 'BOTH'} and yp.active_item_index == len(yp.list_items)-1
 
     if len(yp.layers) > 0 and not is_base_layer_selected:
         layer = yp.layers[yp.active_layer_index]
@@ -4480,12 +4491,12 @@ def draw_layers_ui(context, layout, node):
     row = col.row()
     rcol = row.column()
 
-    if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
+    if get_layer_list_mode() in {'CLASSIC', 'BOTH'}:
         rcol.template_list("NODE_UL_YPaint_layers", "", yp,
                 "layers", yp, "active_layer_index", rows=6, maxrows=6)  
 
-    if ypup.layer_list_mode in {'DYNAMIC', 'BOTH'}:
-        if ypup.layer_list_mode == 'BOTH':
+    if get_layer_list_mode() in {'DYNAMIC', 'BOTH'}:
+        if get_layer_list_mode() == 'BOTH':
             rcol.operator('wm.y_refresh_list_items', icon='FILE_REFRESH', text='Refresh Items')
         rcol.template_list("NODE_UL_YPaint_list_items", "", yp,
                 "list_items", yp, "active_item_index", rows=6, maxrows=6)  
@@ -4553,7 +4564,7 @@ def draw_layers_ui(context, layout, node):
 
     rcol.menu("NODE_MT_y_layer_list_special_menu", text='', icon='DOWNARROW_HLT')
 
-    if any_subitem_exists(yp) and ypup.layer_list_mode != 'CLASSIC' :
+    if any_subitem_exists(yp) and get_layer_list_mode() != 'CLASSIC' :
         rcol.separator()
         if is_bl_newer_than(2, 80):
             rcol.popover("NODE_PT_y_list_item_option_popover", text='', icon='OUTLINER')
@@ -4786,7 +4797,7 @@ def draw_layers_ui(context, layout, node):
         specific_mask = None
 
         # NOTE: Individual Channel/Mask UI need more experiments and testing
-        if False and ypup.layer_list_mode in {'DYNAMIC', 'BOTH'}:
+        if False and get_layer_list_mode() in {'DYNAMIC', 'BOTH'}:
 
             # Get active channel item
             for ch in layer.channels:
@@ -5515,9 +5526,6 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
 
         icon_value = lib.get_icon(lib.channel_custom_icon_dict[item.type])
         row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
-
-        # NOTE: Option for background only available for classic layer list mode
-        #if ypup.layer_list_mode != 'CLASSIC': return
 
         if not yp.use_baked or (item.no_layer_using and not (yp.use_baked and yp.enable_baked_outside)):
             if item.type == 'RGB':
@@ -9222,6 +9230,18 @@ class YPendingUpdate(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YDisableDeveloperMode(bpy.types.Operator):
+    bl_idname = "wm.y_disable_developer_mode"
+    bl_label = "Disable Developer Mode"
+    bl_description = "Disable developer mode"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        ypup = get_user_preferences()
+        ypup.developer_mode = False
+
+        return {'FINISHED'}
+
 classes = []
 if not is_bl_newer_than(2, 80):
     classes.extend([
@@ -9298,6 +9318,7 @@ classes.extend([
     YPFileBrowserMenu,
     NODE_MT_copy_image_path_menu,
     YPendingUpdate,
+    YDisableDeveloperMode,
     YPaintUI,
 ])
 
