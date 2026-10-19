@@ -3395,10 +3395,19 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         copy_image_pixels(img, source.image, segment)
 
         # HACK: Pack and refresh to update image in Blender 2.77 and lower
+        if not is_bl_newer_than(2, 78) and (source.image.packed_file or source.image.filepath == ''):
+            if source.image.is_float:
+                image_ops.pack_float_image_27x(source.image)
+            else: source.image.pack(as_png=True)
+            source.image.reload()
+
+        # Remove temp image
         remove_datablock(bpy.data.images, img, user=tex, user_prop='image')
+
         # Remove mask mix nodes
         for m in [mask, neighbor_mask]:
             remove_node(tree, m, 'mix')
+
             # Replace linear to less accurate ones
             linear = tree.nodes.get(m.linear)
             if linear:
