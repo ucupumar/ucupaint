@@ -354,7 +354,7 @@ class YSetDecalObjectPositionToCursor(bpy.types.Operator):
         return {'FINISHED'}
 
 class BaseDecal():
-    decal_projection_type: EnumProperty(
+    decal_projection_type : EnumProperty(
         name='Projection',
         description='Decal projection mapping mode',
         items=decal_projection_items,
@@ -362,7 +362,7 @@ class BaseDecal():
         update=update_decal_projection
     )
 
-    decal_scale: FloatVectorProperty(
+    decal_scale : FloatVectorProperty(
         name='Decal Scale',
         description='Decal Scale Value',
         size=3,
