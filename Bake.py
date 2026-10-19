@@ -3388,7 +3388,12 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         mat.node_tree.links.new(node.outputs[LAYER_ALPHA_VIEWER], emit.inputs[0])
         mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
+        # Bake
+        bake_object_op()
+
+        # Copy results to original image
         copy_image_pixels(img, source.image, segment)
+
         # HACK: Pack and refresh to update image in Blender 2.77 and lower
         remove_datablock(bpy.data.images, img, user=tex, user_prop='image')
         # Remove mask mix nodes
