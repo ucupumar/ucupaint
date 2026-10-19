@@ -1,5 +1,5 @@
 import bpy, re
-from . import lib, Decal
+from . import lib
 from .common import *
 from .transition_common import *
 from .subtree import *
@@ -396,6 +396,8 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False, hard_reset=False): #, check_uvs=False): #, has_parent=False):
 
     #print("Checking layer IO. Layer: " + layer.name + ' Specific Channel: ' + str(specific_ch))
+
+    from . import Decal
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
