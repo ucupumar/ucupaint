@@ -5642,13 +5642,9 @@ def layer_listing(layout, layer, show_expand=False):
             try: ch = layer.channels[ch_idx]
             except: ch = None
 
-            # Height layer that used for normal bump will be active when previewing final normal channel
-            # TODO: Previewing layer height channel as normal preview
+            # Get normal and height channel pair
             root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
             normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
-            if yp.preview_mode_type == 'CHANNEL' and normal_ch and ch == normal_ch and root_height_ch.use_height_as_bump:
-                ch = height_ch
-                preview_ch = root_height_ch
 
             # Color layer will also be active when previewing alpha channel
             root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
@@ -5662,6 +5658,11 @@ def layer_listing(layout, layer, show_expand=False):
                 else: is_active = get_channel_enabled(height_ch, layer, root_height_ch)
             elif ch:
                 is_active = get_channel_enabled(ch, layer, preview_ch)
+
+            # Height layer that used for normal bump will be active when previewing final normal channel
+            # TODO: Previewing layer height channel as normal preview
+            if yp.preview_mode_type == 'CHANNEL' and normal_ch and ch == normal_ch and root_height_ch.use_height_as_bump:
+                is_active = is_active or get_channel_enabled(height_ch, layer, root_height_ch)
 
     master = layout.row(align=True)
 
