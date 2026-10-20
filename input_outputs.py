@@ -279,11 +279,11 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
             name = ch.name + io_suffix['ALPHA']
 
+            # NOTE: Do not change this input to NodeSocketFloatFactor since it can crash Blender
             create_input(
-                group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, 
+                group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, 
                 min_value=0.0, max_value=1.0, default_value=0.0
             )
-            float_factor_input_names.append(name)
 
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
