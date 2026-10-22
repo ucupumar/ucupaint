@@ -699,12 +699,14 @@ def prepare_other_objs_channels(yp, other_objs):
                 if yp_node:
                     oyp = yp_node.node_tree.yp
                     if ch.name in oyp.channels:
-                        socket = yp_node.outputs[ch.name]
+                        socket = yp_node.outputs.get(ch.name)
 
                     # Check for alpha channel
                     for och in oyp.channels:
-                        if och.enable_alpha: # and och.name == ch.name:
+                        if och.enable_alpha:
                             alpha_socket = yp_node.outputs.get(och.name + io_suffix['ALPHA'])
+                        elif och.special_type == 'ALPHA':
+                            alpha_socket = yp_node.outputs.get(och.name)
 
                 # Check for possible sockets available on the bsdf node
                 if not socket:
