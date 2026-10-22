@@ -5680,9 +5680,10 @@ def is_tangent_input_needed(layer, uv_name):
 def is_tangent_process_needed(yp, uv_name):
 
     height_root_ch = get_root_height_channel(yp)
-    if height_root_ch:
+    normal_root_ch = get_root_normal_channel(yp)
+    if height_root_ch or normal_root_ch:
 
-        if height_root_ch.main_uv == uv_name and (
+        if height_root_ch and height_root_ch.main_uv == uv_name and (
                 (is_normal_height_input_connected(height_root_ch) and height_root_ch.enable_smooth_bump)
             ):
             return True
