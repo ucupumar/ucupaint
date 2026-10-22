@@ -5452,18 +5452,23 @@ def set_active_image_for_editor_and_painting(yp):
         # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
         ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
 
-        if image and is_bl_newer_than(2, 81) and paint_mode == 'MATERIAL':
+        if image:
+            # Always set `Image` paint mode on Blender 2.7x since selecting material image inside a node is not possible
+            if not is_bl_newer_than(2, 80):
+                if scene.tool_settings.image_paint.mode != 'IMAGE':
+                    scene.tool_settings.image_paint.mode = 'IMAGE'
+            elif paint_mode == 'MATERIAL':
 
-            if mat:
-                for idx, img in enumerate(mat.texture_paint_images):
-                    if img == None: continue
-                    if img.name == image.name:
-                        mat.paint_active_slot = idx
-                        # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
-                        if not is_bl_newer_than(5, 1):
-                            wmyp.correct_paint_image_name = img.name                                         
-                            wmyp.use_paint_slot_hacks = True
-                        break
+                if mat:
+                    for idx, img in enumerate(mat.texture_paint_images):
+                        if img == None: continue
+                        if img.name == image.name:
+                            mat.paint_active_slot = idx
+                            # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
+                            if not is_bl_newer_than(5, 1):
+                                wmyp.correct_paint_image_name = img.name                                         
+                                wmyp.use_paint_slot_hacks = True
+                            break   
             
         # NOTE: Single image canvas always set to be the same as material image, just in case user want to switch between material and single image mode
         scene.tool_settings.image_paint.canvas = image
