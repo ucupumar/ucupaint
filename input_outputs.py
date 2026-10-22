@@ -1,5 +1,5 @@
 import bpy, re
-from . import lib, Decal
+from . import lib
 from .common import *
 from .transition_common import *
 from .subtree import *
@@ -285,11 +285,11 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
             name = ch.name + io_suffix['ALPHA']
 
+            # NOTE: Do not change this input to NodeSocketFloatFactor since it can crash Blender
             create_input(
-                group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, 
+                group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, 
                 min_value=0.0, max_value=1.0, default_value=0.0
             )
-            float_factor_input_names.append(name)
 
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
@@ -403,8 +403,11 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
 
     #print("Checking layer IO. Layer: " + layer.name + ' Specific Channel: ' + str(specific_ch))
 
+    from . import Decal
+
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
+    if not tree: return
 
     # Check uv maps
     #if check_uvs:
@@ -533,10 +536,14 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty, float
     elif type(prop_value) == Color:
         socket_type = 'NodeSocketColor'
         default_value = (rna.default, rna.default, rna.default, 1.0)
+    elif type(prop_value) == Vector:
+        socket_type = 'NodeSocketVector'
+        default_value = (rna.default, rna.default, rna.default)
     else:
         return False # Not implemented yet
 
     layer_node = root_tree.nodes.get(layer.group_node)
+    if not layer_node: return dirty
     tree = layer_node.node_tree
     input_name = get_entity_input_name(entity, prop_name)
 
@@ -573,7 +580,6 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty, float
     return dirty
 
 def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False):
-
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
     root_tree = layer.id_data
@@ -635,7 +641,10 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         if layer.texcoord_type == 'Decal':
             dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
-        
+            if layer.decal_projection_type != 'FLAT':  
+                dirty = create_prop_input(layer, 'decal_scale', valid_inputs, input_index, dirty, float_factor_input_names)
+                input_index += 1
+
         if is_bl_newer_than(2, 81) and layer.enable_uniform_scale and is_layer_using_vector(layer) and layer.segment_name == '':
             dirty = create_prop_input(layer, 'uniform_scale_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
@@ -773,6 +782,9 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             if mask.texcoord_type == 'Decal':
                 dirty = create_prop_input(mask, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
+                if mask.decal_projection_type != 'FLAT':  
+                    dirty = create_prop_input(mask, 'decal_scale', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
 
             # Color ID
             if mask.type == 'COLOR_ID':
@@ -942,11 +954,15 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
                         try: setattr(root_tree.path_resolve(entity_path), prop_name, (val[0], val[1], val[2]))
                         except Exception as e: print(e)
+                    elif socket_type in {'NodeSocketVector', 'VECTOR'}:
+                        for v in val:
+                            if v < inp.min_value or v > inp.max_value:
+                                do_remove = False  
+                        try: setattr(root_tree.path_resolve(entity_path), prop_name, val)
+                        except Exception as e: print(e)
                     else:
-                        # Do not remove input if it has value outside of min max
                         if val < inp.min_value or val > inp.max_value:
                             do_remove = False
-
                         try: setattr(root_tree.path_resolve(entity_path), prop_name, val)
                         except Exception as e: print(e)
 

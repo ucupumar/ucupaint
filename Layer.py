@@ -29,7 +29,7 @@ class YRefreshNeighborUV(bpy.types.Operator):
     """Refresh Neighbor UV"""
     bl_idname = "wm.y_refresh_neighbor_uv"
     bl_label = "Refresh Neighbor UV"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -43,7 +43,7 @@ class YUseLinearColorSpace(bpy.types.Operator):
     """This addon need to linear color space image to works properly"""
     bl_idname = "wm.y_use_linear_color_space"
     bl_label = "Use Linear Color Space"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -60,7 +60,7 @@ class YFixMissingSource(bpy.types.Operator):
     """Fix missing source of the layer"""
     bl_idname = "wm.y_fix_missing_layer_source"
     bl_label = "Fix Missing Layer Source"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -72,10 +72,10 @@ class YFixMissingSource(bpy.types.Operator):
         rearrange_layer_nodes(context.layer)
         return {'FINISHED'}
 
-class YNewVcolToOverrideChannel(bpy.types.Operator):
-    bl_idname = "wm.y_new_vcol_to_override_channel"
-    bl_label = "New "+get_vertex_color_label()+" to Layer Channel Source"
-    bl_description = "New "+get_vertex_color_label()+" to custom layer channel source"
+class YNewVcolAsLayerChannelSource(bpy.types.Operator):
+    bl_idname = "wm.y_new_vcol_as_layer_channel_source"
+    bl_label = "New "+get_vertex_color_label()+" as Layer Channel Source"
+    bl_description = "New "+get_vertex_color_label()+" as custom layer channel source"
     bl_options = {'UNDO'}
 
     name : StringProperty(default='')
@@ -264,7 +264,7 @@ class YNewVDMLayer(bpy.types.Operator):
         name = 'UV Map', 
         description = 'UV Map to use for layer coordinate',
         default = '') #, update=BaseOperator.update_uv_map_name)
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -752,7 +752,7 @@ class YNewLayer(bpy.types.Operator):
         default=1.0, min=0.0, max=10.0
     )
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     image_resolution : EnumProperty(
         name = 'Image Resolution',
@@ -801,6 +801,11 @@ class YNewLayer(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         obj = context.object
+
+        # Make sure channel index is not out of bound
+        if not BaseOperator.is_self_channel_idx_accessible(self):
+            try: self.channel_idx = str(0)
+            except: pass
 
         if self.type == 'IMAGE':
             name = obj.active_material.name + DEFAULT_NEW_IMG_SUFFIX
@@ -1400,11 +1405,11 @@ class YNewLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
-    """Open Image to Override Channel"""
-    bl_idname = "wm.y_open_image_to_override_layer_channel"
-    bl_label = "Open Image to Override Channel Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+class YOpenImageAsLayerChannelSource(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
+    """Open Image as layer channel source"""
+    bl_idname = "wm.y_open_image_as_layer_channel_source"
+    bl_label = "Open Image as Layer Channel Source"
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -1492,149 +1497,6 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper, BaseOperator
 
         return {'FINISHED'}
 
-class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
-    """Open Image to Override 1 Channel"""
-    bl_idname = "wm.y_open_image_to_override_1_layer_channel"
-    bl_label = "Open Image to Override 1 Channel Layer"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def invoke(self, context, event):
-        self.ch = context.parent
-        return self.running_fileselect_modal(context, event)
-
-    def execute(self, context):
-        ch = self.ch
-        T = time.time()
-
-        wm = context.window_manager
-        node = get_active_ypaint_node()
-
-        loaded_images = self.get_loaded_images()
-
-        images = []
-        for i, new_img in enumerate(loaded_images):
-
-            # Check for existing images
-            old_image_found = False
-            for old_img in bpy.data.images:
-                if old_img.filepath == new_img.filepath:
-                    images.append(old_img)
-                    old_image_found = True
-                    break
-
-            if not old_image_found:
-                images.append(new_img)
-
-        # Remove already existing images
-        for img in loaded_images:
-            if img not in images:
-                remove_datablock(bpy.data.images, img)
-
-        yp = ch.id_data.yp
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
-        if not m: return []
-        layer = yp.layers[int(m.group(1))]
-        root_ch = yp.channels[int(m.group(2))]
-        tree = get_tree(layer)
-
-        # Make sure channel is on
-        if not ch.enable:
-            ch.enable = True
-
-        image = None
-        image_1 = None
-
-        for img in images:
-            img_name = os.path.splitext(os.path.basename(img.filepath))[0].lower()
-            # Image 1 will represents bump
-            if (('displacement' in img_name or 'bump' in img_name or img_name.endswith(('_disp', '.disp')))
-                and 'without bump' not in img_name # Baked normal from ucupaint can contains 'without bump' word
-                ):
-                image_1 = img
-            elif not image:
-                image = img
-
-            if image and image_1:
-                break
-
-        if image:
-            # Make sure override is on
-            if not ch.override_1:
-                ch.override_1 = True
-
-            # Set relative
-            if self.relative:
-                try: image.filepath = bpy.path.relpath(image.filepath)
-                except: pass
-
-            # Set colorspace
-            if not image.is_dirty:
-                image.colorspace_settings.name = get_noncolor_name()
-
-            # Update image cache
-            if ch.override_1_type == 'IMAGE':
-                source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
-                image_node, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
-            else:
-                image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
-
-            image_node.image = image
-            ch.override_1_type = 'IMAGE'
-            ch.active_edit_1 = True
-
-        if image_1:
-
-            # Make sure override is on
-            if not ch.override:
-                ch.override = True
-
-            # Set relative
-            if self.relative:
-                try: image_1.filepath = bpy.path.relpath(image_1.filepath)
-                except: pass
-
-            # Set colorspace
-            if not image_1.is_dirty:
-                image_1.colorspace_settings.name = get_noncolor_name()
-
-            # Update image 1 cache
-            if ch.override_type == 'IMAGE':
-                source_tree = get_channel_source_tree(ch, layer)
-                source_label = root_ch.name + ' Override : ' + ch.override_type
-                image_node_1, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
-            else:
-                image_node_1, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
-
-            image_node_1.image = image_1
-            ch.override_type = 'IMAGE'
-            ch.active_edit = True
-
-        if image and image_1:
-            if ch.normal_map_type != 'BUMP_NORMAL_MAP':
-                ch.normal_map_type = 'BUMP_NORMAL_MAP'
-
-        elif image_1:
-            if ch.normal_map_type == 'NORMAL_MAP':
-                ch.normal_map_type = 'BUMP_MAP'
-
-        elif image:
-            if ch.normal_map_type == 'BUMP_MAP':
-                ch.normal_map_type = 'NORMAL_MAP'
-
-        # Update list items
-        ListItem.refresh_list_items(yp)
-
-        # Update UI
-        wm.ypui.need_update = True
-        print('INFO: Image(s) opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.yptimer.time = str(time.time())
-
-        return {'FINISHED'}
-
 class BaseMultipleImagesLayer(BaseOperator.OpenImage):
 
     texcoord_type : EnumProperty(
@@ -1648,7 +1510,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
         name = 'UV Map',
         description = 'UV Map to use for layer coordinate',
         default = '')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     add_mask : BoolProperty(
         name = 'Add Mask',
@@ -2163,14 +2025,14 @@ def search_for_image_node(node, channel_name, channel_image_dict={}):
                 if channel_name in channel_image_dict:
                     break
                 
-class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
-    bl_idname = "wm.y_open_images_from_material_to_single_layer"
-    bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
-    bl_description = "Open images inside material node tree to single " + get_addon_title() + " layer"
+class YOpenImagesFromMaterialAsLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
+    bl_idname = "wm.y_open_images_from_material_as_single_layer"
+    bl_label = "Open Images from Material as single " + get_addon_title() + " Layer"
+    bl_description = "Open images inside material node tree as single " + get_addon_title() + " layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     mat_name : StringProperty(name='Material', default='')
-    mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    mat_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
     asset_library_path : StringProperty(default='')
 
     fail_self_load : BoolProperty(default=False)
@@ -2400,7 +2262,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
 class YOpenLayersFromMaterial(bpy.types.Operator):
     bl_idname = "wm.y_open_layers_from_material"
     bl_label = "Open Layers from " + get_addon_title() + " Material"
-    bl_description = "Open layers from material to current " + get_addon_title() + " material"
+    bl_description = "Open layers from material into current active " + get_addon_title() + " node"
     bl_options = {'REGISTER', 'UNDO'}
 
     mat_name : StringProperty(name='Material', default='')
@@ -2501,11 +2363,11 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
-    bl_idname = "wm.y_open_images_to_single_layer"
-    bl_label = "Open Images to single Layer"
-    bl_description = "Open images to single layer"
-    bl_options = {'REGISTER', 'UNDO'}
+class YOpenImagesAsSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
+    bl_idname = "wm.y_open_images_as_single_layer"
+    bl_label = "Open Images as single Layer"
+    bl_description = "Open images as single layer"
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -2532,7 +2394,7 @@ class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleIma
 
 class YOpenImageAsLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
     """Open Image as Layer"""
-    bl_idname = "wm.y_open_image_to_layer"
+    bl_idname = "wm.y_open_image_as_layer"
     bl_label = "Open Image as Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -2619,7 +2481,7 @@ class YOpenImageAsLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         default = False
     )
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     file_browser_filepath : StringProperty(default='')
 
@@ -2980,129 +2842,10 @@ class YOpenImageAsLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
 
         return {'FINISHED'}
 
-class YOpenExistingDataToOverride1Channel(bpy.types.Operator):
-    """Open Existing Data to Override 1 Channel Layer"""
-    bl_idname = "wm.y_open_existing_data_to_override_1_channel"
-    bl_label = "Open Existing Data to Override 1 Channel Layer"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    image_name : StringProperty(name="Image")
-    image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
-
-    @classmethod
-    def poll(cls, context):
-        #return hasattr(context, 'group_node') and context.group_node
-        return get_active_ypaint_node()
-
-    def invoke(self, context, event):
-        self.ch = context.parent
-        obj = context.object
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-
-        # Update image names
-        self.image_coll.clear()
-        imgs = bpy.data.images
-        baked_channel_images = get_all_baked_channel_images(node.node_tree)
-        for img in imgs:
-            if is_image_available_to_open(img) and img not in baked_channel_images:
-                self.image_coll.add().name = img.name
-
-        return context.window_manager.invoke_props_dialog(self)
-
-    def draw(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        obj = context.object
-
-        row = split_layout(self.layout, 0.3, align=True)
-        row.label(text='Image:')
-        row.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
-
-    def execute(self, context):
-        T = time.time()
-        wm = context.window_manager
-
-        obj = context.object
-        mat = obj.active_material
-
-        ch = self.ch
-        yp = ch.id_data.yp
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
-        if not m: return []
-        layer = yp.layers[int(m.group(1))]
-        root_ch = yp.channels[int(m.group(2))]
-        tree = get_tree(layer)
-
-        # Make sure channel is on
-        if not ch.enable:
-            ch.enable = True
-
-        if self.image_name == '':
-            self.report({'ERROR'}, "Image name cannot be empty!")
-            return {'CANCELLED'}
-        image = bpy.data.images.get(self.image_name)
-
-        if not image:
-            self.report({'ERROR'}, "Image named " + self.image_name + " is not found!")
-            return {'CANCELLED'}
-
-        should_be_bump = False
-
-        #img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
-        img_name = image.name.lower()
-        if 'displacement' in img_name or 'bump' in img_name or img_name.endswith(('_disp', '.disp')):
-            should_be_bump = True
-
-        # Update image cache
-        if should_be_bump:
-            # Make sure override is on
-            if not ch.override:
-                ch.override = True
-
-            if ch.override_type == 'IMAGE':
-                source_tree = get_channel_source_tree(ch, layer)
-                source_label = root_ch.name + ' Override : ' + ch.override_type
-                image_node, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
-            else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
-        else:
-
-            # Make sure override is on
-            if not ch.override_1:
-                ch.override_1 = True
-
-            if ch.override_1_type == 'IMAGE':
-                #source_tree = get_channel_source_tree(ch, layer)
-                source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
-                image_node, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
-            else: image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
-
-        image_node.image = image
-        #if image.colorspace_settings.name != get_noncolor_name():
-        #    image.colorspace_settings.name = get_noncolor_name()
-
-        if should_be_bump:
-            ch.override_type = 'IMAGE'
-            if ch.normal_map_type != 'BUMP_NORMAL_MAP': ch.normal_map_type = 'BUMP_MAP'
-            ch.active_edit = True
-        else:
-            ch.override_1_type = 'IMAGE'
-            ch.active_edit_1 = True
-
-        # Update list items
-        ListItem.refresh_list_items(yp)
-
-        # Update UI
-        wm.ypui.need_update = True
-        print('INFO: Data is opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.yptimer.time = str(time.time())
-
-        return {'FINISHED'}
-
-class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
-    """Open Existing Data to Override Channel Layer"""
-    bl_idname = "wm.y_open_existing_data_to_override_channel"
-    bl_label = "Open Existing Data to Override Channel Layer"
+class YOpenExistingDataAsLayerChannelSource(bpy.types.Operator):
+    """Open Existing Data as layer channel source"""
+    bl_idname = "wm.y_open_existing_data_as_layer_channel_source"
+    bl_label = "Open Existing Data as Layer Channel Source"
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
@@ -3115,10 +2858,10 @@ class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
     )
 
     image_name : StringProperty(name="Image")
-    image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    image_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     vcol_name : StringProperty(name=get_vertex_color_label())
-    vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    vcol_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -3264,9 +3007,9 @@ class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YOpenExistingDataToLayer(bpy.types.Operator):
+class YOpenExistingDataAsLayer(bpy.types.Operator):
     """Open Existing Data as Layer"""
-    bl_idname = "wm.y_open_existing_data_to_layer"
+    bl_idname = "wm.y_open_existing_data_as_layer"
     bl_label = "Open Existing Data as Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -3337,12 +3080,12 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
     )
 
     image_name : StringProperty(name="Image")
-    image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    image_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     vcol_name : StringProperty(name=get_vertex_color_label())
-    vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    vcol_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -3509,7 +3252,7 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
     bl_idname = "wm.y_move_in_out_layer_group"
     bl_label = "Move In/Out Layer Group"
     bl_description = "Move in or out layer group"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
@@ -3643,7 +3386,7 @@ class YMoveLayer(bpy.types.Operator):
     bl_idname = "wm.y_move_layer"
     bl_label = "Move Layer"
     bl_description = "Move layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
@@ -3827,7 +3570,6 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
     bl_label = "Move In/Out Layer Group"
     bl_description = "Move inside or outside layer group"
     bl_options = {'UNDO'}
-    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
@@ -3880,7 +3622,6 @@ class YRemoveLayerMenu(bpy.types.Operator):
     bl_idname = "wm.y_remove_layer_menu"
     bl_label = "Remove Layer Menu"
     bl_description = "Remove Layer Menu"
-    #bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -4060,11 +3801,11 @@ class YRemoveLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YReplaceLayerChannelOverride(bpy.types.Operator):
-    bl_idname = "wm.y_replace_layer_channel_override"
-    bl_label = "Replace Layer Channel Override"
-    bl_description = "Replace Layer Channel Override"
-    bl_options = {'REGISTER', 'UNDO'}
+class YReplaceLayerChannelSource(bpy.types.Operator):
+    bl_idname = "wm.y_replace_layer_channel_source"
+    bl_label = "Replace Layer Channel Source"
+    bl_description = "Replace Layer Channel Source"
+    bl_options = {'UNDO'}
 
     type : EnumProperty(
         name = 'Layer Type',
@@ -4088,39 +3829,11 @@ class YReplaceLayerChannelOverride(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YReplaceLayerChannelOverride1(bpy.types.Operator):
-    bl_idname = "wm.y_replace_layer_channel_override_1"
-    bl_label = "Replace Layer Channel Normal Override"
-    bl_description = "Replace Layer Channel Normal Override"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    type : EnumProperty(
-        name = 'Layer Type',
-        items = channel_override_1_type_items,
-        default = 'IMAGE'
-    )
-
-    @classmethod
-    def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
-
-    def execute(self, context):
-        ch = context.parent
-        ch.override_1_type = self.type
-        ch.override_1 = True
-        if not ch.enable: ch.enable = True
-
-        # Update list items
-        ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
-
-        return {'FINISHED'}
-
-class YRemoveLayerChannelOverrideSource(bpy.types.Operator):
+class YRemoveLayerChannelCustomDataSource(bpy.types.Operator):
     bl_idname = "wm.y_remove_channel_override_source"
-    bl_label = "Replace Layer Channel Override Source"
-    bl_description = "Replace Layer Channel Override Source"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_label = "Replace Layer Channel Custom Data Source"
+    bl_description = "Replace layer channel custom data source"
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -4134,26 +3847,6 @@ class YRemoveLayerChannelOverrideSource(bpy.types.Operator):
             remove_node(tree, ch, 'source')
         else: remove_node(tree, ch, 'cache_image')
         ch.override_type = 'DEFAULT'
-        return {'FINISHED'}
-
-class YRemoveLayerChannelOverride1Source(bpy.types.Operator):
-    bl_idname = "wm.y_remove_channel_override_1_source"
-    bl_label = "Replace Layer Channel Normal Override Source"
-    bl_description = "Replace Layer Channel Normal Override Source"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return hasattr(context, 'channel') and hasattr(context, 'layer')
-
-    def execute(self, context):
-        layer = context.layer
-        ch = context.channel
-        tree = get_tree(layer)
-        if ch.override_1:
-            remove_node(tree, ch, 'source_1')
-        else: remove_node(tree, ch, 'cache_1_image')
-        ch.override_1_type = 'DEFAULT'
         return {'FINISHED'}
 
 class YSetLayerChannelNormalBlendType(bpy.types.Operator):
@@ -4289,7 +3982,7 @@ class YReplaceLayerType(bpy.types.Operator):
     bl_idname = "wm.y_replace_layer_type"
     bl_label = "Replace Layer Type"
     bl_description = "Replace Layer Type"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     type : EnumProperty(
         name = 'Layer Type',
@@ -4298,7 +3991,7 @@ class YReplaceLayerType(bpy.types.Operator):
     )
 
     item_name : StringProperty(name="Item")
-    item_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    item_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     load_item : BoolProperty(default=False)
 
@@ -4566,7 +4259,7 @@ class YCopyLayer(bpy.types.Operator):
     bl_idname = "wm.y_copy_layer"
     bl_label = "Copy Layer"
     bl_description = "Copy Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     all_layers : BoolProperty(
         name = 'Copy All Layers',
@@ -5215,11 +4908,18 @@ def update_use_height_as_normal(self, context):
     check_start_end_root_ch_nodes(self.id_data)
     check_uv_nodes(yp)
 
+    # Update modifiers tree
+    modifier_common.check_layer_modifier_tree(layer)
+
     reconnect_layer_nodes(layer) #, ch_index)
     rearrange_layer_nodes(layer)
 
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
+
+    # Update preview mode
+    if yp.preview_mode:
+        yp.preview_mode = yp.preview_mode
 
 def update_voronoi_feature(self, context):
     yp = self.id_data.yp
@@ -6655,17 +6355,15 @@ classes = (
     YFixMissingSource,
     YNewLayer,
     YNewVDMLayer,
-    YNewVcolToOverrideChannel,
+    YNewVcolAsLayerChannelSource,
     YOpenImageAsLayer,
-    YOpenImagesToSingleLayer,
-    YOpenImagesFromMaterialToLayer,
+    YOpenImagesAsSingleLayer,
+    YOpenImagesFromMaterialAsLayer,
     YOpenLayersFromMaterial,
     YOpenImageToReplaceLayer,
-    YOpenImageToOverrideChannel,
-    YOpenImageToOverride1Channel,
-    YOpenExistingDataToLayer,
-    YOpenExistingDataToOverrideChannel,
-    YOpenExistingDataToOverride1Channel,
+    YOpenImageAsLayerChannelSource,
+    YOpenExistingDataAsLayer,
+    YOpenExistingDataAsLayerChannelSource,
     YMoveLayer,
     YMoveInOutLayerGroup,
     YMoveInOutLayerGroupMenu,
@@ -6675,10 +6373,8 @@ classes = (
     YSetLayerChannelBlendType,
     YSetLayerChannelNormalBlendType,
     YSetLayerChannelInput,
-    YReplaceLayerChannelOverride,
-    YReplaceLayerChannelOverride1,
-    YRemoveLayerChannelOverrideSource,
-    YRemoveLayerChannelOverride1Source,
+    YReplaceLayerChannelSource,
+    YRemoveLayerChannelCustomDataSource,
     YDuplicateLayer,
     YCopyLayer,
     YPasteLayer,

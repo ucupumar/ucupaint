@@ -298,12 +298,6 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
     bl_description = "New Image Atlas segment test"
     bl_options = {'REGISTER', 'UNDO'}
 
-    #image_atlas_name : StringProperty(
-    #        name = 'Image Atlas',
-    #        description = 'Image atlas name',
-    #        default='')
-
-    #image_atlas_coll : CollectionProperty(type=bpy.types.PropertyGroup)
     color : EnumProperty(
         name = 'Altas Base Color',
         items = (

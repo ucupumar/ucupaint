@@ -442,7 +442,7 @@ class YNewLayerMask(bpy.types.Operator):
         default = '',
         update = BaseOperator.update_uv_map_name
     )
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     use_udim : BoolProperty(
         name = 'Use UDIM Tiles',
@@ -924,7 +924,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -1166,13 +1166,13 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     image_name : StringProperty(name="Image")
-    image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    image_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     vcol_name : StringProperty(name=get_vertex_color_label())
-    vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    vcol_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -1403,7 +1403,7 @@ class YMoveLayerMask(bpy.types.Operator):
     bl_idname = "wm.y_move_layer_mask"
     bl_label = "Move Layer Mask"
     bl_description = "Move layer mask"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
@@ -1476,7 +1476,7 @@ class YRemoveLayerMask(bpy.types.Operator):
     bl_idname = "wm.y_remove_layer_mask"
     bl_label = "Remove Layer Mask"
     bl_description = "Remove Layer Mask"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -1611,7 +1611,7 @@ class YReplaceMaskType(bpy.types.Operator):
     bl_idname = "wm.y_replace_mask_type"
     bl_label = "Replace Mask Type"
     bl_description = "Replace Mask Type"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     type : EnumProperty(
         name = 'Layer Type',
@@ -1626,7 +1626,7 @@ class YReplaceMaskType(bpy.types.Operator):
     )
 
     item_name : StringProperty(name="Item")
-    item_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    item_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     load_item : BoolProperty(default=False)
 
@@ -1713,7 +1713,7 @@ class YFixEdgeDetectAO(bpy.types.Operator):
     """Eevee Ambient Occlusion must be enabled to make edge detect mask to work"""
     bl_idname = "wm.y_fix_edge_detect_ao"
     bl_label = "Fix Edge Detect Mask AO"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):

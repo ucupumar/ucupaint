@@ -120,12 +120,6 @@ def remember_subsurf_modifiers(mat=None, objs=[]):
     if not mat: mat = get_active_material()
     if len(objs) == 0 and mat: objs = get_all_objects_with_same_materials(mat, True)
 
-    # Displacement method is inside object data for Blender 2.77 and below 
-    if not is_bl_newer_than(2, 78):
-        for obj in objs:
-            if obj.data and hasattr(obj.data, 'cycles'):
-                obj.data.cycles.displacement_method = displacement_method
-
     for obj in objs:
         subsurf = get_subsurf_modifier(obj)
         if subsurf:

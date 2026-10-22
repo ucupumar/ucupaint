@@ -2055,7 +2055,7 @@ def check_channel_vdisp_nodes(tree, layer, root_ch, ch, need_reconnect=False):
 
     channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
-    if channel_enabled and is_vdisp_process_needed(layer) and layer.type != 'GROUP':
+    if channel_enabled and is_vdisp_process_needed(layer) and layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
         if ch.vdisp_enable_flip_yz:
             vdisp_flip_yz, dirty = check_new_node(tree, ch, 'vdisp_flip_yz', 'ShaderNodeGroup', 'Flip Y/Z', True)
@@ -2373,7 +2373,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
                 normal_proc.inputs['Distance'].default_value = 1.0
                 normal_proc.inputs['Strength'].default_value = 1.0
 
-            elif layer.type != 'GROUP':
+            elif layer.type not in {'GROUP', 'PREV_LAYERS'}:
                 # Normal map
                 normal_proc, need_reconnect = replace_new_node(tree, ch, 'normal_proc', 'ShaderNodeNormalMap', label='Normal Process', return_status=True)
                 normal_proc.uv_map = layer.uv_name

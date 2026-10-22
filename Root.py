@@ -82,7 +82,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         default = True
     )
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -206,7 +206,7 @@ class YRenameUVMaterial(bpy.types.Operator):
         default = ''
     )
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     new_uv_name : StringProperty(
         name = 'New UV Name', 
@@ -1926,10 +1926,10 @@ class YSwitchToMaterialView(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YFixChannelMissmatch(bpy.types.Operator):
-    bl_idname = "wm.y_fix_channel_missmatch"
+class YFixChannelMismatch(bpy.types.Operator):
+    bl_idname = "wm.y_fix_channel_mismatch"
     bl_label = "Fix Channels Mistmatch"
-    bl_description = "Fix channels missmatch because of error"
+    bl_description = "Fix channels mismatch because of error"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -1958,7 +1958,7 @@ class YFixMissingUV(bpy.types.Operator):
     source_uv_name : StringProperty(name='Missing UV Name', description='Missing UV Name', default='')
     target_uv_name : StringProperty(name='Target UV Name', description='Target UV Name', default='')
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -2435,9 +2435,10 @@ class YFixMissingData(bpy.types.Operator):
         # Fix missing sources
         for i, layer in reversed(list(enumerate(yp.layers))):
 
-            # Delete layer if source is not found
+            # Delete layer if layer tree or layer source is not found
+            layer_tree = get_tree(layer)
             src = get_layer_source(layer)
-            if not src:
+            if not layer_tree or not src:
                 layer_common.remove_layer(yp, i)
                 continue
 
@@ -2766,7 +2767,8 @@ def update_active_yp_channel(self, context):
         yp.active_bake_target_index = bt_idx
 
     # Set active baked image to paint slot
-    set_active_paint_slot_entity(yp)
+    try: set_active_image_for_editor_and_painting(yp)
+    except Exception as e: print('EXCEPTIION: Cannot set active image! Error: '+str(e))
 
     if yp.use_baked:
         if obj.type == 'MESH':
@@ -2810,7 +2812,8 @@ def update_layer_index(self, context):
     image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
     # Set active image to paint slot
-    set_active_paint_slot_entity(yp)
+    try: set_active_image_for_editor_and_painting(yp)
+    except Exception as e: print('EXCEPTIION: Cannot set active image! Error: '+str(e))
 
     # Update active vertex color
     if vcol and get_active_vertex_color(obj) != vcol:
@@ -3385,8 +3388,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
     enable_smooth_bump : BoolProperty(
         name = 'Enable Smooth Bump',
         description = 'Enable smooth bump map.\nLooks better but bump height scaling will be different than standard bump map.\nSmooth bump map -> Texture space.\nStandard bump map -> World space',
-        default = True,
-        update = update_enable_smooth_bump
+        default = False,
+        #update = update_enable_smooth_bump
     )
 
     use_clamp : BoolProperty(
@@ -4119,22 +4122,26 @@ def ypaint_object_changes_update(scene):
     yp = node.node_tree.yp if node else None
 
     if ypwm.last_object != obj.name or (mat and mat.name != ypwm.last_material):
-        ypwm.last_object = obj.name
-        if mat: ypwm.last_material = mat.name
+
+        # Check if the material is the only thing that changes
+        only_material_change = False
+        if ypwm.last_object != obj.name:
+            # Remember selected object
+            ypwm.last_object = obj.name
+        elif mat and mat.name != ypwm.last_material:
+            only_material_change = True
+
+        if mat: 
+            # Remember selected material
+            ypwm.last_material = mat.name
 
         # NOTE: This code can causes context error with some file
         # Multiple materials will create temporary image in non-active materials
         # since it's the only way texture paint mode won't mess with other material image
         #check_other_mats_to_use_temp_image(obj)
 
-        # Refresh layer index to update editor image
-        if yp:
-            if yp.use_baked and len(yp.channels) > 0:
-                update_active_yp_channel(yp, bpy.context)
-
-            elif len(yp.layers) > 0:
-                try: set_active_paint_slot_entity(yp)
-                except: print('EXCEPTIION: Cannot set image canvas!')
+        try: set_active_image_for_editor_and_painting(yp)
+        except Exception as e: print('EXCEPTIION: Cannot set active image! Error: '+str(e))
 
     # HACK: Remember original image editor images before entering texture paint mode
     if yp and obj.type == 'MESH' and obj.mode != 'TEXTURE_PAINT':
@@ -4155,7 +4162,7 @@ def ypaint_object_changes_update(scene):
 
             ypwm.last_mode = obj.mode
             if yp and len(yp.layers) > 0:
-                image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
+                image, _, src_of_img, _, _, _ = get_active_image_and_stuffs(obj, yp)
 
                 # Store original uv mirror offsets
                 if obj.mode == 'TEXTURE_PAINT':
@@ -4169,12 +4176,9 @@ def ypaint_object_changes_update(scene):
                                 obj.yp.ori_offset_v = mirror.offset_v
                         except: print('EXCEPTIION: Cannot remember original mirror offset!')
 
-                # HACK: Just in case active image is not correct (Necessary for Blender 5.0 and lower)
-                if image and not is_bl_newer_than(5, 1): 
-                    ypwm.correct_paint_image_name = image.name
-
-                # Set image editor image
-                update_image_editor_image(bpy.context, image)
+                # Set active image
+                try: set_active_image_for_editor_and_painting(yp)
+                except Exception as e: print('EXCEPTIION: Cannot set active image! Error: '+str(e))
 
                 # Refresh temporary UV
                 refresh_temp_uv(obj, src_of_img)
@@ -4212,7 +4216,7 @@ def ypaint_object_changes_update(scene):
             ypwm.last_mode = obj.mode
 
 @persistent
-def ypaint_missmatch_paint_slot_hack(scene):
+def ypaint_mismatch_paint_slot_hack(scene):
     # HACK: Update material active slot when necessary
     wmyp = bpy.context.window_manager.ypprops
     if wmyp.use_paint_slot_hacks and wmyp.correct_paint_image_name != '':
@@ -4372,7 +4376,7 @@ classes = (
     YRemoveYPaintChannel,
     YAddSimpleUVs,
     YSwitchToMaterialView,
-    YFixChannelMissmatch,
+    YFixChannelMismatch,
     YFixMissingUV,
     YRenameYPaintTree,
     YChangeActiveYPaintNode,
@@ -4413,7 +4417,7 @@ def register():
     if is_bl_newer_than(2, 80):
         # Paint slot hack is no longer necessary with Blender 5.1
         if not is_bl_newer_than(5, 1):
-            bpy.app.handlers.depsgraph_update_post.append(ypaint_missmatch_paint_slot_hack)
+            bpy.app.handlers.depsgraph_update_post.append(ypaint_mismatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_object_changes_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
@@ -4434,7 +4438,7 @@ def unregister():
     # Remove handlers
     if is_bl_newer_than(2, 80):
         if not is_bl_newer_than(5, 1):
-            bpy.app.handlers.depsgraph_update_post.remove(ypaint_missmatch_paint_slot_hack)
+            bpy.app.handlers.depsgraph_update_post.remove(ypaint_mismatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
         bpy.app.handlers.scene_update_pre.remove(ypaint_object_changes_update)

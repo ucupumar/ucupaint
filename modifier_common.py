@@ -220,7 +220,7 @@ def save_math_props(tree, m, channel_type):
                             elif index == 5: fc.data_path = m.path_from_id() + '.math_a_val'
 
         m.math_r_val = math.inputs[2].default_value
-        if channel_type == 'VALUE':
+        if channel_type == 'VALUE' or len(math.inputs) == 4:
             m.math_a_val = math.inputs[3].default_value
         else:
             m.math_g_val = math.inputs[3].default_value
@@ -688,6 +688,14 @@ def check_layer_modifier_tree(layer):
 
         # Get channel socket name
         if layer.type == 'PREV_LAYERS':
+
+            # NOTE: Add extra sockets for normal channel if it's converted from height
+            # This will add an excess modifier node group, but it's the only way the connections work right now
+            if root_ch.special_type == 'HEIGHT' and ch.use_height_as_normal:
+                normal_root_ch = get_root_normal_channel(yp)
+                if normal_root_ch.name not in socket_names:
+                    socket_names.append(normal_root_ch.name)
+
             socket_name = root_ch.name
         else: socket_name = get_channel_input_socket_name(layer, ch)
 
