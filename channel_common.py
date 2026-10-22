@@ -205,10 +205,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         if non_color:
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
-    else:
-        # NOTE: Smooth bump is no longer enabled by default for realtime bump capable blender
-        if is_bl_newer_than(2, 78): 
-            channel.enable_smooth_bump = False
+    #else:
+    #    # NOTE: Smooth bump is no longer enabled by default for realtime bump capable blender
+    #    channel.enable_smooth_bump = False
 
     # Special Bake target setup
     alpha_bt_setup = False
@@ -246,9 +245,6 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             bt.use_udim = yp.bake_target_global_settings.use_udim
             yp.halt_update = ori_halt_update
 
-        # Set denoise default values
-        bt.denoise = False
-
         if special_type == 'HEIGHT':
             bt.interpolation = 'Cubic'
 
@@ -257,10 +253,6 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
         elif special_type == 'NORMAL':
             bt.fxaa = False
-            #create_normal_without_bump_bake_target(yp)
-        else:
-            # FXAA is enabled by default
-            bt.fxaa = True
 
     if bt: channel.bake_target_name = bt.name
         
@@ -302,8 +294,7 @@ def set_default_height_channel_prop(channel):
     yp.halt_update = True
 
     # Disable smooth bump by default
-    if is_bl_newer_than(2, 77):
-        channel.enable_smooth_bump = False
+    #channel.enable_smooth_bump = False
 
     # NOTE: Height as bump is default for all blender versions 
     # since Cycles doesn't produce correct bump if material displacement setting is set to `Bump Only`.
@@ -823,7 +814,7 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
             if outp and len(outp.links) > 0:
                 for link in outp.links:
                     for inp in link.to_node.inputs:
-                        if inp.name == 'Normal':
+                        if inp.name == 'Normal' and link.to_node.type not in {'DISPLACEMENT', 'VECTOR_DISPLACEMENT'}:
                             normal_inp = inp
                             break
                     if normal_inp != None: break
@@ -875,7 +866,8 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
         make_channel_as_alpha(mat, node, channel, do_setup=True, move_index=True, ch_pair_name=channel_pair_name)
         set_material_methods(mat, blend_method, shadow_method)
     elif mode == 'HEIGHT':
-        if not channel.use_height_as_bump:
+        root_normal_ch = get_root_normal_channel(yp)
+        if not root_normal_ch or not root_normal_ch.use_height_as_bump:
             do_displacement_node_setup(mat, node, channel, is_vector_disp=False)
     elif mode == 'NORMAL':
         outp = node.outputs.get(channel.name)

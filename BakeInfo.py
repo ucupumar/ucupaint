@@ -46,13 +46,13 @@ class BaseBakeInfoProps():
     fxaa : BoolProperty(
         name='Use FXAA', 
         description = "Use FXAA on baked image (doesn't work with float images)",
-        default = False
+        default = True
     )
 
     denoise : BoolProperty(
         name = 'Use Denoise', 
         description = "Use Denoise on baked image",
-        default = True
+        default = False
     )
 
     use_udim : BoolProperty(

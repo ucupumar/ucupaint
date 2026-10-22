@@ -603,6 +603,7 @@ def rearrange_layer_nodes(layer, tree=None):
     if yp.halt_reconnect: return
 
     if not tree: tree = get_tree(layer)
+    if not tree: return
     nodes = tree.nodes
 
     #print('Rearrange layer ' + layer.name)
@@ -948,7 +949,10 @@ def rearrange_layer_nodes(layer, tree=None):
     #    loc.y -= 240
 
     if check_set_node_loc(tree, layer.decal_process, loc):
-        loc.y -= 170
+        if layer.decal_projection_type != 'FLAT':
+            loc.y -= 170
+        else:
+            loc.y -= 240
 
     if check_set_node_loc(tree, layer.texcoord, loc):
         loc.y -= 240
@@ -1194,7 +1198,7 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.y -= 140
 
         if check_set_node_loc(tree, mask.decal_process, loc):
-            loc.y -= 170
+            loc.y -= 250
 
         if check_set_node_loc(tree, mask.uv_map, loc):
             loc.y -= 130

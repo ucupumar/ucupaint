@@ -1317,7 +1317,7 @@ def update_image_editor_image(context, image):
     obj = context.object
     scene = context.scene
 
-    if obj.mode == 'EDIT':
+    if obj and obj.mode == 'EDIT':
         space = get_edit_image_editor_space(context)
         if space:
             space.use_image_pin = True
@@ -1417,7 +1417,8 @@ def get_unique_name(name, items, surname = ''):
         m = re.match(r'^(.+)\s(\d*)$', name)
         if m:
             name = m.group(1)
-            i = int(m.group(2))
+            try: i = int(m.group(2))
+            except: i = 1
         else:
             i = 1
 
@@ -1516,7 +1517,7 @@ def get_active_ypaint_node(obj=None, mat=None):
     return None
 
 def is_mat_use_nodes(mat):
-    return mat.node_tree != None and (not hasattr(mat, 'use_nodes') or mat.use_nodes)
+    return mat and mat.node_tree != None and (not hasattr(mat, 'use_nodes') or mat.use_nodes)
 
 def is_yp_on_material(yp, mat):
     if not is_mat_use_nodes(mat): return False
@@ -2389,6 +2390,7 @@ def get_mod_tree(entity):
     if m:
         layer = yp.layers[int(m.group(1))]
         tree = get_tree(layer)
+        if not tree: return None
 
         source_group = tree.nodes.get(layer.source_group)
         if source_group and source_group.type == 'GROUP': 
@@ -3704,7 +3706,7 @@ def get_transformation(mapping, entity=None):
 
     return translation, rotation, scale
 
-def is_active_uv_map_missmatch_active_entity(obj, layer):
+def is_active_uv_map_mismatch_active_entity(obj, layer):
 
     yp = layer.id_data.yp
 
@@ -5357,170 +5359,168 @@ def get_bake_target_label(bt=None):
 
     return label
 
-def set_active_paint_slot_entity(yp):
+def get_material_active_image(mat):
+    if not mat or not mat.node_tree: return None
+    obj = bpy.context.object
+
+    # Check if active node is an image node
+    node = mat.node_tree.nodes.active
+    if node and node.type == 'TEX_IMAGE':
+        return node.image 
+
+    # Check for active yp node
+    node = get_active_ypaint_node(mat=mat)
+    if node:
+        image, _, _, _, _, _ = get_active_image_and_stuffs(obj, node.node_tree.yp)
+        return image
+
+    return None
+
+def set_active_image_for_editor_and_painting(yp):
     image = None
     mat = get_active_material()
     node = get_active_ypaint_node()
     obj = bpy.context.object
     scene = bpy.context.scene
-    root_tree = yp.id_data
     wmyp = bpy.context.window_manager.ypprops
 
-    # Multiple materials will use single active image instead active material image
-    # since it's the only way texture paint mode won't mess with other material image
-    is_multiple_mats = obj.type == 'MESH' and len(obj.data.materials) > 1
+    # Setting active paint slot determined by the tool paint mode
+    paint_mode = scene.tool_settings.image_paint.mode
 
-    # Set material active node 
-    if mat and node and is_bl_newer_than(2, 81):
-        node.select = True
-        mat.node_tree.nodes.active = node
+    # Paint slot/canvas update will only happen in texture paint mode
+    in_texture_paint_mode = obj.mode == 'TEXTURE_PAINT' if obj else False
 
-    if yp.use_baked and len(yp.channels) > 0:
+    if not yp:
+        image = get_material_active_image(mat)
+    else:
+        # Set material active node 
+        if in_texture_paint_mode and mat and yp and node and node.node_tree == yp.id_data:
+            if not node.select: node.select = True
+            if mat.node_tree.nodes.active != node: mat.node_tree.nodes.active = node
 
-        ch = yp.channels[yp.active_channel_index]
-        image = get_active_baked_channel_image(ch)
-        #if ch.special_type == 'NORMAL':
-        #    cur_image = get_active_paint_slot_image()
+        if yp.use_baked and len(yp.channels) > 0:
 
-        #    # Cycle through all baked normal images
-        #    #orders = ['baked', 'baked_normal_overlay', 'baked_disp', 'baked_vdisp']
-        #    orders = ['baked', 'baked_normal_no_disp']
-        #    for i, prop in enumerate(orders):
-        #        cur_baked = root_tree.nodes.get(getattr(ch, prop))
-        #        if cur_baked and cur_baked.image == cur_image:
-        #            next_i = i
-        #            for j in range(len(orders)):
-        #                if next_i == len(orders)-1:
-        #                    next_i = 0
-        #                else: next_i += 1
+            ch = yp.channels[yp.active_channel_index]
+            image = get_active_baked_channel_image(ch)
 
-        #                next_prop = orders[next_i]
-        #                next_baked = root_tree.nodes.get(getattr(ch, next_prop))
+        elif len(yp.layers) > 0:
+            if paint_mode == 'MATERIAL' and in_texture_paint_mode:
+            
+                # Get layer tree
+                layer = yp.layers[yp.active_layer_index]
+                tree = get_tree(layer)
 
-        #                if next_baked:
-        #                    next_baked.select = True
-        #                    image = next_baked.image
-        #                    root_tree.nodes.active = next_baked
-        #                    break
-        #            break
+                # Set layer node tree as active
+                root_tree = yp.id_data
+                layer_node = root_tree.nodes.get(layer.group_node)
+                layer_node.select = True
+                root_tree.nodes.active = layer_node
+                layer_tree = layer_node.node_tree
 
-        #if not image:
-        #    baked = root_tree.nodes.get(ch.baked)
-        #    if baked and baked.image:
-        #        baked.select = True
-        #        root_tree.nodes.active = baked
-        #        image = baked.image
+                for mask in layer.masks:
+                    if mask.active_edit:
+                        source = get_mask_source(mask)
+                        baked_source = get_mask_source(mask, get_baked=True)
 
-    elif len(yp.layers) > 0:
-        
-        # Get layer tree
-        layer = yp.layers[yp.active_layer_index]
-        tree = get_tree(layer)
+                        if mask.type == 'IMAGE' or (mask.use_baked and baked_source):
 
-        # Set layer node tree as active
-        layer_node = root_tree.nodes.get(layer.group_node)
-        layer_node.select = True
-        root_tree.nodes.active = layer_node
-        layer_tree = layer_node.node_tree
+                            if mask.use_baked and baked_source:
+                                source = baked_source 
 
-        for mask in layer.masks:
-            if mask.active_edit:
-                source = get_mask_source(mask)
-                baked_source = get_mask_source(mask, get_baked=True)
+                            if mask.group_node != '':
+                                mask_node = layer_tree.nodes.get(mask.group_node)
+                                mask_node.select = True
+                                layer_tree.nodes.active = mask_node
 
-                if mask.type == 'IMAGE' or (mask.use_baked and baked_source):
+                                mask_tree = mask_node.node_tree
+                                source.select = True
+                                mask_tree.nodes.active = source
+                            else:
+                                source.select = True
+                                layer_tree.nodes.active = source
 
-                    if mask.use_baked and baked_source:
-                        source = baked_source 
+                            image = source.image
 
-                    if mask.group_node != '':
-                        mask_node = layer_tree.nodes.get(mask.group_node)
-                        mask_node.select = True
-                        layer_tree.nodes.active = mask_node
+                for ch in layer.channels:
+                    if ch.active_edit and ch.override and ch.override_type != 'DEFAULT' and ch.override_type == 'IMAGE':
+                        source = get_channel_source(ch, layer)
 
-                        mask_tree = mask_node.node_tree
-                        source.select = True
-                        mask_tree.nodes.active = source
-                    else:
+                        if ch.source_group != '':
+                            source_group = layer_tree.nodes.get(ch.source_group)
+                            source_group.select = True
+                            layer_tree.nodes.active = source_group
+
+                            ch_tree = source_group.node_tree
+                            source.select = True
+                            ch_tree.nodes.active = source
+
+                        else:
+                            source.select = True
+                            layer_tree.nodes.active = source
+
+                        image = source.image
+
+                    if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.override_1_type == 'IMAGE':
+                        source = tree.nodes.get(ch.source_1)
                         source.select = True
                         layer_tree.nodes.active = source
+                        image = source.image
 
-                    image = source.image
+                if not image:
+                    source = get_layer_source(layer, tree)
+                    baked_source = get_layer_source(layer, get_baked=True)
 
-        for ch in layer.channels:
-            if ch.active_edit and ch.override and ch.override_type != 'DEFAULT' and ch.override_type == 'IMAGE':
-                source = get_channel_source(ch, layer)
+                    if layer.type == 'IMAGE' or (layer.use_baked and baked_source):
+                        if layer.use_baked and baked_source:
+                            source = baked_source 
 
-                if ch.source_group != '':
-                    source_group = layer_tree.nodes.get(ch.source_group)
-                    source_group.select = True
-                    layer_tree.nodes.active = source_group
+                        if layer.source_group != '':
+                            source_group = layer_tree.nodes.get(layer.source_group)
+                            source_group.select = True
+                            layer_tree.nodes.active = source_group
 
-                    ch_tree = source_group.node_tree
-                    source.select = True
-                    ch_tree.nodes.active = source
+                            source_tree = source_group.node_tree
+                            source.select = True
+                            source_tree.nodes.active = source
+                        else:
+                            source.select = True
+                            layer_tree.nodes.active = source
 
-                else:
-                    source.select = True
-                    layer_tree.nodes.active = source
+                        image = source.image
 
-                image = source.image
+            else:
+                image, _, _, _, _, _ = get_active_image_and_stuffs(obj, yp)
 
-            if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.override_1_type == 'IMAGE':
-                source = tree.nodes.get(ch.source_1)
-                source.select = True
-                layer_tree.nodes.active = source
-                image = source.image
+    if in_texture_paint_mode:
+        # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
+        ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
 
-        if not image:
-            source = get_layer_source(layer, tree)
-            baked_source = get_layer_source(layer, get_baked=True)
+        if image:
+            # Always set `Image` paint mode on Blender 2.7x since selecting material image inside a node is not possible
+            if not is_bl_newer_than(2, 80):
+                if scene.tool_settings.image_paint.mode != 'IMAGE':
+                    scene.tool_settings.image_paint.mode = 'IMAGE'
+            elif paint_mode == 'MATERIAL':
 
-            if layer.type == 'IMAGE' or (layer.use_baked and baked_source):
-                if layer.use_baked and baked_source:
-                    source = baked_source 
-
-                if layer.source_group != '':
-                    source_group = layer_tree.nodes.get(layer.source_group)
-                    source_group.select = True
-                    layer_tree.nodes.active = source_group
-
-                    source_tree = source_group.node_tree
-                    source.select = True
-                    source_tree.nodes.active = source
-                else:
-                    source.select = True
-                    layer_tree.nodes.active = source
-
-                image = source.image
-
-    # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
-    ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
-
-    if not is_multiple_mats and image and is_bl_newer_than(2, 81):
-
-        scene.tool_settings.image_paint.mode = 'MATERIAL'
-        
-        if mat:
-
-            for idx, img in enumerate(mat.texture_paint_images):
-                if img == None: continue
-                if img.name == image.name:
-                    mat.paint_active_slot = idx
-                    # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
-                    if not is_bl_newer_than(5, 1):
-                        wmyp.correct_paint_image_name = img.name                                         
-                        wmyp.use_paint_slot_hacks = True
-                    break
-        
-    else:
-        scene.tool_settings.image_paint.mode = 'IMAGE'
+                if mat:
+                    for idx, img in enumerate(mat.texture_paint_images):
+                        if img == None: continue
+                        if img.name == image.name:
+                            mat.paint_active_slot = idx
+                            # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
+                            if not is_bl_newer_than(5, 1):
+                                wmyp.correct_paint_image_name = img.name                                         
+                                wmyp.use_paint_slot_hacks = True
+                            break   
+            
+        # NOTE: Single image canvas always set to be the same as material image, just in case user want to switch between material and single image mode
         scene.tool_settings.image_paint.canvas = image
 
-    # HACK: Revert back to original editor images
-    set_editor_images(ori_editor_imgs, ori_editor_pins)
+        # HACK: Revert back to original editor images
+        set_editor_images(ori_editor_imgs, ori_editor_pins)
 
-    update_image_editor_image(bpy.context, image)
+    # Update image editor image (will only happen if yp exists)
+    if yp: update_image_editor_image(bpy.context, image)
 
 def get_active_image_and_stuffs(obj, yp):
 
@@ -5531,7 +5531,7 @@ def get_active_image_and_stuffs(obj, yp):
     entity = None
     mapping = None
 
-    vcols = get_vertex_colors(obj)
+    vcols = get_vertex_colors(obj) if obj else []
 
     layer = yp.layers[yp.active_layer_index]
     tree = get_tree(layer)
@@ -5552,14 +5552,14 @@ def get_active_image_and_stuffs(obj, yp):
             elif mask.type == 'IMAGE':
                 image = source.image
                 src_of_img = mask
-            elif mask.type == 'VCOL' and obj.type == 'MESH':
+            elif mask.type == 'VCOL' and obj and obj.type == 'MESH':
                 # If source is empty, still try to get vertex color
                 if get_source_vcol_name(source) == '':
-                    vcol = vcols.get(mask.name)
+                    vcol = vcols.get(mask.name) if vcols else None
                     if vcol: set_source_vcol_name(source, vcol.name)
-                else: vcol = vcols.get(get_source_vcol_name(source))
-            elif mask.type == 'COLOR_ID' and obj.type == 'MESH':
-                vcol = vcols.get(COLOR_ID_VCOL_NAME)
+                else: vcol = vcols.get(get_source_vcol_name(source)) if vcols else None
+            elif mask.type == 'COLOR_ID' and obj and obj.type == 'MESH':
+                vcol = vcols.get(COLOR_ID_VCOL_NAME) if vcols else None
 
     for ch in layer.channels:
         if ch.active_edit and ch.override and ch.override_type != 'DEFAULT':
@@ -5573,8 +5573,8 @@ def get_active_image_and_stuffs(obj, yp):
                 src_of_img = ch
                 mapping = get_layer_mapping(layer)
 
-            elif ch.override_type == 'VCOL' and obj.type == 'MESH':
-                vcol = vcols.get(get_source_vcol_name(source))
+            elif ch.override_type == 'VCOL' and obj and obj.type == 'MESH':
+                vcol = vcols.get(get_source_vcol_name(source)) if vcols else None
 
         if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT':
             source = tree.nodes.get(ch.source_1)
@@ -5597,9 +5597,9 @@ def get_active_image_and_stuffs(obj, yp):
         src_of_img = layer
         mapping = get_layer_mapping(layer)
 
-    if not vcol and layer.type == 'VCOL' and obj.type == 'MESH':
+    if not vcol and layer.type == 'VCOL' and obj and obj.type == 'MESH':
         source = get_layer_source(layer, tree)
-        vcol = vcols.get(get_source_vcol_name(source))
+        vcol = vcols.get(get_source_vcol_name(source)) if vcols else None
 
     return image, uv_name, src_of_img, entity, mapping, vcol
 
@@ -5728,9 +5728,10 @@ def is_tangent_input_needed(layer, uv_name):
 def is_tangent_process_needed(yp, uv_name):
 
     height_root_ch = get_root_height_channel(yp)
-    if height_root_ch:
+    normal_root_ch = get_root_normal_channel(yp)
+    if height_root_ch or normal_root_ch:
 
-        if height_root_ch.main_uv == uv_name and (
+        if height_root_ch and height_root_ch.main_uv == uv_name and (
                 (is_normal_height_input_connected(height_root_ch) and height_root_ch.enable_smooth_bump)
             ):
             return True
@@ -5874,13 +5875,15 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
                     if cc.enable and not cc.unpair_alpha:
                         continue
 
+                height_c = l.channels[height_ch_idx] if height_ch and height_ch_idx < len(l.channels) else None
+
                 # NOTE: Normal will automatically enabled if a layer height channel uses 'Height as Normal'
                 if channel_idx == normal_ch_idx and height_ch_idx < len(l.channels):
-                    height_c = l.channels[height_ch_idx]
                     if height_c.enable and height_c.use_height_as_normal:
                         return True
 
-                if c.enable:
+                # Height channel converted to normal won't be not counted
+                if c.enable and (not height_c or c != height_c or not c.use_height_as_normal):
                     return True
 
             if l.type == 'GROUP' and get_channel_enabled(l.channels[channel_idx], l, root_ch):
@@ -5889,6 +5892,12 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
         return False
 
     else:
+        # Converted height to normal will check normal channel on the parents
+        if root_ch.special_type == 'HEIGHT' and ch.use_height_as_normal:
+            root_normal_ch = get_root_normal_channel(yp)
+            if root_normal_ch:
+                channel_idx = get_channel_index(root_normal_ch)
+
         for pid in get_list_of_parent_ids(layer):
             parent = yp.layers[pid]
             if len(parent.channels) > channel_idx and not parent.channels[channel_idx].enable:
@@ -6129,6 +6138,7 @@ def get_all_materials_with_yp_nodes(mesh_only=True, specific_yp=None):
         if mesh_only and obj.type != 'MESH': continue
         if not hasattr(obj, 'data') or not hasattr(obj.data, 'materials'): continue
         for mat in obj.data.materials:
+            if not mat: continue
             if any([n for n in mat.node_tree.nodes if n.type == 'GROUP' and n.node_tree and n.node_tree.yp.is_ypaint_node and (specific_yp==None or specific_yp==n.node_tree.yp)]):
                 if mat not in mats:
                     mats.append(mat)
@@ -6713,7 +6723,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             and root_ch.special_type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
             and socket_input_name == 'Color' 
-            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
+            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP', 'PREV_LAYERS'}
         ):
             return GAMMA
 
@@ -6746,7 +6756,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             and root_ch.special_type not in {'NORMAL', 'HEIGHT', 'VDISP'}
             and root_ch.colorspace == 'SRGB' 
             and (socket_input_name == 'Color' or layer.type in {'HEMI', 'EDGE_DETECT'})
-            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
+            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP', 'PREV_LAYERS'}
         ):
             return 1.0 / GAMMA
 

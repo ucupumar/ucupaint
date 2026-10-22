@@ -98,7 +98,7 @@ def get_compositor_output_node(tree):
 
     return n
 
-def is_there_any_missmatched_attribute_types(objs):
+def is_there_any_mismatched_attribute_types(objs):
     # Get number of attributes founds
     attr_counts = {}
     for obj in objs:
@@ -114,7 +114,7 @@ def is_there_any_missmatched_attribute_types(objs):
         if count == len(objs):
             same_attrs.append(name)
             
-    # Is there any missmatched type data
+    # Is there any mismatched type data
     for name in same_attrs:
         data_type = ''
         domain = ''
@@ -158,11 +158,11 @@ def is_join_objects_problematic(yp, mat=None):
                 print('INFO: Merged bake is not happening because there\'s problematic texcoord used outside node')
                 return True
 
-        # Check for missmatched color attribute data
+        # Check for mismatched color attribute data
         if is_bl_newer_than(3, 2):
             objs = get_all_objects_with_same_materials(mat, True)
-            if is_there_any_missmatched_attribute_types(objs):
-                print('INFO: Merged bake is not happening because there\'s missmatched attribute data types')
+            if is_there_any_mismatched_attribute_types(objs):
+                print('INFO: Merged bake is not happening because there\'s mismatched attribute data types')
                 return True
 
     return False
@@ -699,12 +699,14 @@ def prepare_other_objs_channels(yp, other_objs):
                 if yp_node:
                     oyp = yp_node.node_tree.yp
                     if ch.name in oyp.channels:
-                        socket = yp_node.outputs[ch.name]
+                        socket = yp_node.outputs.get(ch.name)
 
                     # Check for alpha channel
                     for och in oyp.channels:
-                        if och.enable_alpha: # and och.name == ch.name:
+                        if och.enable_alpha:
                             alpha_socket = yp_node.outputs.get(och.name + io_suffix['ALPHA'])
+                        elif och.special_type == 'ALPHA':
+                            alpha_socket = yp_node.outputs.get(och.name)
 
                 # Check for possible sockets available on the bsdf node
                 if not socket:
@@ -2317,6 +2319,9 @@ def recover_rested_armature_objects(armature_objs):
 
 def prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons=False):
 
+    scene = bpy.context.scene
+    obj = bpy.context.object
+
     obook = dotdict()
 
     obook.temp_objs = []
@@ -2325,6 +2330,10 @@ def prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons=Fa
     obook.ori_loop_locs = {}
 
     any_uv_geonodes = False
+
+    # Original active object
+    obook.obj = bpy.context.object
+    obook.obj_select = get_object_select(obook.obj) if obook.obj else False
 
     for ob in objs:
 
@@ -2374,7 +2383,7 @@ def prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons=Fa
 
 def recover_objs_after_baking(objs, obook, uv_map):
     # Return to original objects
-    if any(obook.ori_objs): objs = ori_objs
+    if any(obook.ori_objs): objs = obook.ori_objs
 
     # Recover material index
     for ob in objs:
@@ -2398,6 +2407,12 @@ def recover_objs_after_baking(objs, obook, uv_map):
     # Remove temporary objects
     for o in obook.temp_objs:
         remove_mesh_obj(o)
+
+    # Recover active object
+    if obook.obj != None:
+        set_active_object(obook.obj)
+        if get_object_select(obook.obj) != obook.obj_select:
+            set_object_select(obook.obj, obook.obj_select)
 
     return objs
 
@@ -2547,8 +2562,9 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
             all_normal_ch = False
 
     tangent_sign_calculation = False
-    if BL28_HACK and any_normal_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and obj in objs:
+    if BL28_HACK and any_normal_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and bpy.context.object in objs:
 
+        obj = bpy.context.object
         if len(yp.uvs) < MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
             print('INFO: Calculating tangent sign before bake...')
             tangent_sign_calculation = True
@@ -2639,16 +2655,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     #            rearrange_layer_nodes(lay)
 
     # Check for hdr
-    use_hdr = False
-    if not bt or bt.bake_settings == 'GLOBAL':
-        if hasattr(btprops, 'use_float_for_displacement') and btprops.use_float_for_displacement and any_height_ch:
-            use_hdr = True
-        if hasattr(btprops, 'use_float_for_normal') and btprops.use_float_for_normal and any_normal_ch:
-            use_hdr = True
-        if hasattr(btprops, 'use_float_for_vector_displacement') and btprops.use_float_for_vector_displacement and any_vdm_ch:
-            use_hdr = True
-    elif bt:
-        use_hdr = bt.hdr
+    use_hdr = bt.hdr
 
     # Get default color
     color = get_bake_target_default_color(node, bt, any_linear_ch)
@@ -2864,7 +2871,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         rgb = node.outputs.get(normal_root_ch.name)
 
         # NOTE: Object space normal layers currently will gives less accurate result when baking using BSDF
-        if is_bl_newer_than(2, 80) and not any_object_space_normal(yp):
+        if is_bl_newer_than(3) and not any_object_space_normal(yp):
             # Use principled bsdf for Blender 2.80+
             bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfPrincipled')
 
@@ -2901,7 +2908,9 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         else:
             # Use custom normal calculation for legacy blender
             norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-            norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
+            if is_bl_newer_than(3) or not is_bl_newer_than(2, 80):
+                norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
+            else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
 
             # Custom normal calculation setup
             if rgb: rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
@@ -3194,7 +3203,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         force_denoise_off = False
         if (any_height_ch and not bt.height_normalize) or any_non_clamped_ch: 
             force_denoise_off = True
-        img = do_image_post_process(img, bt, alpha_enabled, bake_device=bake_device, force_denoise_off=force_denoise_off)
+        img = do_image_post_process(img, btprops, alpha_enabled, bake_device=bake_device, force_denoise_off=force_denoise_off)
 
     return img
 

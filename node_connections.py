@@ -66,7 +66,8 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
         invert = tree.nodes.get(mod.invert)
         if invert:
             rgb = create_link(tree, rgb, invert.inputs[0])[0]
-            alpha = create_link(tree, alpha, invert.inputs[1])[1]
+            create_link(tree, alpha, invert.inputs[1])
+            if len(invert.outputs) > 1: alpha = invert.outputs[1]
 
     elif mod.type == 'RGB_TO_INTENSITY':
 
@@ -444,6 +445,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         for j, layer in reversed(list(enumerate(yp.layers))):
 
             node = nodes.get(layer.group_node)
+            if not node: continue
             layer_ch = layer.channels[i]
 
             # Get layer channel pairs
@@ -893,15 +895,13 @@ def do_height_mask_loops(tree, layer, ch_idx, chain, alpha):
         mask_mix = nodes.get(c.mix)
         mix_pure = nodes.get(c.mix_pure)
         mix_remains = nodes.get(c.mix_remains)
-        mix_normal = nodes.get(c.mix_normal)
-        mix_vdisp = nodes.get(c.mix_vdisp)
-        mix_limit_normal = nodes.get(c.mix_limit_normal)
+        #mix_normal = nodes.get(c.mix_normal)
+        #mix_limit_normal = nodes.get(c.mix_limit_normal)
 
         mmixcol0, mmixcol1, mmixout = get_mix_color_indices(mask_mix)
         mp_mixcol0, mp_mixcol1, mp_mixout = get_mix_color_indices(mix_pure)
         mr_mixcol0, mr_mixcol1, mr_mixout = get_mix_color_indices(mix_remains)
-        mn_mixcol0, mn_mixcol1, mn_mixout = get_mix_color_indices(mix_normal)
-        mv_mixcol0, mv_mixcol1, mv_mixout = get_mix_color_indices(mix_vdisp)
+        #mn_mixcol0, mn_mixcol1, mn_mixout = get_mix_color_indices(mix_normal)
 
         if tb_falloff and (j == chain-1 or (j == chain_local-1 and not trans_bump_ch)):
             pure = tb_falloff.outputs[0]
@@ -942,6 +942,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if yp.halt_reconnect: return
 
     tree = get_tree(layer)
+    if not tree: return
     nodes = tree.nodes
 
     # Get layer source
@@ -1025,6 +1026,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     layer_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'decal_distance_value'))
                     vector = create_link(tree, vector, decal_process.inputs[0])[0]
                     if layer_decal_distance: create_link(tree, layer_decal_distance, decal_process.inputs[1])
+                    if layer.decal_projection_type != 'FLAT':    
+                        layer_decal_scale = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'decal_scale'))
+                        if layer_decal_scale: create_link(tree, layer_decal_scale, decal_process.inputs[2])
         else: vector = get_essential_node(tree, TREE_START).get(io_names[layer.texcoord_type])
 
         if vector and blur_vector:
@@ -1149,7 +1153,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     tb_value = None
     tb_second_value = None
     if trans_bump_ch:
-        chain = min(len(layer.masks), trans_bump_ch.transition_bump_chain)
+        # Get the earliest enabled mask
+        for i, mask in enumerate(layer.masks):
+            if mask.enable: chain = i+1
+
+        chain = min(chain, trans_bump_ch.transition_bump_chain)
 
         tb_value = get_essential_node(tree, TREE_START).get(get_entity_input_name(trans_bump_ch, 'transition_bump_value'))
         tb_second_value = get_essential_node(tree, TREE_START).get(get_entity_input_name(trans_bump_ch, 'transition_bump_second_edge_value'))
@@ -1211,9 +1219,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if mask_texcoord:
                     mask_vector = mask_texcoord.outputs['Object']
                     if mask_decal_process: 
-                        layer_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_distance_value'))
+                        mask_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_distance_value'))
                         mask_vector = create_link(tree, mask_vector, mask_decal_process.inputs[0])[0]
-                        if layer_decal_distance: create_link(tree, layer_decal_distance, mask_decal_process.inputs[1])
+                        if mask_decal_distance: create_link(tree, mask_decal_distance, mask_decal_process.inputs[1])
+                        if mask.decal_projection_type != 'FLAT':
+                            mask_decal_scale = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_scale'))
+                            if mask_decal_scale: create_link(tree, mask_decal_scale, mask_decal_process.inputs[2])
             elif mask.texcoord_type == 'Layer':
                 mask_vector = vector
             else: 
@@ -1352,21 +1363,21 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         root_ch = yp.channels[i]
 
         channel_enabled = ch_enableds[root_ch.name]
+        channel_converted = root_ch.special_type == 'HEIGHT' and ch.use_height_as_normal
+
+        # Disabled channel layer preview
+        if is_layer_preview_mode_enabled(yp) and (not channel_enabled or channel_converted):
+            if yp.preview_mode_type == 'SPECIFIC_MASK' and ch.override and ch.active_edit == True:
+                if alpha_preview:
+                    create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], alpha_preview)
+            elif root_ch == yp.channels[yp.preview_mode_channel_index]:
+                col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
+                if col_preview:
+                    create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], col_preview)
+                if alpha_preview:
+                    create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], alpha_preview)
 
         if not channel_enabled:
-            
-            # Disabled channel layer preview
-            if is_layer_preview_mode_enabled(yp):
-                if yp.preview_mode_type == 'SPECIFIC_MASK' and ch.override and ch.active_edit == True:
-                    if alpha_preview:
-                        create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], alpha_preview)
-                elif root_ch == yp.channels[yp.preview_mode_channel_index]:
-                    col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
-                    if col_preview:
-                        create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], col_preview)
-                    if alpha_preview:
-                        create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], alpha_preview)
-
             continue
 
         # Rgb and alpha start
@@ -1406,7 +1417,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         else:
             prev_alpha = get_essential_node(tree, TREE_START).get(root_ch.name + io_suffix['ALPHA'])
 
-        #normal_alpha = None
         group_alpha = None
 
         if layer.type == 'GROUP':
@@ -2030,7 +2040,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if not active_found and alpha_preview:
                     create_link(tree, source.outputs[0], alpha_preview)
 
-            elif root_ch == yp.channels[yp.preview_mode_channel_index]:
+            elif root_ch == yp.channels[yp.preview_mode_channel_index] and not channel_converted:
                 col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
                 if col_preview:
                     if root_ch.special_type == 'NORMAL' and normal_proc: 

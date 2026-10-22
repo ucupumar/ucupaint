@@ -56,7 +56,7 @@ class TestOpenImageAsLayer(TestPrincipled):
         texdir = get_texdir()
 
         # Open image as layer
-        bpy.ops.wm.y_open_image_to_layer(
+        bpy.ops.wm.y_open_image_as_layer(
             files = [{"name":"blender_color.png"}], 
             directory = texdir,
             uv_map="UVMap"
@@ -70,7 +70,7 @@ class TestOpenImagesToSingleLayerWithMask(TestPrincipled):
         texdir = get_texdir()
 
         # Open images to single layer with white mask
-        bpy.ops.wm.y_open_images_to_single_layer(
+        bpy.ops.wm.y_open_images_as_single_layer(
             files = [
                 {"name":"blender_color.png"},
                 {"name":"blender_metallic.png"},
@@ -91,7 +91,7 @@ class TestNewMask(TestOpenImageAsLayer):
     def test_02_new_mask(self):
 
         # New layer mask
-        bpy.ops.wm.y_new_layer_mask(name='Image Mask', uv_name='UVMap', color_option='WHITE')
+        bpy.ops.wm.y_new_layer_mask(name='Image Mask', uv_map='UVMap', color_option='WHITE')
 
         layer = get_active_layer()
         self.assertTrue(len(layer.masks) == 1)
