@@ -4667,15 +4667,6 @@ def draw_layers_ui(context, layout, node):
                     label = 'Disable Eraser'
                 row.operator('paint.y_toggle_eraser', text=label)
 
-        # Only works with experimental sculpt texture paint is turned on
-        in_sculpt_texture_paint_mode = obj.mode == 'SCULPT' and ((
-            hasattr(context.preferences.experimental, 'use_sculpt_texture_paint') and 
-            context.preferences.experimental.use_sculpt_texture_paint
-            ) or (
-            # NOTE: Blender 5.2 likely will/already have custom build that can paint texture in sculpt mode
-            is_bl_newer_than(5, 2) 
-            ))
-
         in_texture_paint_mode = obj.mode == 'TEXTURE_PAINT'
 
         if obj.type == 'MESH' and ((layer.type == 'IMAGE' and not mask_image) or (mask_image and mask_socket_input_name == 'Alpha')) and not override_image:
@@ -4691,19 +4682,13 @@ def draw_layers_ui(context, layout, node):
                         label = 'Disable Eraser'
                     row.operator('paint.y_toggle_eraser', text=label)
 
-            elif in_texture_paint_mode or in_sculpt_texture_paint_mode:
+            elif in_texture_paint_mode:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 if in_texture_paint_mode:
                     brush = context.tool_settings.image_paint.brush
                     label = 'Toggle Eraser'
                     if brush.name == eraser_names['TEXTURE_PAINT']:
-                        row.alert = True
-                        label = 'Disable Eraser'
-                elif in_sculpt_texture_paint_mode:
-                    brush = context.tool_settings.sculpt.brush
-                    label = 'Toggle Eraser'
-                    if brush.name == eraser_names['SCULPT']:
                         row.alert = True
                         label = 'Disable Eraser'
                 row.operator('paint.y_toggle_eraser', text=label)
@@ -4718,7 +4703,7 @@ def draw_layers_ui(context, layout, node):
                 row.operator('paint.y_toggle_eraser', text='Disable Eraser')
                 row.alert = False
 
-        elif in_texture_paint_mode or in_sculpt_texture_paint_mode:
+        elif in_texture_paint_mode:
             brush = context.tool_settings.image_paint.brush if in_texture_paint_mode else context.tool_settings.sculpt.brush
             if brush and ((mask_image and mask_socket_input_name == 'Color') or override_image) and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
