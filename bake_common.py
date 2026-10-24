@@ -168,16 +168,17 @@ def is_join_objects_problematic(yp, mat=None):
     return False
 
 def fill_curvature_vcol(obj, distance, vcol_name):
-    # Discrete mean curvature per vertex from the signed dihedral angles of
-    # its edges, so the baked interpolation is smooth like other bakers'
-    # from mesh curvature. The distance is the radius where it saturates
+    # Curvature from how much the shading normals bend, so custom normals are
+    # respected. Bending inside each face and sharp turns between faces both
+    # count, averaged over the corners sharing a vertex and a normal. The
+    # distance is the radius where the result saturates
     me = obj.data
     nv, ne, npf, nl = len(me.vertices), len(me.edges), len(me.polygons), len(me.loops)
     if nv == 0 or ne == 0 or npf == 0: return
 
     fn = numpy.empty(npf * 3, dtype=numpy.float32); me.polygons.foreach_get('normal', fn); fn.shape = (-1, 3)
-    fc = numpy.empty(npf * 3, dtype=numpy.float32); me.polygons.foreach_get('center', fc); fc.shape = (-1, 3)
     area = numpy.empty(npf, dtype=numpy.float32); me.polygons.foreach_get('area', area)
+    ls = numpy.empty(npf, dtype=numpy.int64); me.polygons.foreach_get('loop_start', ls)
     lt = numpy.empty(npf, dtype=numpy.int64); me.polygons.foreach_get('loop_total', lt)
     ev = numpy.empty(ne * 2, dtype=numpy.int64); me.edges.foreach_get('vertices', ev); ev.shape = (-1, 2)
     co = numpy.empty(nv * 3, dtype=numpy.float32); me.vertices.foreach_get('co', co); co.shape = (-1, 3)
@@ -185,79 +186,101 @@ def fill_curvature_vcol(obj, distance, vcol_name):
     lv = numpy.empty(nl, dtype=numpy.int64); me.loops.foreach_get('vertex_index', lv)
     lp = numpy.repeat(numpy.arange(npf), lt)
 
+    cn = numpy.empty(nl * 3, dtype=numpy.float32)
+    if is_bl_newer_than(4, 1):
+        me.corner_normals.foreach_get('vector', cn)
+    else:
+        me.calc_normals_split()
+        me.loops.foreach_get('normal', cn)
+    cn.shape = (-1, 3)
+
+    # Next corner in the same face, each corner and its next one form a face edge
+    nxt = numpy.arange(1, nl + 1)
+    nxt[ls + lt - 1] = ls
+
     # Weld coincident vertices first, meshes stitched from unwelded pieces
     # (like clothing panels) would otherwise read as flat along their seams
     key = numpy.round(co.astype(numpy.float64) * 1e5).astype(numpy.int64)
-    uniq, weld = numpy.unique(key, axis=0, return_inverse=True)
-    nw = len(uniq)
-    first_orig = numpy.zeros(nw, dtype=numpy.int64)
-    first_orig[weld[::-1]] = numpy.arange(nv - 1, -1, -1)
-    cow = co[first_orig]
+    _, weld = numpy.unique(key, axis=0, return_inverse=True)
+    weld = weld.ravel()
+
+    # Corners sharing a welded vertex and a normal form one smooth group
+    gkey = numpy.column_stack((weld[lv], numpy.round(cn * 1e3).astype(numpy.int64)))
+    _, grp = numpy.unique(gkey, axis=0, return_inverse=True)
+    grp = grp.ravel()
+    ng = grp.max() + 1
+
+    # How much the normals spread out across each face, positive when convex
+    border = numpy.cross(co[lv[nxt]] - co[lv], fn[lp])
+    flux = ((cn + cn[nxt]) * 0.5 * border).sum(-1)
+    fflux = numpy.zeros(npf, dtype=numpy.float64)
+    numpy.add.at(fflux, lp, flux)
+
+    acc = numpy.zeros(ng, dtype=numpy.float64)
+    numpy.add.at(acc, grp, (fflux / lt)[lp])
 
     # Pair up the two faces meeting at each welded edge
     epair = numpy.sort(weld[ev], axis=1)[le]
     order = numpy.lexsort((epair[:, 1], epair[:, 0]))
     ep_sorted = epair[order]
-    lp_sorted = lp[order]
-    le_sorted = le[order]
     change = numpy.empty(nl, dtype=bool)
     change[0] = True
     change[1:] = (ep_sorted[1:] != ep_sorted[:-1]).any(axis=1)
     starts = numpy.flatnonzero(change)
     lens = numpy.diff(numpy.append(starts, nl))
     s2 = starts[lens == 2]
-    f1 = lp_sorted[s2]
-    f2 = lp_sorted[s2 + 1]
-    valid = f1 != f2
-    f1, f2, s2 = f1[valid], f2[valid], s2[valid]
-    v1 = ep_sorted[s2, 0]
-    v2 = ep_sorted[s2, 1]
+    l1 = order[s2]
+    l2 = order[s2 + 1]
+    valid = lp[l1] != lp[l2]
+    l1, l2 = l1[valid], l2[valid]
 
-    # Signed dihedral angle, convex positive, weighted by edge length
-    d = (fn[f1] * fn[f2]).sum(-1).clip(-1.0, 1.0)
-    angle = numpy.arccos(d)
-    convex = ((fc[f2] - fc[f1]) * fn[f1]).sum(-1) < 0.0
+    # Signed angle between the normals on each side of an edge, weighted by
+    # its length. Smooth edges have none since their normals match
+    n1 = cn[l1] + cn[nxt[l1]]
+    n2 = cn[l2] + cn[nxt[l2]]
+    n1 /= numpy.maximum(numpy.linalg.norm(n1, axis=1), 1e-12)[:, None]
+    n2 /= numpy.maximum(numpy.linalg.norm(n2, axis=1), 1e-12)[:, None]
+    angle = numpy.arccos((n1 * n2).sum(-1).clip(-1.0, 1.0))
+    convex = ((n2 - n1) * border[l1]).sum(-1) > 0.0
     sign = numpy.where(convex, 1.0, -1.0)
-    elen = numpy.linalg.norm(cow[v1] - cow[v2], axis=1)
+    elen = numpy.linalg.norm(co[lv[l1]] - co[lv[nxt[l1]]], axis=1)
     w = sign * angle * elen
 
     # Edges that only meet through the weld are either sewn junctions or
     # shading splits along sharp edges: junctions crease inward, so only
     # their concave side counts, while splits stay with the shading intent
-    same_edge = le_sorted[s2] == le_sorted[s2 + 1]
+    same_edge = le[l1] == le[l2]
     w = numpy.where(same_edge | ~convex, w, 0.0)
 
-    # Half of each edge goes to both of its endpoints, normalized by the
-    # vertex share of the surrounding area so the units are one per length
-    acc = numpy.zeros(nw, dtype=numpy.float64)
-    numpy.add.at(acc, v1, w * 0.5)
-    numpy.add.at(acc, v2, w * 0.5)
-    varea = numpy.zeros(nw, dtype=numpy.float64)
-    numpy.add.at(varea, weld[lv], numpy.repeat(area / lt, lt))
-    varea = numpy.maximum(varea / 3.0, 1e-12)
+    # Split each crease between the corners at both ends on both sides, then
+    # divide by the area around each group so the units are one per length
+    for l in (l1, nxt[l1], l2, nxt[l2]):
+        numpy.add.at(acc, grp[l], w * 0.25)
+    garea = numpy.zeros(ng, dtype=numpy.float64)
+    numpy.add.at(garea, grp, (area / lt)[lp])
+    garea = numpy.maximum(garea / 3.0, 1e-12)
 
-    k = acc / (4.0 * varea)
+    k = acc / (4.0 * garea)
     signal = numpy.clip(k * distance, -1.0, 1.0)
 
     # One relaxation pass with the neighbors evens out the response of
     # coarse meshes whose vertices are far apart
-    nbr = numpy.zeros(nw, dtype=numpy.float64)
-    cnt = numpy.zeros(nw, dtype=numpy.float64)
-    numpy.add.at(nbr, v1, signal[v2])
-    numpy.add.at(nbr, v2, signal[v1])
-    numpy.add.at(cnt, v1, 1.0)
-    numpy.add.at(cnt, v2, 1.0)
+    gpair = numpy.unique(numpy.sort(numpy.column_stack((grp, grp[nxt])), axis=1), axis=0)
+    gpair = gpair[gpair[:, 0] != gpair[:, 1]]
+    g1, g2 = gpair[:, 0], gpair[:, 1]
+    nbr = numpy.zeros(ng, dtype=numpy.float64)
+    cnt = numpy.zeros(ng, dtype=numpy.float64)
+    numpy.add.at(nbr, g1, signal[g2])
+    numpy.add.at(nbr, g2, signal[g1])
+    numpy.add.at(cnt, g1, 1.0)
+    numpy.add.at(cnt, g2, 1.0)
     has_nbr = cnt > 0
     signal[has_nbr] = 0.5 * signal[has_nbr] + 0.5 * (nbr[has_nbr] / cnt[has_nbr])
 
-    vals = (0.5 + 0.5 * signal[weld]).astype(numpy.float32)
-
-    vcol = new_vertex_color(obj, vcol_name, data_type='FLOAT_COLOR', domain='POINT')
-    if not vcol: return
-    num_data = len(vcol.data)
-    arr = vals if num_data == nv else vals[lv]
-    rgba = numpy.empty((num_data, 4), dtype=numpy.float32)
-    rgba[:, 0] = rgba[:, 1] = rgba[:, 2] = arr
+    vcol = new_vertex_color(obj, vcol_name, data_type='FLOAT_COLOR', domain='CORNER')
+    if not vcol or len(vcol.data) != nl: return
+    rgba = numpy.empty((nl, 4), dtype=numpy.float32)
+    rgba[:, 0] = rgba[:, 1] = rgba[:, 2] = 0.5 + 0.5 * signal[grp]
     rgba[:, 3] = 1.0
     vcol.data.foreach_set('color', rgba.ravel())
 
@@ -4033,6 +4056,12 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             temp_objs.extend(objs.copy())
 
         objs.extend(other_objs)
+
+    # Curvature is read from the mesh data, so apply the modifiers first to
+    # match the geometry and normals that get rendered
+    elif bprops.type == 'CURVATURE' and any(m.show_render for ob in objs for m in ob.modifiers):
+        temp_objs.extend([get_merged_mesh_objects(scene, objs, True)])
+        objs = temp_objs
 
     # Join objects if the number of objects is higher than one
     elif not bprops.type.startswith('MULTIRES_') and bprops.type not in {'SELECTED_VERTICES'} and len(objs) > 1 and not is_join_objects_problematic(yp):
