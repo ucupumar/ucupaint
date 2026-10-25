@@ -1336,9 +1336,11 @@ class YNewLayer(bpy.types.Operator):
 
         yp.halt_update = True
 
+        normal_space = self.normal_space if self.type != 'INPUT_BUNDLE' else 'INPUT_PASSTHROUGH'
+
         layer = layer_common.add_new_layer(
             node.node_tree, self.name, self.type, 
-            channel_idx, self.blend_type, self.normal_blend_type, 
+            channel_idx, self.blend_type, self.normal_blend_type,
             self.normal_map_type, self.texcoord_type, uv_name=self.uv_map, 
             image=img, vcol=vcol, segment=segment, solid_color=self.solid_color,
             add_mask=self.add_mask, mask_type=self.mask_type, 
@@ -1352,7 +1354,7 @@ class YNewLayer(bpy.types.Operator):
             use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
             mask_edge_detect_radius=self.mask_edge_detect_radius, mask_edge_detect_method=self.mask_edge_detect_method,
             edge_detect_radius=self.edge_detect_radius, edge_detect_method=self.edge_detect_method,
-            mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance, normal_space=self.normal_space,
+            mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance, normal_space=normal_space,
             height_blend_type = self.height_blend_type,
             add_modifier = self.type == 'PREV_LAYERS',
             modifier_type = self.modifier_type
@@ -2108,28 +2110,30 @@ def get_all_connected_nodes_before(start_node):
 
     return nodes_set, links_set
 
-def get_nodes_and_links_from_mat_asset(asset_mat):
+def get_nodes_and_links_from_mat_asset(asset_mat, yp_node=None):
 
     # Check for material output
     outp = get_material_output(asset_mat)
-    if not outp: return None, None
+    if not outp: return None, None, None
 
     # Check for shader node
     shader_node = get_closest_bsdf_backward(outp)
-    if not shader_node: return None, None
+    if not shader_node: return None, None, None
 
     #TODO: Get all nodes before the bsdf node
     source_nodes, source_links = get_all_connected_nodes_before(shader_node)
     #print([n.name for n in source_nodes])
+
+    source_vals = {}
 
     # Convert shader node group to output standard sockets
     if shader_node.type == 'GROUP':
         tree = shader_node.node_tree
 
         gout = get_tree_output_node(tree)
-        if not gout: return None, None
+        if not gout: return None, None, None
         bsdf = get_closest_bsdf_backward(gout)
-        if not bsdf: return None, None
+        if not bsdf: return None, None, None
 
         for inp in bsdf.inputs:
             if len(inp.links) > 0:
@@ -2144,6 +2148,15 @@ def get_nodes_and_links_from_mat_asset(asset_mat):
                 # Connect to the new output
                 outp = gout.inputs.get(soc.name)
                 if outp: tree.links.new(link.from_socket, outp)
+
+            else:
+                if yp_node == None: yp_node = get_active_ypaint_node()
+                if yp_node:
+                    yp = yp_node.node_tree.yp
+
+                    # Check default values
+                    if inp.name in yp.channels:
+                        source_vals[inp.name] = inp.default_value
 
         # Check for displacement
         disp_outp = shader_node.outputs.get('Displacement')
@@ -2174,7 +2187,7 @@ def get_nodes_and_links_from_mat_asset(asset_mat):
         # Remove input socket that has no output
         remove_unused_inputs(tree)
 
-    return source_nodes, source_links
+    return source_nodes, source_links, source_vals
 
 def copy_nodes_to_tree(source_nodes, source_links, tree):
 
@@ -2275,19 +2288,14 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper):
                     data_to.materials.append(mat)
         self.asset_mat = bpy.data.materials.get(self.asset_name)
 
-        source_nodes, source_links = get_nodes_and_links_from_mat_asset(self.asset_mat)
+        source_nodes, source_links, source_vals = get_nodes_and_links_from_mat_asset(self.asset_mat)
         if not source_nodes:
             self.cleanup(context)
             self.report({'ERROR'}, "Invalid asset!")
             return {'CANCELLED'}
 
-        bsdf_node = source_nodes[0]
-
+        #bsdf_node = source_nodes[0]
         mat = get_active_material()
-        node = None
-        #if bsdf_node.type == 'GROUP':
-        #    node = mat.node_tree.nodes.new('ShaderNodeGroup')
-        #    node.node_tree = bsdf_node.node_tree #.copy()
 
         # Create new bundle input layer
         yp_node = get_active_ypaint_node()
@@ -2308,11 +2316,19 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper):
         # Get combine bundle node
         comb = layer_common.get_combine_bundle_node(yp_node, layer)
 
+        # Set default values
+        for key, item, in source_vals.items():
+            inp = comb.inputs.get(key)
+            if inp:
+                try: inp.default_value = item
+                except Exception as e: print('EXCEPTIION:', e)
+
         # Make sure copied nodes aren't overlapped
         resolve_overlapped_nodes(mat.node_tree, copied_nodes, margin=50.0)
 
         # Add frame if there are more than one node
-        if len(source_nodes) > 1:
+        is_single_node = len(source_nodes) == 1
+        if not is_single_node:
             frame = mat.node_tree.nodes.new('NodeFrame')
             frame.label = self.asset_mat.name
 
@@ -2324,7 +2340,8 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper):
         if node:
             if comb:
                 # Set node location
-                #node.location = (comb.location.x-200, comb.location.y)
+                if is_single_node:
+                    node.location = (comb.location.x-250, comb.location.y)
 
                 # Connect
                 for outp in node.outputs:
@@ -2339,6 +2356,10 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper):
         # Reconnect
         reconnect_yp_nodes(yp_node.node_tree)
         rearrange_yp_nodes(yp_node.node_tree)
+
+        layer.expand_content = True
+        layer.expand_source = True
+        layer.expand_channels = False
 
         # Data cleanup
         self.cleanup(context)

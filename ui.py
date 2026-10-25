@@ -3,7 +3,7 @@ import requests, threading
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
-from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal, modifier_common, BaseOperator
+from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal, modifier_common, BaseOperator, layer_common
 from .common import *
 
 USE_CACHE_DELTA_MS = 250
@@ -708,9 +708,43 @@ def draw_tex_props(source, layout, entity=None, show_source_input=False):
             col.prop(inp, 'default_value', text='')
 
 def draw_input_bundle_props(entity, source, layout):
-    col = layout.column()
-    row = col.row()
-    row.operator('wm.y_sync_bundle_input_layer', text='Sync Inputs')
+    ypup = get_user_preferences()
+    if ypup.developer_mode:
+        col = layout.column()
+        row = col.row()
+        row.operator('wm.y_sync_bundle_input_layer', text='Sync Inputs')
+
+    node = get_active_ypaint_node()
+    comb = layer_common.get_combine_bundle_node(node, entity) if node != None else None
+
+    if comb:
+        # Draw unconnected inputs
+        first_node = None
+        col = None
+        for inp in comb.inputs:
+            if inp.name == '': continue
+            if len(inp.links) == 0:
+                if col == None: col = layout.column(align=True)
+                row = col.row()
+                row.label(text=inp.name+':')
+                if inp.type in {'VECTOR', 'CLOSURE', 'BUNDLE'}:
+                    row.label(text='Not Connected!')
+                else:
+                    row.prop(inp, 'default_value', text='')
+            elif first_node == None:
+                link = inp.links[0]
+                first_node = link.from_node
+
+        # Draw inputs from the first connected node
+        col = None
+        if first_node:
+            for inp in first_node.inputs:
+                if inp.name == '' or inp.type in {'VECTOR', 'CLOSURE', 'BUNDLE'}: continue
+                if len(inp.links) == 0:
+                    if col == None: col = layout.column(align=True)
+                    row = col.row()
+                    row.label(text=inp.name+':')
+                    row.prop(inp, 'default_value', text='')
 
 def draw_colorid_props(entity, source, layout, layer=None):
     col = layout.column()
@@ -2351,7 +2385,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         label += layer.name
     elif layer.type == 'INPUT_BUNDLE':
         icon_value = lib.get_icon('NODE_SOCKET_BUNDLE')
-        label += layer.name
+        owner, prop = get_input_bundle_layer_owner_prop(layer)
+        label += getattr(owner, prop)
     else:
         icon_value = lib.get_icon('texture')
         label += layer.name
@@ -2440,6 +2475,9 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             icon_value = lib.get_icon('COLLAPSEMENU')
         elif layer.type == 'INPUT_BUNDLE':
             icon_value = lib.get_icon('NODE_SOCKET_BUNDLE')
+            owner, prop = get_input_bundle_layer_owner_prop(layer)
+            #menu_label += ' ('+getattr(owner, prop)+')'
+            menu_label = getattr(owner, prop)+' ('+menu_label+')'
         else: icon_value = lib.get_icon('texture')
 
     #if layer.type == 'COLOR' and not lui.expand_source:
@@ -5635,6 +5673,29 @@ def get_ch_override_label(layer, ch):
 
     return label
 
+def get_input_bundle_layer_owner_prop(layer, yp_node=None):
+    if yp_node == None: yp_node = get_active_ypaint_node()
+
+    first_node = None
+    comb = layer_common.get_combine_bundle_node(yp_node, layer)
+    if comb:
+        for inp in comb.inputs:
+            if len(inp.links) > 0:
+                link = inp.links[0]
+                if link.from_node.bl_idname != 'ShaderNodeNewGeometry':
+                    first_node = link.from_node
+
+    if first_node:
+        if first_node.type == 'GROUP':
+            owner = first_node.node_tree
+        else: owner = first_node
+        prop = 'name'
+    else:
+        owner = layer
+        prop = 'name'
+
+    return owner, prop
+
 def layer_listing(layout, layer, show_expand=False):
     yp = layer.id_data.yp
     layer_tree = get_tree(layer)
@@ -5769,7 +5830,9 @@ def layer_listing(layout, layer, show_expand=False):
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon(icon_name))
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
         elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
-        elif layer.type == 'INPUT_BUNDLE': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('NODE_SOCKET_BUNDLE'))
+        elif layer.type == 'INPUT_BUNDLE':
+            owner, prop = get_input_bundle_layer_owner_prop(layer)
+            row.prop(owner, prop, text='', emboss=False, icon_value=lib.get_icon('NODE_SOCKET_BUNDLE'))
         else: 
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
     else:
@@ -6003,6 +6066,9 @@ def layer_listing(layout, layer, show_expand=False):
         else: 
             if image and not image.yia.is_image_atlas and not image.yua.is_udim_atlas: 
                 row.prop(image, 'name', text='', emboss=False)
+            elif layer.type == 'INPUT_BUNDLE':
+                owner, prop = get_input_bundle_layer_owner_prop(layer)
+                row.prop(owner, prop, text='', emboss=False)
             else: row.prop(layer, 'name', text='', emboss=False)
 
     row = master.row(align=True)
@@ -8330,8 +8396,15 @@ class YLayerTypeMenu(bpy.types.Menu):
 
         col.separator()
 
+
+        label = 'Input Bundle'
+        if layer.type == 'INPUT_BUNDLE':
+            owner, prop = get_input_bundle_layer_owner_prop(layer)
+            if owner != layer:
+                label += ' ('+getattr(owner, prop)+')'
+
         icon = 'RADIOBUT_ON' if layer.type == 'INPUT_BUNDLE' else 'RADIOBUT_OFF'
-        col.operator('wm.y_replace_layer_type', text='Input Bundle', icon=icon).type = 'INPUT_BUNDLE'
+        col.operator('wm.y_replace_layer_type', text=label, icon=icon).type = 'INPUT_BUNDLE'
 
 class YMaskTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_mask_type_menu"
