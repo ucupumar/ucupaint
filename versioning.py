@@ -1760,7 +1760,7 @@ def update_yp_tree(tree):
             if baked_node and baked_node.image:
                 chs = get_bake_target_channels(bt)
                 any_linear_ch = any([c for c in chs if c.colorspace == 'LINEAR' or c.special_type == 'NORMAL'])
-                use_noncolor = any_linear_ch and not (len(chs) == 2 and color_ch in chs and alpha_ch in chs)
+                use_noncolor = any_linear_ch and not (len(chs) == 2 and color_ch and color_ch.colorspace == 'SRGB' and color_ch in chs and alpha_ch in chs)
 
                 img = baked_node.image
                 if img.is_float:
