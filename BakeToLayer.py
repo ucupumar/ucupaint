@@ -275,6 +275,16 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default=0.05, min=0.0, max=1000.0
     )
 
+    curvature_method : EnumProperty(
+        name = 'Curvature Method',
+        description = 'Curvature method',
+        items = (
+            ('PER_VERTEX', 'Per Vertex', 'Curvature per vertex, blended across faces. Fast, best for dense, sculpted or subdivided meshes', 'VERTEXSEL', 0),
+            ('PER_PIXEL', 'Per Pixel', 'Curvature per pixel from the nearby mesh edges. Crisper creases and smoother gradients on low poly and hard surface meshes, but slower', 'IMAGE_DATA', 1)
+        ),
+        default='PER_VERTEX'
+    )
+
     multires_base : IntProperty(
         name = 'Multires Base',
         description = 'Baking will use the difference between the base level and max level,\nand after baking, base level will be used in the multires modifier',
@@ -812,6 +822,15 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 row.prop(self, 'wireframe_triangulated')
 
         elif self.type == 'CURVATURE':
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Method:')
+            row.prop(self, 'curvature_method', text='')
+
+            if self.curvature_method == 'PER_PIXEL' and self.use_udim:
+                row = split_layout(lcol, split_val)
+                row.label(text='')
+                row.label(text='UDIMs not supported', icon='ERROR')
+
             row = split_layout(lcol, split_val)
             right_aligned_label(row, 'Distance:')
             row.prop(self, 'curvature_distance', text='')
