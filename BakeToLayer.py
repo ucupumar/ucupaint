@@ -1638,7 +1638,288 @@ class YToggleOtherObjectsVisibility(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YBakeMaterialChannel(bpy.types.PropertyGroup):
+    name : StringProperty(default='')
+    enable : BoolProperty(name='Enable', default=True)
+    bakeable : BoolProperty(default=True)
+
+class YBakeMaterialToLayer(bpy.types.Operator, BaseBakeOperator):
+    bl_idname = "wm.y_bake_material_to_layer"
+    bl_label = "Bake Material to Textures"
+    bl_description = "Bake material channels to images inside a new layer group"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    mat_name : StringProperty(name='Material', default='')
+    asset_library_path : StringProperty(default='')
+
+    channels : CollectionProperty(type=YBakeMaterialChannel)
+
+    uv_map : StringProperty(
+        name = 'UV Map',
+        description = 'UV Map to use for baked image coordinate',
+        default = '',
+        update = BaseOperator.update_uv_map_name
+    )
+
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
+
+    interpolation : EnumProperty(
+        name = 'Image Interpolation Type',
+        description = 'Image interpolation type',
+        items = interpolation_type_items,
+        default = 'Linear'
+    )
+
+    lighting : EnumProperty(
+        name = 'Color Lighting',
+        description = 'Lighting baked into the color channel',
+        items = (
+            ('NONE', 'None', 'Bake the unlit base color'),
+            ('DIFFUSE', 'Diffuse', 'Bake the color lit by the scene lights and world'),
+            ('COMBINED', 'Combined', 'Bake the full shading lit by the scene lights and world, including reflections'),
+        ),
+        default = 'NONE'
+    )
+
+    fxaa : BoolProperty(
+        name = 'Use FXAA',
+        description = "Use FXAA on baked images (doesn't work with float images)",
+        default = True
+    )
+
+    aa_level : IntProperty(
+        name = 'Anti Aliasing Level',
+        description = 'Super Sample Anti Aliasing Level (1=off)',
+        default=1, min=1, max=2
+    )
+
+    denoise : BoolProperty(
+        name = 'Use Denoise',
+        description = "Use Denoise on baked lighting",
+        default = True
+    )
+
+    use_dithering : BoolProperty(
+        name = 'Use Dithering',
+        description = 'Use dithering for less banding color',
+        default = False
+    )
+
+    dither_intensity : FloatProperty(
+        name = 'Dither Intensity',
+        description = 'Amount of dithering noise added to the rendered image to break up banding',
+        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
+    )
+
+    use_float_for_normal : BoolProperty(
+        name = 'Use Float for Normal',
+        description = 'Use float image for baked normal',
+        default = False
+    )
+
+    use_float_for_displacement : BoolProperty(
+        name = 'Use Float for Displacement',
+        description = 'Use float image for baked height',
+        default = True
+    )
+
+    use_udim : BoolProperty(
+        name = 'Use UDIM Tiles',
+        description = 'Use UDIM Tiles',
+        default = False
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH'
+
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
+    def get_yp(self):
+        # Use quick setup if yp node is not found
+        if not get_active_ypaint_node():
+            bpy.ops.wm.y_quick_ypaint_node_setup()
+        return get_active_ypaint_node().node_tree.yp
+
+    def get_material(self):
+        # Get material from local first, then from the asset library
+        mat = bpy.data.materials.get(self.mat_name)
+        if not mat and self.asset_library_path != '' and is_bl_newer_than(3):
+            with bpy.data.libraries.load(str(self.asset_library_path), assets_only=True) as (data_from, data_to):
+                data_to.materials = [m for m in data_from.materials if m == self.mat_name]
+            mat = bpy.data.materials.get(self.mat_name)
+        return mat
+
+    def remove_mat(self, mat):
+        # Remove material if it has only fake users (from asset library)
+        if self.asset_library_path != '' and ((mat.use_fake_user and mat.users == 1) or mat.users == 0):
+            remove_datablock(bpy.data.materials, mat)
+
+    def invoke(self, context, event):
+        self.invoke_operator(context)
+
+        obj = context.object
+        yp = self.get_yp()
+        self.samples = 1
+
+        # Check which channels can be baked from the material
+        self.channels.clear()
+        mat = self.get_material()
+        bakeable_ch_names, used_ch_names = get_material_bakeable_channels(yp, mat) if mat else ([], [])
+        if mat: self.remove_mat(mat)
+
+        for root_ch in yp.channels:
+            if root_ch.special_type == 'VDISP': continue
+            item = self.channels.add()
+            item.name = root_ch.name
+            item.bakeable = root_ch.name in bakeable_ch_names
+            item.enable = root_ch.name in used_ch_names
+
+        # Use baked uv or active uv layer name by default
+        uv_layers = get_uv_layers(obj)
+        self.uv_map_coll.clear()
+        for uv in uv_layers:
+            if not uv.name.startswith(TEMP_UV):
+                self.uv_map_coll.add().name = uv.name
+
+        self.uv_map = yp.baked_uv_name if uv_layers.get(yp.baked_uv_name) else get_default_uv_name(obj, yp)
+
+        return context.window_manager.invoke_props_dialog(self, width=350)
+
+    def check(self, context):
+        self.check_operator(context)
+        return True
+
+    def draw(self, context):
+        split_val = 0.4
+
+        lcol = self.layout.column(align=False)
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Material:')
+        row.label(text=self.mat_name, icon='MATERIAL_DATA')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Channels:')
+        ccol = row.column(align=True)
+        for item in self.channels:
+            r = ccol.row(align=True)
+            r.active = item.bakeable
+            r.prop(item, 'enable', text=item.name)
+
+        lcol.separator()
+
+        BaseOperator.draw_base_image_settings(self, lcol, split_val)
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'UV Map:')
+        row.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Lighting:')
+        row.prop(self, 'lighting', text='')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Samples:')
+        row.prop(self, 'samples', text='')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Margin:')
+        if is_bl_newer_than(3, 1):
+            split = split_layout(row, 0.4, align=True)
+            split.prop(self, 'margin', text='')
+            split.prop(self, 'margin_type', text='')
+        else:
+            row.prop(self, 'margin', text='')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Use 32-bit Float:')
+        splits = split_layout(row, 0.4)
+        splits.prop(self, 'use_float_for_normal', emboss=True, text='Normal')
+        splits.prop(self, 'use_float_for_displacement', emboss=True, text='Displacement')
+
+        lcol.separator()
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'AA Level:')
+        row.prop(self, 'aa_level', text='')
+
+        row = split_layout(lcol, split_val)
+        row.label(text='')
+        ccol = row.column(align=True)
+        ccol.prop(self, 'fxaa')
+        if UDIM.is_udim_supported():
+            ccol.prop(self, 'use_udim')
+        if self.lighting != 'NONE' and is_bl_newer_than(2, 81):
+            ccol.prop(self, 'denoise')
+
+        r = split_layout(ccol, 0.55) if self.use_dithering else ccol
+        r.prop(self, 'use_dithering')
+        if self.use_dithering: r.prop(self, 'dither_intensity', text='')
+
+        if is_bl_newer_than(2, 80):
+            lcol.separator()
+
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Bake Device:')
+            row.prop(self, 'bake_device', text='')
+
+    def execute(self, context):
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
+
+        obj = context.object
+        if len(get_uv_layers(obj)) == 0:
+            self.report({'ERROR'}, "Object '" + obj.name + "' has no UV map!")
+            return self.execute_operator_cancelled(context)
+
+        yp = self.get_yp()
+        if self.uv_map == '': self.uv_map = get_default_uv_name(obj, yp)
+
+        if self.mat_name == '':
+            self.report({'ERROR'}, "Source material cannot be empty!")
+            return self.execute_operator_cancelled(context)
+
+        mat = self.get_material()
+
+        if not mat:
+            self.report({'ERROR'}, "Source material cannot be found!")
+            return self.execute_operator_cancelled(context)
+
+        if mat == get_active_material():
+            self.report({'ERROR'}, "Material asset can't be the same as the active material!")
+            return self.execute_operator_cancelled(context)
+
+        # Channels are taken by name when the operator is called without invoke
+        if len(self.channels) > 0:
+            channel_names = [item.name for item in self.channels if item.enable]
+        else: channel_names = [ch.name for ch in yp.channels]
+
+        bprops = dotdict()
+        for prop in ['width', 'height', 'samples', 'margin', 'margin_type', 'bake_device', 'uv_map', 'interpolation', 'lighting', 'fxaa',
+                'aa_level', 'denoise', 'use_dithering', 'dither_intensity', 'use_float_for_normal', 'use_float_for_displacement', 'use_udim']:
+            bprops[prop] = getattr(self, prop)
+
+        rdict = bake_material_to_layers(bprops, mat, channel_names)
+
+        self.remove_mat(mat)
+
+        if rdict['message'] != '':
+            self.report({'ERROR'}, rdict['message'])
+            return self.execute_operator_cancelled(context)
+
+        ypui = context.window_manager.ypui
+        ypui.layer_ui.expand_content = True
+        ypui.need_update = True
+
+        self.report({'INFO'}, 'Baking ' + self.mat_name + ' is done in ' + '{:0.2f}'.format(rdict['time_elapsed']) + ' seconds!')
+
+        return self.execute_operator_finished(context)
+
 classes = (
+    YBakeMaterialChannel,
+    YBakeMaterialToLayer,
     YBakeToLayer,
     YBakeEntityToImage,
     YRemoveBakeInfoOtherObject,

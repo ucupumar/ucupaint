@@ -6328,6 +6328,11 @@ class YPAssetBrowserMenu(bpy.types.Menu):
         op.mat_name = mat_name
         op.asset_library_path = asset_library_path
 
+        if obj.type == 'MESH':
+            op = self.layout.operator("wm.y_bake_material_to_layer", icon_value=lib.get_icon('bake'))
+            op.mat_name = mat_name
+            op.asset_library_path = asset_library_path
+
 def draw_yp_asset_browser_menu(self, context):
 
     assets = context.selected_assets if is_bl_newer_than(4) else context.selected_asset_files

@@ -5480,6 +5480,521 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
     return rdict
 
+def get_material_shader_trees(tree, trees=None):
+    if trees == None: trees = []
+    if tree in trees: return trees
+    trees.append(tree)
+
+    for n in tree.nodes:
+        if n.type == 'GROUP' and n.node_tree and not n.node_tree.yp.is_ypaint_node:
+            get_material_shader_trees(n.node_tree, trees)
+
+    return trees
+
+def is_substitutable_shader_node(node):
+    if node.mute or node.type in {'MIX_SHADER', 'ADD_SHADER', 'GROUP', 'REROUTE', 'GROUP_INPUT', 'GROUP_OUTPUT'}: return False
+    if node.type == 'PRINCIPLED_VOLUME' or node.type.startswith('VOLUME_'): return False
+    return is_first_socket_bsdf(node)
+
+def get_shader_channel_input(node, root_ch):
+    if root_ch.name == 'Color':
+        names = ['Base Color', 'Color']
+    elif root_ch.name == 'Emission':
+        names = ['Color'] if node.type == 'EMISSION' else ['Emission Color', 'Emission']
+    else: names = [root_ch.name]
+
+    for name in names:
+        inp = node.inputs.get(name)
+        if inp and inp.enabled: return inp
+
+    return None
+
+def get_shader_emission_strength_input(node):
+    return node.inputs.get('Strength' if node.type == 'EMISSION' else 'Emission Strength')
+
+def is_emission_strength_used(node):
+    strength = get_shader_emission_strength_input(node)
+    return not strength or strength.is_linked or strength.default_value > 0.0
+
+def get_linked_from_node(inp):
+    node = inp.links[0].from_node if len(inp.links) > 0 else None
+    while node and node.type == 'REROUTE':
+        node = node.inputs[0].links[0].from_node if len(node.inputs[0].links) > 0 else None
+    return node
+
+def is_coat_shader_node(node):
+    # Glossy on the facing side of a fresnel mix, or added on top of another shader, works as a clear coat
+    if node.type not in {'BSDF_GLOSSY', 'BSDF_ANISOTROPIC'}: return False
+
+    for l in [l for o in node.outputs for l in o.links]:
+        to_node = l.to_node
+        if to_node.type == 'MIX_SHADER' and l.to_socket == to_node.inputs[2]:
+            fac_node = get_linked_from_node(to_node.inputs[0])
+            if fac_node and fac_node.type in {'FRESNEL', 'LAYER_WEIGHT'}: return True
+        if to_node.type == 'ADD_SHADER':
+            other = get_linked_from_node(to_node.inputs[1 if l.to_socket == to_node.inputs[0] else 0])
+            if other and other.type not in {'BSDF_GLOSSY', 'BSDF_ANISOTROPIC'}: return True
+
+    return False
+
+def is_metal_shader_node(node):
+    return node.type == 'BSDF_METALLIC' or (node.type in {'BSDF_GLOSSY', 'BSDF_ANISOTROPIC'} and not is_coat_shader_node(node))
+
+def get_shader_channel_fallback_value(node, root_ch):
+    if root_ch.special_type == 'ALPHA':
+        return 0.0 if node.type in {'BSDF_TRANSPARENT', 'HOLDOUT'} else 1.0
+    if root_ch.name == 'Metallic' and is_metal_shader_node(node):
+        return 1.0
+    return 0.0
+
+def get_shader_channel_weight(node, root_ch):
+    # Some shaders shouldn't affect the channel when mixed with other shaders,
+    # e.g. transparent shader is already covered by alpha channel
+    if root_ch.special_type == 'ALPHA':
+        return 1.0
+    if node.type in {'BSDF_TRANSPARENT', 'HOLDOUT'}:
+        return 0.0
+    # Translucency is light coming from behind, not the surface color
+    if node.type == 'BSDF_TRANSLUCENT':
+        return 0.0
+    # Diffuse roughness also doesn't count on a diffuse and glossy mix
+    if root_ch.name == 'Roughness':
+        if node.type in {'BSDF_DIFFUSE', 'BSDF_SHEEN', 'BSDF_VELVET', 'SUBSURFACE_SCATTERING'}: return 0.0
+        return 1.0 if node.inputs.get('Roughness') else 0.0
+    # Clear coat only affects roughness
+    if root_ch.name != 'Emission' and is_coat_shader_node(node):
+        return 0.0
+    return 1.0
+
+def set_emission_input_from_socket(tree, emit_inp, inp, fallback=0.0):
+    if inp and len(inp.links) > 0:
+        tree.links.new(inp.links[0].from_socket, emit_inp)
+        return
+
+    val = inp.default_value if inp else fallback
+    if emit_inp.type == 'RGBA':
+        if type(val) in {float, int}:
+            emit_inp.default_value = (val, val, val, 1.0)
+        else: emit_inp.default_value = (val[0], val[1], val[2], 1.0)
+    else: emit_inp.default_value = val if type(val) in {float, int} else val[0]
+
+def substitute_shaders_with_channel_emission(trees, root_ch, bake_weight=False, use_weight=False):
+    # Replace every shader node with emission of the channel input, so mix shaders and groups are still blended
+    emits = []
+    ori_links = []
+
+    for tree in trees:
+        # Check the shaders before any of them are replaced, since it depends on their links
+        nodes = [(n, get_shader_channel_weight(n, root_ch), get_shader_channel_fallback_value(n, root_ch)) for n in tree.nodes if is_substitutable_shader_node(n)]
+
+        for node, weight, fallback in nodes:
+            out_links = [l for o in node.outputs if o.type == 'SHADER' for l in o.links]
+            if not out_links: continue
+
+            emit = tree.nodes.new('ShaderNodeEmission')
+            emit.location = node.location
+            emits.append((tree, emit))
+
+            if bake_weight:
+                emit.inputs[0].default_value = (weight, weight, weight, 1.0)
+            elif use_weight and weight == 0.0:
+                emit.inputs[0].default_value = (0.0, 0.0, 0.0, 1.0)
+            else:
+                inp = get_shader_channel_input(node, root_ch)
+                set_emission_input_from_socket(tree, emit.inputs[0], inp, fallback)
+
+            # Emission strength is baked together with the emission color
+            if root_ch.name == 'Emission' and not bake_weight:
+                set_emission_input_from_socket(tree, emit.inputs[1], get_shader_emission_strength_input(node), 1.0)
+
+            for from_socket, to_socket in [(l.from_socket, l.to_socket) for l in out_links]:
+                ori_links.append((tree, from_socket, to_socket))
+                tree.links.new(emit.outputs[0], to_socket)
+
+    return emits, ori_links
+
+def recover_substituted_shaders(emits, ori_links):
+    for tree, emit in emits:
+        tree.nodes.remove(emit)
+    for tree, from_socket, to_socket in ori_links:
+        tree.links.new(from_socket, to_socket)
+
+def get_material_bakeable_channels(yp, mat):
+    # Channels that can be baked from the material, and the ones that actually have data in it
+    bakeable = []
+    used = []
+
+    output = get_material_output(mat) if is_mat_use_nodes(mat) else None
+    if not output: return bakeable, used
+
+    disp_inp = output.inputs.get('Displacement')
+    has_disp = disp_inp != None and len(disp_inp.links) > 0
+    nodes = [n for t in get_material_shader_trees(mat.node_tree) for n in t.nodes if is_substitutable_shader_node(n)]
+
+    for root_ch in yp.channels:
+        inps = [inp for inp in [get_shader_channel_input(n, root_ch) for n in nodes] if inp]
+        transparent = root_ch.special_type == 'ALPHA' and any(n for n in nodes if n.type in {'BSDF_TRANSPARENT', 'HOLDOUT'})
+
+        if root_ch.special_type == 'HEIGHT':
+            is_bakeable = is_used = has_disp
+        elif root_ch.special_type == 'NORMAL':
+            is_bakeable = True
+            is_used = has_disp or any(inp for inp in inps if inp.is_linked)
+        elif root_ch.special_type == 'ALPHA':
+            is_bakeable = inps or transparent
+            is_used = transparent or any(inp for inp in inps if inp.is_linked or inp.default_value < 1.0)
+        elif root_ch.name == 'Emission':
+            is_bakeable = inps
+            is_used = any(inp for inp in inps if (inp.is_linked or any(inp.default_value[:3])) and is_emission_strength_used(inp.node))
+        elif root_ch.name == 'Metallic':
+            is_bakeable = is_used = inps or any(n for n in nodes if is_metal_shader_node(n))
+        else: is_bakeable = is_used = inps
+
+        if is_bakeable: bakeable.append(root_ch.name)
+        if is_used: used.append(root_ch.name)
+
+    return bakeable, used
+
+def new_bake_image(name, width, height, color, hdr=False, tilenums=[]):
+    if tilenums:
+        image = bpy.data.images.new(name=name, width=width, height=height, alpha=True, float_buffer=hdr, tiled=True)
+        for tilenum in tilenums:
+            UDIM.fill_tile(image, tilenum, color, width, height)
+        UDIM.initial_pack_udim(image, color)
+    else: image = bpy.data.images.new(name=name, width=width, height=height, alpha=True, float_buffer=hdr)
+
+    image.generated_color = color
+    return image
+
+def get_tile_pixels(image):
+    # Only the first tile is accessible, so other tiles are swapped into it
+    pxs = {}
+    for tilenum in [tile.number for tile in image.tiles] if image.source == 'TILED' else [1001]:
+        if tilenum != 1001: UDIM.swap_tile(image, 1001, tilenum)
+        px = numpy.empty(shape=len(image.pixels), dtype=numpy.float32)
+        image.pixels.foreach_get(px)
+        pxs[tilenum] = px.reshape(-1, 4)
+        if tilenum != 1001: UDIM.swap_tile(image, 1001, tilenum)
+    return pxs
+
+def set_tile_pixels(image, pxs):
+    for tilenum, px in pxs.items():
+        if tilenum != 1001: UDIM.swap_tile(image, 1001, tilenum)
+        image.pixels.foreach_set(px.ravel())
+        if tilenum != 1001: UDIM.swap_tile(image, 1001, tilenum)
+
+def bake_weighted_channel_image(trees, root_ch, tex, image, width, height, tilenums=[]):
+    # Bake the weighted values and the weights separately, so the mix can be divided by the total weight
+    pxs = []
+
+    for bake_weight in [False, True]:
+        temp = new_bake_image('____WEIGHT_TEMP', width, height, (0.0, 0.0, 0.0, 1.0), True, tilenums)
+        temp.colorspace_settings.name = get_noncolor_name()
+        tex.image = temp
+
+        emits, ori_links = substitute_shaders_with_channel_emission(trees, root_ch, bake_weight, use_weight=True)
+        bake_object_op('EMIT')
+        recover_substituted_shaders(emits, ori_links)
+
+        pxs.append(get_tile_pixels(temp))
+        remove_datablock(bpy.data.images, temp, user=tex, user_prop='image')
+
+    results = {}
+    for tilenum, values in pxs[0].items():
+        # Fully rough is used when no shader is affecting the roughness
+        weight = pxs[1][tilenum][:, :1]
+        result = numpy.where(weight > 0.0001, values / numpy.maximum(weight, 0.0001), 1.0 if root_ch.name == 'Roughness' else 0.0)
+        result[:, 3] = 1.0
+
+        # Byte color images store the values in sRGB
+        if not image.is_float and image.colorspace_settings.name == get_srgb_name():
+            rgb = numpy.clip(result[:, :3], 0.0, 1.0)
+            result[:, :3] = numpy.where(rgb <= 0.0031308, rgb * 12.92, 1.055 * numpy.power(rgb, 1.0 / 2.4) - 0.055)
+
+        results[tilenum] = result
+
+    set_tile_pixels(image, results)
+    tex.image = image
+
+def normalize_baked_height_image(image):
+    pxs = get_tile_pixels(image)
+
+    # Unbaked pixels are zero displacement, so midlevel will always be inside the range
+    values = numpy.concatenate([px[:, 0] for px in pxs.values()])
+    min_val = float(values.min())
+    value_range = float(values.max()) - min_val
+    if value_range == 0.0: return 0.5, 0.0
+
+    for px in pxs.values():
+        px[:, :3] = (px[:, :3] - min_val) / value_range
+    set_tile_pixels(image, pxs)
+
+    return -min_val / value_range, value_range
+
+def bake_material_to_layers(bprops, source_mat, channel_names):
+
+    T = time.time()
+    mat = get_active_material()
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
+    scene = bpy.context.scene
+    obj = bpy.context.object
+
+    rdict = {}
+    rdict['message'] = ''
+
+    if (hasattr(obj, 'hide_viewport') and obj.hide_viewport) or obj.hide_render:
+        rdict['message'] = "Please unhide render and viewport of the active object!"
+        return rdict
+
+    if not is_mat_use_nodes(source_mat):
+        rdict['message'] = "Source material has no node tree!"
+        return rdict
+
+    output = get_material_output(source_mat)
+    if not output:
+        rdict['message'] = "Source material has no material output!"
+        return rdict
+
+    objs = [obj] if is_object_bakeable(obj) else []
+    if mat.users > 1:
+        objs, meshes = get_bakeable_objects_and_meshes(mat)
+
+    if not objs:
+        rdict['message'] = "No valid objects found to bake!"
+        return rdict
+
+    bakeable_ch_names, used_ch_names = get_material_bakeable_channels(yp, source_mat)
+    root_chs = [ch for ch in yp.channels if ch.name in channel_names and ch.name in bakeable_ch_names]
+    if not root_chs:
+        rdict['message'] = "No channels to bake from the material!"
+        return rdict
+
+    ntree = source_mat.node_tree
+    trees = get_material_shader_trees(ntree)
+
+    surface_inp = output.inputs[0]
+    ori_surface_socket = surface_inp.links[0].from_socket if len(surface_inp.links) > 0 else None
+    disp_inp = output.inputs.get('Displacement')
+    disp_socket = disp_inp.links[0].from_socket if disp_inp and len(disp_inp.links) > 0 else None
+
+    bake_height = any(ch for ch in root_chs if ch.special_type == 'HEIGHT')
+    tilenums = UDIM.get_tile_numbers(objs, bprops.uv_map) if bprops.use_udim else []
+
+    # Remember things
+    book = remember_before_bake(yp, mat=mat)
+
+    # Bake the source material directly on the objects by temporarily swapping the material
+    swapped_slots = []
+    for ob in objs:
+        for i, slot in enumerate(ob.material_slots):
+            if slot.material == mat:
+                slot.material = source_mat
+                swapped_slots.append((ob, i))
+
+    # True displacement would move the mesh while baking
+    disp_settings = source_mat if hasattr(source_mat, 'displacement_method') else source_mat.cycles
+    ori_displacement_method = disp_settings.displacement_method
+    disp_settings.displacement_method = 'BUMP'
+
+    use_lighting = bprops.lighting != 'NONE'
+
+    # Anti aliasing will multiply the size then resize it back
+    width = bprops.width * bprops.aa_level
+    height = bprops.height * bprops.aa_level
+
+    if bprops.bake_device == 'OSL':
+        bake_device = 'CPU'
+        use_osl = True
+    else:
+        bake_device = bprops.bake_device
+        use_osl = False
+
+    # Lights and other objects are needed to bake lighting
+    prepare_bake_settings(
+        book, objs, yp, samples=bprops.samples, margin=bprops.margin,
+        uv_map=bprops.uv_map, bake_device=bake_device, hide_other_objs=not use_lighting,
+        margin_type=bprops.margin_type, use_osl=use_osl
+    )
+    scene.render.bake.normal_space = 'TANGENT'
+
+    tex = ntree.nodes.new('ShaderNodeTexImage')
+    emit = ntree.nodes.new('ShaderNodeEmission')
+    geometry = ntree.nodes.new('ShaderNodeNewGeometry')
+    dot = ntree.nodes.new('ShaderNodeVectorMath')
+    dot.operation = 'DOT_PRODUCT'
+
+    # Displacement is converted into height along the surface normal
+    if disp_socket:
+        ntree.links.new(disp_socket, dot.inputs[0])
+        ntree.links.new(geometry.outputs['Normal'], dot.inputs[1])
+
+    baked_images = []
+
+    for root_ch in root_chs:
+
+        image_name = source_mat.name + ' ' + root_ch.name
+        hdr = False
+        color = (0.5, 0.5, 0.5, 1.0)
+        colorspace = get_noncolor_name() if root_ch.colorspace == 'LINEAR' else get_srgb_name()
+        emits = []
+        ori_links = []
+        use_weight = False
+
+        # Disconnect displacement while baking, unless normal map needs the bump from it
+        if disp_socket:
+            if root_ch.special_type == 'NORMAL' and not bake_height:
+                ntree.links.new(disp_socket, disp_inp)
+            else:
+                for l in disp_inp.links:
+                    ntree.links.remove(l)
+
+        if root_ch.special_type == 'NORMAL':
+            bake_type = 'NORMAL'
+            hdr = bprops.use_float_for_normal
+            color = (0.5, 0.5, 1.0, 1.0)
+            colorspace = get_noncolor_name()
+
+        elif root_ch.special_type == 'HEIGHT':
+            bake_type = 'EMIT'
+            hdr = True
+            color = (0.0, 0.0, 0.0, 1.0)
+            colorspace = get_noncolor_name()
+            ntree.links.new(dot.outputs['Value'], emit.inputs[0])
+            ntree.links.new(emit.outputs[0], surface_inp)
+
+        elif root_ch.name == 'Color' and use_lighting:
+            bake_type = bprops.lighting
+
+        else:
+            bake_type = 'EMIT'
+            use_weight = any(n for t in trees for n in t.nodes if is_substitutable_shader_node(n) and get_shader_channel_weight(n, root_ch) == 0.0)
+            if not use_weight:
+                emits, ori_links = substitute_shaders_with_channel_emission(trees, root_ch)
+
+            # Emission strength can go higher than one
+            if root_ch.name == 'Emission':
+                hdr = True
+
+        if hdr: colorspace = get_noncolor_name()
+
+        image = new_bake_image(image_name, width, height, color, hdr, tilenums)
+        image.colorspace_settings.name = colorspace
+
+        tex.image = image
+        ntree.nodes.active = tex
+
+        print('BAKE MATERIAL: Baking "' + image_name + '"...')
+
+        scene.cycles.bake_type = bake_type
+        if use_weight:
+            bake_weighted_channel_image(trees, root_ch, tex, image, width, height, tilenums)
+        elif bake_type in {'DIFFUSE', 'COMBINED'}:
+            bpy.ops.object.bake(type=bake_type, pass_filter={'DIRECT', 'INDIRECT', 'COLOR'} if bake_type == 'DIFFUSE' else {'DIRECT', 'INDIRECT', 'DIFFUSE', 'GLOSSY', 'TRANSMISSION', 'EMIT'})
+        else: bake_object_op(bake_type)
+
+        # Recover source material connections
+        recover_substituted_shaders(emits, ori_links)
+        if ori_surface_socket:
+            ntree.links.new(ori_surface_socket, surface_inp)
+        elif len(surface_inp.links) > 0:
+            ntree.links.remove(surface_inp.links[0])
+
+        bump_midlevel = 0.5
+        bump_distance = 0.0
+        if root_ch.special_type == 'HEIGHT':
+            bump_midlevel, value_range = normalize_baked_height_image(image)
+            bump_distance = min(value_range / 2.0, 1.0)
+
+            # Height image can still be saved as non float image
+            if not bprops.use_float_for_displacement:
+                image = image_ops.toggle_image_bit_depth(image)
+
+        tex.image = None
+
+        image = do_image_post_process(image, bprops, bake_device=bake_device, force_denoise_off=bake_type not in {'DIFFUSE', 'COMBINED'})
+
+        baked_images.append((root_ch, image, bump_midlevel, bump_distance))
+
+    # Recover source material
+    if disp_socket:
+        ntree.links.new(disp_socket, disp_inp)
+
+    simple_remove_node(ntree, tex, remove_data=False)
+    simple_remove_node(ntree, emit)
+    simple_remove_node(ntree, geometry)
+    simple_remove_node(ntree, dot)
+
+    disp_settings.displacement_method = ori_displacement_method
+
+    # Recover bake settings
+    recover_bake_settings(book, yp, mat=mat)
+
+    # Recover material
+    for ob, i in swapped_slots:
+        ob.material_slots[i].material = mat
+
+    # Bake results are grouped in a layer group with one layer per channel
+    tree = node.node_tree
+
+    # New group is always added on the top level, above the active layer
+    root_idx = yp.active_layer_index if yp.active_layer_index < len(yp.layers) else -1
+    while root_idx != -1 and yp.layers[root_idx].parent_idx != -1:
+        root_idx = yp.layers[root_idx].parent_idx
+
+    yp.halt_update = True
+    group_layer = layer_common.add_new_layer(
+        group_tree=tree, layer_name=source_mat.name, layer_type='GROUP', channel_idx=-1,
+        blend_type='MIX', normal_blend_type='MIX', normal_map_type='BUMP_MAP',
+        texcoord_type='UV', uv_name=bprops.uv_map,
+        use_designated_idx=root_idx != -1, designated_index=root_idx, designated_parent_idx=-1
+    )
+    yp.halt_update = False
+    group_name = group_layer.name
+
+    baked_ch_names = [root_ch.name for root_ch, image, midlevel, distance in baked_images]
+    for i, ch in enumerate(group_layer.channels):
+        if yp.channels[i].name not in baked_ch_names:
+            ch.enable = False
+
+    # Alpha layer goes on top since color layer below will also write to the paired alpha
+    baked_images.sort(key=lambda b: b[0].special_type != 'ALPHA')
+
+    for root_ch, image, midlevel, distance in reversed(baked_images):
+        ch_idx = get_channel_index(root_ch)
+
+        yp.halt_update = True
+        layer = layer_common.add_new_layer(
+            group_tree=tree, layer_name=image.name, layer_type='IMAGE', channel_idx=ch_idx,
+            blend_type='MIX', normal_blend_type='MIX', normal_map_type='NORMAL_MAP',
+            texcoord_type='UV', uv_name=bprops.uv_map, image=image,
+            interpolation='Cubic' if root_ch.special_type == 'HEIGHT' else bprops.interpolation
+        )
+        yp.halt_update = False
+
+        if root_ch.special_type == 'HEIGHT':
+            ch = layer.channels[ch_idx]
+            set_entity_prop_value(ch, 'bump_midlevel', midlevel)
+            set_entity_prop_value(ch, 'bump_distance', distance)
+
+        refresh_temp_uv(obj, layer)
+        set_uv_neighbor_resolution(layer)
+
+    yp.active_layer_index = get_layer_index_by_name(yp, group_name)
+
+    # Check linear nodes becuse sometimes bake results can be linear or srgb
+    check_yp_linear_nodes(yp, reconnect=True)
+
+    reconnect_yp_nodes(tree)
+    rearrange_yp_nodes(tree)
+
+    time_elapsed = time.time() - T
+    print('BAKE MATERIAL: Baking', source_mat.name, 'is done in', '{:0.2f}'.format(time_elapsed), 'seconds!')
+
+    rdict['time_elapsed'] = time_elapsed
+
+    return rdict
+
 def put_image_to_image_atlas(yp, image, tilenums=[]):
 
     if image.source == 'TILED':
