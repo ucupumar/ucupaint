@@ -1751,6 +1751,24 @@ def update_yp_tree(tree):
         # Update list item since there's a new base layer
         ListItem.refresh_list_items(yp)
 
+    # Version 3.0 has wrong colorspace for some baked bake target image
+    if version_tuple(yp.version) < (3, 0, 1):
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+        for bt in yp.bake_targets:
+            if bt.data_type != 'IMAGE': continue
+            baked_node = tree.nodes.get(bt.baked_node)
+            if baked_node and baked_node.image:
+                chs = get_bake_target_channels(bt)
+                any_linear_ch = any([c for c in chs if c.colorspace == 'LINEAR' or c.special_type == 'NORMAL'])
+                use_noncolor = any_linear_ch and not (len(chs) == 2 and color_ch in chs and alpha_ch in chs)
+
+                img = baked_node.image
+                if img.is_float:
+                    img.colorspace_settings.name = get_linear_color_name()
+                elif use_noncolor:
+                    img.colorspace_settings.name = get_noncolor_name()
+                else: img.colorspace_settings.name = get_srgb_name()
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha

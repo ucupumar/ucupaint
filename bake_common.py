@@ -2657,8 +2657,13 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # Check for hdr
     use_hdr = bt.hdr
 
+    # Linear channel will use non color
+    # And also make sure color with alpha doesn't use noncolor
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+    use_noncolor = any_linear_ch and not (len(channels) == 2 and color_ch in channels and alpha_ch in channels)
+
     # Get default color
-    color = get_bake_target_default_color(node, bt, any_linear_ch)
+    color = get_bake_target_default_color(node, bt, use_noncolor)
 
     # Check if udim image is needed based on number of tiles
     tilenums = [1001]
@@ -2739,7 +2744,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
 
     # Set legacy colorspace
     if hasattr(baked_node, 'color_space'):
-        if any_linear_ch:
+        if use_noncolor:
             baked_node.color_space = 'NONE'
         else: baked_node.color_space = 'COLOR'
 
@@ -2792,8 +2797,9 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                 img.filepath = filepath
 
             # Set colorspace to linear
-            #if root_ch.colorspace == 'LINEAR' or root_ch.special_type == 'NORMAL' or (root_ch.special_type != 'NORMAL' and use_hdr):
-            if any_linear_ch:
+            if use_hdr:
+                img.colorspace_settings.name = get_linear_color_name()
+            elif use_noncolor:
                 img.colorspace_settings.name = get_noncolor_name()
             else: img.colorspace_settings.name = get_srgb_name()
 
