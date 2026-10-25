@@ -5683,6 +5683,35 @@ def set_tile_pixels(image, pxs):
         image.pixels.foreach_set(px.ravel())
         if tilenum != 1001: UDIM.swap_tile(image, 1001, tilenum)
 
+def linear_to_srgb_pixels(rgb):
+    rgb = numpy.clip(rgb, 0.0, 1.0)
+    return numpy.where(rgb <= 0.0031308, rgb * 12.92, 1.055 * numpy.power(rgb, 1.0 / 2.4) - 0.055)
+
+def srgb_to_linear_pixels(rgb):
+    return numpy.where(rgb <= 0.04045, rgb / 12.92, numpy.power((rgb + 0.055) / 1.055, 2.4))
+
+def downscale_bake_image(image, width, height, tilenums=[]):
+    # Box filter the supersampled image, so lower resolutions look like a smaller version of a high resolution bake
+    pxs = get_tile_pixels(image)
+    srgb = not image.is_float and image.colorspace_settings.name == get_srgb_name()
+    fx, fy = image.size[0] // width, image.size[1] // height
+
+    for tilenum, px in pxs.items():
+        if srgb: px[:, :3] = srgb_to_linear_pixels(px[:, :3])
+        px = px.reshape(height, fy, width, fx, 4).mean(axis=(1, 3)).reshape(-1, 4)
+        if srgb: px[:, :3] = linear_to_srgb_pixels(px[:, :3])
+        pxs[tilenum] = px
+
+    name = image.name
+    colorspace = image.colorspace_settings.name
+    small = new_bake_image(name + '____SMALL', width, height, tuple(image.generated_color), image.is_float, tilenums)
+    small.colorspace_settings.name = colorspace
+    set_tile_pixels(small, pxs)
+    remove_datablock(bpy.data.images, image)
+    small.name = name
+
+    return small
+
 def bake_weighted_channel_image(trees, root_ch, tex, image, width, height, tilenums=[]):
     # Bake the weighted values and the weights separately, so the mix can be divided by the total weight
     pxs = []
@@ -5708,8 +5737,7 @@ def bake_weighted_channel_image(trees, root_ch, tex, image, width, height, tilen
 
         # Byte color images store the values in sRGB
         if not image.is_float and image.colorspace_settings.name == get_srgb_name():
-            rgb = numpy.clip(result[:, :3], 0.0, 1.0)
-            result[:, :3] = numpy.where(rgb <= 0.0031308, rgb * 12.92, 1.055 * numpy.power(rgb, 1.0 / 2.4) - 0.055)
+            result[:, :3] = linear_to_srgb_pixels(result[:, :3])
 
         results[tilenum] = result
 
@@ -5799,9 +5827,12 @@ def bake_material_to_layers(bprops, source_mat, channel_names):
 
     use_lighting = bprops.lighting != 'NONE'
 
-    # Anti aliasing will multiply the size then resize it back
-    width = bprops.width * bprops.aa_level
-    height = bprops.height * bprops.aa_level
+    # Bake at least at 2048 then box filter it back, so procedural details smaller than a pixel don't alias
+    supersample = max(bprops.aa_level, min(4, int(math.ceil(2048 / max(bprops.width, bprops.height)))))
+    width = bprops.width * supersample
+    height = bprops.height * supersample
+    post_props = dotdict(bprops)
+    post_props.aa_level = 1
 
     if bprops.bake_device == 'OSL':
         bake_device = 'CPU'
@@ -5812,7 +5843,7 @@ def bake_material_to_layers(bprops, source_mat, channel_names):
 
     # Lights and other objects are needed to bake lighting
     prepare_bake_settings(
-        book, objs, yp, samples=bprops.samples, margin=bprops.margin,
+        book, objs, yp, samples=bprops.samples, margin=bprops.margin * supersample,
         uv_map=bprops.uv_map, bake_device=bake_device, hide_other_objs=not use_lighting,
         margin_type=bprops.margin_type, use_osl=use_osl
     )
@@ -5900,19 +5931,21 @@ def bake_material_to_layers(bprops, source_mat, channel_names):
         elif len(surface_inp.links) > 0:
             ntree.links.remove(surface_inp.links[0])
 
+        tex.image = None
+        if supersample > 1:
+            image = downscale_bake_image(image, bprops.width, bprops.height, tilenums)
+
         bump_midlevel = 0.5
         bump_distance = 0.0
         if root_ch.special_type == 'HEIGHT':
             bump_midlevel, value_range = normalize_baked_height_image(image)
-            bump_distance = min(value_range / 2.0, 1.0)
+            bump_distance = min(value_range, 1.0)
 
             # Height image can still be saved as non float image
             if not bprops.use_float_for_displacement:
                 image = image_ops.toggle_image_bit_depth(image)
 
-        tex.image = None
-
-        image = do_image_post_process(image, bprops, bake_device=bake_device, force_denoise_off=bake_type not in {'DIFFUSE', 'COMBINED'})
+        image = do_image_post_process(image, post_props, bake_device=bake_device, force_denoise_off=bake_type not in {'DIFFUSE', 'COMBINED'})
 
         baked_images.append((root_ch, image, bump_midlevel, bump_distance))
 
