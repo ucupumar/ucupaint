@@ -2036,3 +2036,61 @@ def rearrange_yp_nodes(group_tree):
     # Rearrange frames
     rearrange_yp_frame_nodes(yp)
 
+def get_node_bounds(node, fallback_width=200.0, fallback_height=150.0):
+    """Calculates the bounding box coordinates for a single node."""
+    w = node.dimensions.x if node.dimensions.x > 0 else fallback_width
+    h = node.dimensions.y if node.dimensions.y > 0 else fallback_height
+    
+    # Blender node locations track the TOP-LEFT corner of the node
+    return {
+        'min_x': node.location.x,
+        'max_x': node.location.x + w,
+        'min_y': node.location.y - h, # Height extends downwards
+        'max_y': node.location.y
+    }
+
+def get_cluster_bounds(nodes):
+    """Calculates the combined bounding box of a group of nodes."""
+    if not nodes:
+        return None
+        
+    first_bounds = get_node_bounds(nodes[0])
+    min_x, max_x = first_bounds['min_x'], first_bounds['max_x']
+    min_y, max_y = first_bounds['min_y'], first_bounds['max_y']
+    
+    for node in nodes[1:]:
+        b = get_node_bounds(node)
+        min_x = min(min_x, b['min_x'])
+        max_x = max(max_x, b['max_x'])
+        min_y = min(min_y, b['min_y'])
+        max_y = max(max_y, b['max_y'])
+        
+    return {'min_x': min_x, 'max_x': max_x, 'min_y': min_y, 'max_y': max_y}
+
+def move_cluster(nodes, offset_x, offset_y):
+    """Shifts all nodes in a cluster uniformly to preserve relative layout."""
+    for node in nodes:
+        node.location.x += offset_x
+        node.location.y += offset_y
+
+def resolve_overlapped_nodes(tree, nodes, margin=20.0):
+    #bpy.context.space_data.node_tree.update_tag()
+    #bpy.context.view_layer.update() 
+
+    b1 = get_cluster_bounds([n for n in tree.nodes if n not in nodes])
+    b2 = get_cluster_bounds(nodes)
+    
+    # Check for Bounding Box Overlap
+    x_overlap = b1['min_x'] < b2['max_x'] and b1['max_x'] > b2['min_x']
+    y_overlap = b1['min_y'] < b2['max_y'] and b1['max_y'] > b2['min_y']
+    
+    if x_overlap and y_overlap:
+        # Calculate how much to push cluster b2 down to clear cluster b1
+        # Cluster b2's top (max_y) must clear Cluster b1's bottom (min_y) minus margin
+        target_y = b1['min_y'] - margin
+        #target_y = b1['max_y'] + b2['max_y'] + margin
+        shift_y = target_y - b2['max_y']
+        
+        # Apply relative shift to all nodes in cluster J
+        move_cluster(nodes, 0, shift_y)
+

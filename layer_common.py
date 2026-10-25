@@ -150,6 +150,9 @@ def create_new_combine_bundle_node(mat, yp_node, layer, source=None):
     mat.node_tree.links.new(comb.outputs[0], yp_node.inputs[layer.name])
     yp.halt_update = ori_halt_update
 
+    # Pointer to created geometry node
+    new_geo = None
+
     # Copy items from source
     if source and source.type == 'NodeSeparateBundle':
         for outp in source.outputs:
@@ -166,7 +169,21 @@ def create_new_combine_bundle_node(mat, yp_node, layer, source=None):
                 channel = yp.channels.get(soc.name)
                 if channel: channel_common.set_bundle_input_default_value(inp, socket_type, special_type=channel.special_type)
 
+            # Create geometry nodes for default normal socket
+            if outp.name == 'Normal' and socket_type == 'VECTOR':
+                # Check for geometry node in material
+                geos = [n for n in mat.node_tree.nodes if n.bl_idname == 'ShaderNodeNewGeometry']
+                geo = geos[0] if len(geos) > 0 else None
+                if not geo:
+                    new_geo = geo = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
+                
+                mat.node_tree.links.new(geo.outputs['Normal'], comb.inputs['Normal'])
+
     set_combine_bundle_node_location(layer, yp_node, comb)
+
+    # Set created geometry node location
+    if new_geo:
+        new_geo.location = (comb.location.x - 400, comb.location.y)
 
 def check_and_connect_combine_bundle_node(mat, yp_node, layer):
     inp = yp_node.inputs.get(layer.name)
@@ -182,6 +199,14 @@ def check_and_connect_combine_bundle_node(mat, yp_node, layer):
 
         if comb:
             mat.node_tree.links.new(comb.outputs[0], inp)
+
+def get_combine_bundle_node(yp_node, layer):
+    inp = yp_node.inputs.get(layer.name)
+    if inp and len(inp.links) > 0:
+        link = inp.links[0]
+        return link.from_node
+
+    return None
 
 def add_new_layer(
         group_tree, layer_name, layer_type, channel_idx, 
@@ -531,7 +556,7 @@ def add_new_layer(
 
             socket_type = 'FLOAT'
             # Normal channel will use RGB socket it uses tangent space by default
-            if c.type == 'RGB' or c.special_type == 'NORMAL':
+            if c.type == 'RGB': # or c.special_type == 'NORMAL':
                 socket_type = 'RGBA'
             elif c.type == 'VECTOR':
                 socket_type = 'VECTOR'

@@ -3240,27 +3240,28 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
             #height_as_normal_disabled = ch == normal_ch and (height_ch == None or not height_ch.enable or not height_ch.use_height_as_normal)
 
-            # Normal Strength
-            row = mcol.row(align=True)
-            row.label(text='', icon='BLANK1')
-            #row.active = height_as_normal_disabled
-            label = 'Normal Strength:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Strength:'
-            row.label(text=label)
-            if ch.normal_map_type == 'NORMAL_MAP':
-                row = row.row(align=True)
-                row.scale_x = 1.4
-            draw_input_prop(row, ch, 'normal_strength', layer=layer)
-
             # Normal Space
             row = mcol.row(align=True)
             row.label(text='', icon='BLANK1')
             #row.active = height_as_normal_disabled
             label = 'Normal Space:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Space:'
             row.label(text=label)
-            if ch.normal_map_type == 'NORMAL_MAP':
-                row = row.row(align=True)
-                row.scale_x = 1.4
+            #if ch.normal_map_type == 'NORMAL_MAP':
+            row = row.row(align=True)
+            row.scale_x = 1.4 if ch.normal_space == 'INPUT_PASSTHROUGH' else 1.0
             row.prop(ch, 'normal_space', text='')
+
+            # Normal Strength
+            if ch.normal_space != 'INPUT_PASSTHROUGH':
+                row = mcol.row(align=True)
+                row.label(text='', icon='BLANK1')
+                #row.active = height_as_normal_disabled
+                label = 'Strength:'
+                row.label(text=label)
+                if ch.normal_map_type == 'NORMAL_MAP':
+                    row = row.row(align=True)
+                    row.scale_x = 1.4
+                draw_input_prop(row, ch, 'normal_strength', layer=layer)
 
         if root_ch.special_type == 'VDISP' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
@@ -6359,6 +6360,10 @@ class YPAssetBrowserMenu(bpy.types.Menu):
 
         op = self.layout.operator("wm.y_open_layers_from_material", icon='PASTEDOWN')
         op.mat_name = mat_name
+        op.asset_library_path = asset_library_path
+
+        op = self.layout.operator("wm.y_open_asset_as_layer", icon='FILE_FOLDER')
+        op.asset_name = mat_name
         op.asset_library_path = asset_library_path
 
 def draw_yp_asset_browser_menu(self, context):

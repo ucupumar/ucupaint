@@ -2373,7 +2373,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
                 normal_proc.inputs['Distance'].default_value = 1.0
                 normal_proc.inputs['Strength'].default_value = 1.0
 
-            elif layer.type not in {'GROUP', 'PREV_LAYERS'}:
+            elif layer.type not in {'GROUP', 'PREV_LAYERS'} and ch.normal_space != 'INPUT_PASSTHROUGH':
                 # Normal map
                 normal_proc, need_reconnect = replace_new_node(tree, ch, 'normal_proc', 'ShaderNodeNormalMap', label='Normal Process', return_status=True)
                 normal_proc.uv_map = layer.uv_name

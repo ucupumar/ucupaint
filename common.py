@@ -290,6 +290,7 @@ normal_space_items = (
     ('WORLD', 'World Space', 'World space normal mapping'),
     ('BLENDER_OBJECT', 'Blender Object Space', 'Object space normal mapping, compatible with Blender render baking'),
     ('BLENDER_WORLD', 'Blender World Space', 'World space normal mapping, compatible with Blender render baking'),
+    ('INPUT_PASSTHROUGH', 'Input Passthrough', 'Use normal input as is'),
 )
 
 normal_type_labels = {
@@ -1741,6 +1742,11 @@ def create_essential_nodes(tree, solid_value=False, texcoord=False, geometry=Fal
     if texcoord:
         node = tree.nodes.new('ShaderNodeTexCoord')
         node.name = TEXCOORD
+
+def get_tree_output_node(tree):
+    outps = [n for n in tree.nodes if n.type == 'GROUP_OUTPUT']
+    outp = outps[0] if outps else None
+    return outp
 
 def get_material_output(mat, create_one=False):
     if mat != None and mat.node_tree:
@@ -8150,6 +8156,21 @@ def get_closest_yp_node_backward(node):
                 if n: return n
 
     return None
+
+def get_closest_displacement_node_backward(node):
+    inputs = node.inputs
+    if node.type in {'GROUP_OUTPUT', 'OUTPUT_MATERIAL'}:
+        inputs = [inp for inp in node.inputs if inp.name == 'Displacement']
+
+    for inp in inputs:
+        for link in inp.links:
+            if link.from_node.type in {'DISPLACEMENT', 'VECTOR_DISPLACEMENT'}: 
+                return link.from_node
+            else:
+                n = get_closest_displacement_node_backward(link.from_node)
+                if n: return n
+
+    return None 
 
 def get_closest_bsdf_backward(node, valid_types=[], include_any=False):
     for inp in node.inputs:

@@ -2024,6 +2024,326 @@ def search_for_image_node(node, channel_name, channel_image_dict={}):
                     search_for_image_node(link.from_node, channel_name, channel_image_dict)
                 if channel_name in channel_image_dict:
                     break
+
+def remove_unused_inputs(tree):
+
+    # Find the internal 'Group Input' node
+    group_input_nodes = [n for n in tree.nodes if n.type == 'GROUP_INPUT']
+    
+    if not group_input_nodes:
+        return
+    
+    # Gather identifiers of sockets that have active connections
+    used_names = []
+    for n in group_input_nodes:
+        for outp in n.outputs:
+            if len(outp.links) > 0 and outp.name not in used_names:
+                used_names.append(outp.name)
+
+    # Find interface items that are INPUTs but not in the linked set
+    items_to_remove = [
+        item for item in tree.interface.items_tree
+        if item.item_type == 'SOCKET' and item.in_out == 'INPUT' and item.name not in used_names
+    ]
+    
+    # Remove the unused inputs from the interface
+    for item in items_to_remove:
+        tree.interface.remove(item)
+
+    # Re-evaluate remaining elements to see which panels still have children
+    panels = []
+    parent_panels_with_children = set()
+    
+    for item in tree.interface.items_tree:
+        if item.item_type == 'PANEL':
+            panels.append(item)
+        
+        # If this item belongs to a parent panel, log that parent panel as active
+        if item.parent:
+            parent_panels_with_children.add(item.parent)
+
+    # If a panel is not present in the set of parent panels with children, it's empty
+    panels_to_remove = [p for p in panels if p not in parent_panels_with_children]
+    
+    # Remove the empty panels
+    for panel in panels_to_remove:
+        tree.interface.remove(panel)
+
+def remove_dead_nodes(tree):
+    # Keep looping until no more terminal nodes with unlinked outputs remain
+    while True:
+        dead_nodes = [
+            node for node in tree.nodes
+            # Find nodes that have outputs, but none of them are linked, 
+            # and ensure we don't accidentally delete the actual material output node
+            if node.outputs and all(not out.is_linked for out in node.outputs)
+            and node.type not in {'GROUP_OUTPUT', 'OUTPUT_MATERIAL'}
+        ]
+        
+        if not dead_nodes:
+            break
+            
+        for dead_node in dead_nodes:
+            tree.nodes.remove(dead_node)
+
+def get_all_connected_nodes_before(start_node):
+    nodes_set = []
+    links_set = []
+
+    nodes_set.append(start_node)
+
+    def trace(node):
+        for inp in node.inputs:
+            for link in inp.links:
+
+                if link not in links_set:
+                    links_set.append(link)
+
+                from_node = link.from_node
+                if from_node not in nodes_set:
+                    nodes_set.append(from_node)
+                    trace(from_node)
+
+    trace(start_node)
+
+    return nodes_set, links_set
+
+def get_nodes_and_links_from_mat_asset(asset_mat):
+
+    # Check for material output
+    outp = get_material_output(asset_mat)
+    if not outp: return None, None
+
+    # Check for shader node
+    shader_node = get_closest_bsdf_backward(outp)
+    if not shader_node: return None, None
+
+    #TODO: Get all nodes before the bsdf node
+    source_nodes, source_links = get_all_connected_nodes_before(shader_node)
+    #print([n.name for n in source_nodes])
+
+    # Convert shader node group to output standard sockets
+    if shader_node.type == 'GROUP':
+        tree = shader_node.node_tree
+
+        gout = get_tree_output_node(tree)
+        if not gout: return None, None
+        bsdf = get_closest_bsdf_backward(gout)
+        if not bsdf: return None, None
+
+        for inp in bsdf.inputs:
+            if len(inp.links) > 0:
+                link = inp.links[0]
+
+                # Create new output based from input
+                socket_type = inp.bl_idname
+                if socket_type.startswith('NodeSocketFloat'):
+                    socket_type = 'NodeSocketFloat'
+                soc = tree.interface.new_socket(inp.name, in_out='OUTPUT', socket_type=socket_type) 
+
+                # Connect to the new output
+                outp = gout.inputs.get(soc.name)
+                if outp: tree.links.new(link.from_socket, outp)
+
+        # Check for displacement
+        disp_outp = shader_node.outputs.get('Displacement')
+        if disp_outp and disp_outp.type == 'VECTOR':
+            disp = get_closest_displacement_node_backward(gout)
+            if disp and disp.type == 'DISPLACEMENT':
+                height_inp = disp.inputs.get('Height')
+                if len(height_inp.links) > 0:
+                    link = height_inp.links[0]
+
+                    # Create new height socket
+                    soc = tree.interface.new_socket('Height', in_out='OUTPUT', socket_type='NodeSocketFloat') 
+
+                    # Connect to the new output
+                    outp = gout.inputs.get(soc.name)
+                    if outp: tree.links.new(link.from_socket, outp)
+
+        # Remove bsdf and displacement socket
+        items = [item for item in list(tree.interface.items_tree) if (
+            item.item_type == 'SOCKET' and item.in_out == 'OUTPUT' and item.name in {'BSDF', 'Displacement'}
+        )]
+        for item in items:
+            tree.interface.remove(item)
+
+        # Check dead end nodes
+        remove_dead_nodes(tree)
+
+        # Remove input socket that has no output
+        remove_unused_inputs(tree)
+
+    return source_nodes, source_links
+
+def copy_nodes_to_tree(source_nodes, source_links, tree):
+
+    node_mapping = {}
+
+    copied_nodes = []
+
+    # Copy the nodes
+    for node in source_nodes:
+        n = tree.nodes.new(type=node.bl_idname)
+        n.name = node.name
+        n.label = node.label
+        n.location = node.location
+        n.width = node.width
+        n.height = node.height
+        n.hide = node.hide
+
+        node_mapping[node] = n
+
+        # Copy props
+        #copy_id_props(node, n, ['name'])
+        for prop in node.bl_rna.properties:
+            if not prop.is_readonly:
+                try:
+                    setattr(n, prop.identifier, getattr(node, prop.identifier))
+                except AttributeError:
+                    pass
+
+        # Copy default values
+        for i, inp in enumerate(node.inputs):
+            if hasattr(inp, 'default_value'):
+                try:
+                    n.inputs[i].default_value = inp.default_value
+                except (AttributeError, TypeError):
+                    pass
+
+        #if frame: n.parent = frame
+
+        copied_nodes.append(n)
+
+    #if frame:
+    #    print(frame.width, frame.height)
+
+    # Dealing with closure nodes
+    for node, n in node_mapping.items():
+        if node.type == 'NodeClosureInput':
+            n.pair_with_output(node_mapping[node.paired_output])
+        if node.type == 'NodeClosureOutput':
+            for ii in node.input_items:
+                n.input_items.new(ii.socket_type, ii.name)
+            for oi in node.output_items:
+                n.output_items.new(oi.socket_type, oi.name)
+
+    # Copy the links
+    for link in source_links:
+        from_node = node_mapping.get(link.from_node)
+        to_node = node_mapping.get(link.to_node)
+        
+        if from_node and to_node:
+            # Find matching socket index offsets
+            from_socket_idx = list(link.from_node.outputs).index(link.from_socket)
+            to_socket_idx = list(link.to_node.inputs).index(link.to_socket)
+                
+            try: tree.links.new(from_node.outputs[from_socket_idx], to_node.inputs[to_socket_idx])
+            except Exception as e: print('EXCEPTIION:', e)
+
+    return copied_nodes
+
+class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper):
+    bl_idname = "wm.y_open_asset_as_layer"
+    bl_label = "Open Asset as " + get_addon_title() + " Layer"
+    bl_description = "Open asset as " + get_addon_title() + " layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    asset_name : StringProperty(name='Asset')
+    asset_library_path : StringProperty(default='')
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+        #return context.object
+        #return get_active_material()
+
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
+    def invoke(self, context, event):
+        return self.execute(context)
+
+    def cleanup(self, context):
+        remove_datablock(bpy.data.materials, self.asset_mat)
+
+    def execute(self, context):
+        with bpy.data.libraries.load(str(self.asset_library_path), assets_only=True) as (data_from, data_to):
+            for mat in data_from.materials:
+                if mat == self.asset_name:
+                    data_to.materials.append(mat)
+        self.asset_mat = bpy.data.materials.get(self.asset_name)
+
+        source_nodes, source_links = get_nodes_and_links_from_mat_asset(self.asset_mat)
+        if not source_nodes:
+            self.cleanup(context)
+            self.report({'ERROR'}, "Invalid asset!")
+            return {'CANCELLED'}
+
+        bsdf_node = source_nodes[0]
+
+        mat = get_active_material()
+        node = None
+        #if bsdf_node.type == 'GROUP':
+        #    node = mat.node_tree.nodes.new('ShaderNodeGroup')
+        #    node.node_tree = bsdf_node.node_tree #.copy()
+
+        # Create new bundle input layer
+        yp_node = get_active_ypaint_node()
+        yp = yp_node.node_tree.yp
+        yp.halt_update = True
+        layer = layer_common.add_new_layer(
+            group_tree=yp_node.node_tree, layer_name='Input Layer', #tree.name,
+            layer_type='INPUT_BUNDLE', channel_idx=-1,
+            blend_type='MIX', normal_blend_type='MIX',
+            normal_map_type='BUMP_MAP', texcoord_type='UV',
+            normal_space = 'INPUT_PASSTHROUGH',
+        )
+        yp.halt_update = False
+
+        # Copy asset nodes to current material tree
+        copied_nodes = copy_nodes_to_tree(source_nodes, source_links, mat.node_tree)
+
+        # Get combine bundle node
+        comb = layer_common.get_combine_bundle_node(yp_node, layer)
+
+        # Make sure copied nodes aren't overlapped
+        resolve_overlapped_nodes(mat.node_tree, copied_nodes, margin=50.0)
+
+        # Add frame if there are more than one node
+        if len(source_nodes) > 1:
+            frame = mat.node_tree.nodes.new('NodeFrame')
+            frame.label = self.asset_mat.name
+
+            for cn in copied_nodes:
+                cn.parent = frame
+
+        # Connect to combine bundle node
+        node = copied_nodes[0]
+        if node:
+            if comb:
+                # Set node location
+                #node.location = (comb.location.x-200, comb.location.y)
+
+                # Connect
+                for outp in node.outputs:
+                    soc_name = outp.name
+                    if soc_name not in comb.inputs:
+                        if soc_name == 'Base Color' and 'Color' in comb.inputs:
+                            soc_name = 'Color'
+
+                    if soc_name in comb.inputs:
+                        mat.node_tree.links.new(outp, comb.inputs[soc_name])
+
+        # Reconnect
+        reconnect_yp_nodes(yp_node.node_tree)
+        rearrange_yp_nodes(yp_node.node_tree)
+
+        # Data cleanup
+        self.cleanup(context)
+
+        return {'FINISHED'}
                 
 class YOpenImagesFromMaterialAsLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
     bl_idname = "wm.y_open_images_from_material_as_single_layer"
@@ -4856,11 +5176,18 @@ def update_normal_space(self, context):
     yp = self.id_data.yp
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
+    ch_index = int(m.group(2))
+    root_ch = yp.channels[ch_index]
     tree = get_tree(layer)
 
-    normal_proc = tree.nodes.get(self.normal_proc)
-    if normal_proc and hasattr(normal_proc, 'space'):
-        normal_proc.space = self.normal_space
+    need_reconnect = check_blend_type_nodes(root_ch, layer, self)
+    if need_reconnect:
+        reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
+
+    #normal_proc = tree.nodes.get(self.normal_proc)
+    #if normal_proc and hasattr(normal_proc, 'space'):
+    #    normal_proc.space = self.normal_space
 
 def update_flip_backface_normal(self, context):
     yp = self.id_data.yp
@@ -6358,6 +6685,7 @@ classes = (
     YNewVcolAsLayerChannelSource,
     YOpenImageAsLayer,
     YOpenImagesAsSingleLayer,
+    YOpenAssetAsLayer,
     YOpenImagesFromMaterialAsLayer,
     YOpenLayersFromMaterial,
     YOpenImageToReplaceLayer,
