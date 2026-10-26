@@ -1,4 +1,4 @@
-import bpy, time, os, numpy, tempfile, bmesh
+import bpy, time, os, math, numpy, tempfile, bmesh
 from bpy.props import *
 from .common import *
 from .subtree import *
@@ -13,6 +13,14 @@ TEMP_VCOL_1 = '__temp__vcol__1'
 TEMP_WIRE_UV = '__temp__wire_uv__'
 TEMP_WIRE_SCALE_UV = '__temp__wire_scale_uv__'
 TEMP_CURV_VCOL = '__temp__curvature_vcol__'
+TEMP_CURV_IMAGE = '__temp__curvature_image__'
+
+# Per pixel curvature settings
+CURV_SPREAD = 0.5
+CURV_GAIN = 0.75
+CURV_SATURATION = math.radians(135.0)
+CURV_FEATURE_MIN = math.radians(20.0)
+CURV_FEATURE_MAX = math.radians(45.0)
 TEMP_EMISSION = '_TEMP_EMI_'
 
 BAKE_PROBLEMATIC_MODIFIERS = {
@@ -167,99 +175,467 @@ def is_join_objects_problematic(yp, mat=None):
 
     return False
 
-def fill_curvature_vcol(obj, distance, vcol_name):
-    # Discrete mean curvature per vertex from the signed dihedral angles of
-    # its edges, so the baked interpolation is smooth like other bakers'
-    # from mesh curvature. The distance is the radius where it saturates
-    me = obj.data
+def get_mesh_corner_arrays(me):
+    # Vertex positions, faces, edges, corners and corner normals as arrays
     nv, ne, npf, nl = len(me.vertices), len(me.edges), len(me.polygons), len(me.loops)
-    if nv == 0 or ne == 0 or npf == 0: return
-
-    fn = numpy.empty(npf * 3, dtype=numpy.float32); me.polygons.foreach_get('normal', fn); fn.shape = (-1, 3)
-    fc = numpy.empty(npf * 3, dtype=numpy.float32); me.polygons.foreach_get('center', fc); fc.shape = (-1, 3)
-    area = numpy.empty(npf, dtype=numpy.float32); me.polygons.foreach_get('area', area)
+    co = numpy.empty(nv * 3, dtype=numpy.float32); me.vertices.foreach_get('co', co); co.shape = (-1, 3)
+    ls = numpy.empty(npf, dtype=numpy.int64); me.polygons.foreach_get('loop_start', ls)
     lt = numpy.empty(npf, dtype=numpy.int64); me.polygons.foreach_get('loop_total', lt)
     ev = numpy.empty(ne * 2, dtype=numpy.int64); me.edges.foreach_get('vertices', ev); ev.shape = (-1, 2)
-    co = numpy.empty(nv * 3, dtype=numpy.float32); me.vertices.foreach_get('co', co); co.shape = (-1, 3)
     le = numpy.empty(nl, dtype=numpy.int64); me.loops.foreach_get('edge_index', le)
     lv = numpy.empty(nl, dtype=numpy.int64); me.loops.foreach_get('vertex_index', lv)
-    lp = numpy.repeat(numpy.arange(npf), lt)
 
+    cn = numpy.empty(nl * 3, dtype=numpy.float32)
+    if is_bl_newer_than(4, 1):
+        me.corner_normals.foreach_get('vector', cn)
+    else:
+        me.calc_normals_split()
+        me.loops.foreach_get('normal', cn)
+    cn.shape = (-1, 3)
+
+    return co, ls, lt, ev, le, lv, cn
+
+def get_welded_edge_corners(co, ev, le, lv, lp):
     # Weld coincident vertices first, meshes stitched from unwelded pieces
     # (like clothing panels) would otherwise read as flat along their seams
     key = numpy.round(co.astype(numpy.float64) * 1e5).astype(numpy.int64)
-    uniq, weld = numpy.unique(key, axis=0, return_inverse=True)
-    nw = len(uniq)
-    first_orig = numpy.zeros(nw, dtype=numpy.int64)
-    first_orig[weld[::-1]] = numpy.arange(nv - 1, -1, -1)
-    cow = co[first_orig]
+    _, weld = numpy.unique(key, axis=0, return_inverse=True)
+    weld = weld.ravel()
 
-    # Pair up the two faces meeting at each welded edge
+    # Pair up the corners of the two faces meeting at each welded edge
+    nl = len(lv)
     epair = numpy.sort(weld[ev], axis=1)[le]
     order = numpy.lexsort((epair[:, 1], epair[:, 0]))
     ep_sorted = epair[order]
-    lp_sorted = lp[order]
-    le_sorted = le[order]
     change = numpy.empty(nl, dtype=bool)
     change[0] = True
     change[1:] = (ep_sorted[1:] != ep_sorted[:-1]).any(axis=1)
     starts = numpy.flatnonzero(change)
     lens = numpy.diff(numpy.append(starts, nl))
     s2 = starts[lens == 2]
-    f1 = lp_sorted[s2]
-    f2 = lp_sorted[s2 + 1]
-    valid = f1 != f2
-    f1, f2, s2 = f1[valid], f2[valid], s2[valid]
-    v1 = ep_sorted[s2, 0]
-    v2 = ep_sorted[s2, 1]
+    l1 = order[s2]
+    l2 = order[s2 + 1]
+    valid = lp[l1] != lp[l2]
 
-    # Signed dihedral angle, convex positive, weighted by edge length
-    d = (fn[f1] * fn[f2]).sum(-1).clip(-1.0, 1.0)
-    angle = numpy.arccos(d)
-    convex = ((fc[f2] - fc[f1]) * fn[f1]).sum(-1) < 0.0
+    return weld, l1[valid], l2[valid]
+
+def fill_curvature_vcol(obj, distance, vcol_name):
+    # Curvature from how much the shading normals bend, so custom normals are
+    # respected. Bending inside each face and sharp turns between faces both
+    # count, averaged over the corners sharing a vertex and a normal. The
+    # distance is the radius where the result saturates
+    me = obj.data
+    nv, ne, npf, nl = len(me.vertices), len(me.edges), len(me.polygons), len(me.loops)
+    if nv == 0 or ne == 0 or npf == 0: return
+
+    fn = numpy.empty(npf * 3, dtype=numpy.float32); me.polygons.foreach_get('normal', fn); fn.shape = (-1, 3)
+    area = numpy.empty(npf, dtype=numpy.float32); me.polygons.foreach_get('area', area)
+    co, ls, lt, ev, le, lv, cn = get_mesh_corner_arrays(me)
+    lp = numpy.repeat(numpy.arange(npf), lt)
+
+    # Next corner in the same face, each corner and its next one form a face edge
+    nxt = numpy.arange(1, nl + 1)
+    nxt[ls + lt - 1] = ls
+
+    weld, l1, l2 = get_welded_edge_corners(co, ev, le, lv, lp)
+
+    # Corners sharing a welded vertex and a normal form one smooth group
+    gkey = numpy.column_stack((weld[lv], numpy.round(cn * 1e3).astype(numpy.int64)))
+    _, grp = numpy.unique(gkey, axis=0, return_inverse=True)
+    grp = grp.ravel()
+    ng = grp.max() + 1
+
+    # How much the normals spread out across each face, positive when convex
+    border = numpy.cross(co[lv[nxt]] - co[lv], fn[lp])
+    flux = ((cn + cn[nxt]) * 0.5 * border).sum(-1)
+    fflux = numpy.zeros(npf, dtype=numpy.float64)
+    numpy.add.at(fflux, lp, flux)
+
+    acc = numpy.zeros(ng, dtype=numpy.float64)
+    numpy.add.at(acc, grp, (fflux / lt)[lp])
+
+    # Signed angle between the normals on each side of an edge, weighted by
+    # its length. Smooth edges have none since their normals match
+    n1 = cn[l1] + cn[nxt[l1]]
+    n2 = cn[l2] + cn[nxt[l2]]
+    n1 /= numpy.maximum(numpy.linalg.norm(n1, axis=1), 1e-12)[:, None]
+    n2 /= numpy.maximum(numpy.linalg.norm(n2, axis=1), 1e-12)[:, None]
+    angle = numpy.arccos((n1 * n2).sum(-1).clip(-1.0, 1.0))
+    convex = ((n2 - n1) * border[l1]).sum(-1) > 0.0
     sign = numpy.where(convex, 1.0, -1.0)
-    elen = numpy.linalg.norm(cow[v1] - cow[v2], axis=1)
+    elen = numpy.linalg.norm(co[lv[l1]] - co[lv[nxt[l1]]], axis=1)
     w = sign * angle * elen
 
     # Edges that only meet through the weld are either sewn junctions or
     # shading splits along sharp edges: junctions crease inward, so only
     # their concave side counts, while splits stay with the shading intent
-    same_edge = le_sorted[s2] == le_sorted[s2 + 1]
+    same_edge = le[l1] == le[l2]
     w = numpy.where(same_edge | ~convex, w, 0.0)
 
-    # Half of each edge goes to both of its endpoints, normalized by the
-    # vertex share of the surrounding area so the units are one per length
-    acc = numpy.zeros(nw, dtype=numpy.float64)
-    numpy.add.at(acc, v1, w * 0.5)
-    numpy.add.at(acc, v2, w * 0.5)
-    varea = numpy.zeros(nw, dtype=numpy.float64)
-    numpy.add.at(varea, weld[lv], numpy.repeat(area / lt, lt))
-    varea = numpy.maximum(varea / 3.0, 1e-12)
+    # Split each crease between the corners at both ends on both sides, then
+    # divide by the area around each group so the units are one per length
+    for l in (l1, nxt[l1], l2, nxt[l2]):
+        numpy.add.at(acc, grp[l], w * 0.25)
+    garea = numpy.zeros(ng, dtype=numpy.float64)
+    numpy.add.at(garea, grp, (area / lt)[lp])
+    garea = numpy.maximum(garea / 3.0, 1e-12)
 
-    k = acc / (4.0 * varea)
+    k = acc / (4.0 * garea)
     signal = numpy.clip(k * distance, -1.0, 1.0)
 
     # One relaxation pass with the neighbors evens out the response of
     # coarse meshes whose vertices are far apart
-    nbr = numpy.zeros(nw, dtype=numpy.float64)
-    cnt = numpy.zeros(nw, dtype=numpy.float64)
-    numpy.add.at(nbr, v1, signal[v2])
-    numpy.add.at(nbr, v2, signal[v1])
-    numpy.add.at(cnt, v1, 1.0)
-    numpy.add.at(cnt, v2, 1.0)
+    gpair = numpy.unique(numpy.sort(numpy.column_stack((grp, grp[nxt])), axis=1), axis=0)
+    gpair = gpair[gpair[:, 0] != gpair[:, 1]]
+    g1, g2 = gpair[:, 0], gpair[:, 1]
+    nbr = numpy.zeros(ng, dtype=numpy.float64)
+    cnt = numpy.zeros(ng, dtype=numpy.float64)
+    numpy.add.at(nbr, g1, signal[g2])
+    numpy.add.at(nbr, g2, signal[g1])
+    numpy.add.at(cnt, g1, 1.0)
+    numpy.add.at(cnt, g2, 1.0)
     has_nbr = cnt > 0
     signal[has_nbr] = 0.5 * signal[has_nbr] + 0.5 * (nbr[has_nbr] / cnt[has_nbr])
 
-    vals = (0.5 + 0.5 * signal[weld]).astype(numpy.float32)
-
-    vcol = new_vertex_color(obj, vcol_name, data_type='FLOAT_COLOR', domain='POINT')
-    if not vcol: return
-    num_data = len(vcol.data)
-    arr = vals if num_data == nv else vals[lv]
-    rgba = numpy.empty((num_data, 4), dtype=numpy.float32)
-    rgba[:, 0] = rgba[:, 1] = rgba[:, 2] = arr
+    vcol = new_vertex_color(obj, vcol_name, data_type='FLOAT_COLOR', domain='CORNER')
+    if not vcol or len(vcol.data) != nl: return
+    rgba = numpy.empty((nl, 4), dtype=numpy.float32)
+    rgba[:, 0] = rgba[:, 1] = rgba[:, 2] = 0.5 + 0.5 * signal[grp]
     rgba[:, 3] = 1.0
     vcol.data.foreach_set('color', rgba.ravel())
+
+# Per pixel curvature measures how much the surface turns at every texel by
+# summing the signed angle of each nearby mesh edge, weighted by its length and
+# a gaussian of the distance to the texel. Strong creases add a crisp line plus
+# a halo that fades across the faces either side, gentle bends add plain
+# curvature. Everything is computed from the mesh, so no rays are cast
+
+def get_curvature_cell_keys(c):
+    return (c[:, 0] * 2000003 + c[:, 1]) * 2000033 + c[:, 2]
+
+def get_curvature_edge_data(co, ls, lt, ev, le, lv, cn, face_scale):
+    nl = len(lv); npf = len(ls)
+    lp = numpy.repeat(numpy.arange(npf), lt)
+    nxt = numpy.arange(1, nl + 1)
+    nxt[ls + lt - 1] = ls
+
+    # Face normals and areas from the world positions
+    cr = numpy.cross(co[lv], co[lv[nxt]])
+    fv = numpy.stack([numpy.bincount(lp, cr[:, i], npf) for i in range(3)], 1)
+    flen = numpy.linalg.norm(fv, axis=1)
+    fn = fv / numpy.maximum(flen, 1e-12)[:, None]
+    area = flen * 0.5
+
+    weld, l1, l2 = get_welded_edge_corners(co, ev, le, lv, lp)
+    f1, f2 = lp[l1], lp[l2]
+
+    pa = co[lv[l1]]
+    evec = co[lv[nxt[l1]]] - pa
+    elen = numpy.linalg.norm(evec, axis=1)
+    outward = numpy.cross(evec, fn[f1])
+    outward /= numpy.maximum(numpy.linalg.norm(outward, axis=1), 1e-12)[:, None]
+
+    # Signed turn between the averaged shading normals of both faces, so
+    # custom normals that flatten or round off the faces are respected
+    fsn = numpy.zeros((npf, 3))
+    numpy.add.at(fsn, lp, cn)
+    n1 = fsn[f1] / numpy.maximum(numpy.linalg.norm(fsn[f1], axis=1), 1e-12)[:, None]
+    n2 = fsn[f2] / numpy.maximum(numpy.linalg.norm(fsn[f2], axis=1), 1e-12)[:, None]
+    angle = numpy.arccos((n1 * n2).sum(-1).clip(-1, 1))
+    angle = numpy.where(((n2 - n1) * outward).sum(-1) > 0, angle, -angle)
+
+    edge_n = fn[f1] + fn[f2]
+    edge_n /= numpy.maximum(numpy.linalg.norm(edge_n, axis=1), 1e-12)[:, None]
+
+    # Edges only met through the weld are sewn junctions
+    junction = le[l1] != le[l2]
+
+    # The share of the turn where the shading normal jumps stays crisp, the
+    # rest is smooth turning spread over the faces either side
+    same_end = weld[lv[l2]] == weld[lv[l1]]
+    l2a = numpy.where(same_end, l2, nxt[l2])
+    l2b = numpy.where(same_end, nxt[l2], l2)
+    da = (cn[l1] * cn[l2a]).sum(-1).clip(-1, 1)
+    db = (cn[nxt[l1]] * cn[l2b]).sum(-1).clip(-1, 1)
+    hard = junction | (numpy.maximum(1 - da, 1 - db) > 1e-4)
+    jump = 0.5 * (numpy.arccos(da) + numpy.arccos(db))
+    crisp = numpy.where(junction, 1.0, numpy.clip(jump / numpy.maximum(numpy.abs(angle), 1e-9), 0, 1))
+
+    face_h = (area[f1] + area[f2]) / numpy.maximum(elen, 1e-12)
+
+    # Object scale per edge, so the distance means the same as in object space
+    scale = face_scale[f1]
+
+    return {
+        'pa': pa, 'evec': evec, 'elen': elen, 'edge_n': edge_n, 'angle': angle,
+        'junction': junction, 'hard': hard, 'crisp': crisp, 'face_h': face_h, 'scale': scale
+    }
+
+def get_curvature_level_weights(ed, sigma0, distance):
+    # Every edge contributes to a few kernel widths, sigma0 * 2 ** level, so
+    # gather its weight per level to measure each width only once
+    angle = ed['angle']; crisp = ed['crisp']; face_h = ed['face_h']
+    distance = distance * ed['scale']
+
+    # Junctions crease inward only
+    use = numpy.where(ed['junction'] & (angle > 0), 0.0, angle)
+
+    # Strong bends and shading breaks are features that get a halo
+    t = numpy.clip((numpy.abs(angle) - CURV_FEATURE_MIN) / (CURV_FEATURE_MAX - CURV_FEATURE_MIN), 0, 1)
+    feature = numpy.maximum(t * t * (3 - 2 * t), numpy.where(ed['hard'], crisp, 0.0))
+
+    # The halo averages widths up to the distance, or the faces either side
+    top = numpy.maximum(distance, face_h)
+    count = numpy.floor(numpy.log2(numpy.maximum(top / sigma0, 1)) + 1e-6) + 1
+
+    weights = {}
+    def add(levels, w):
+        for level in numpy.unique(levels):
+            sel = levels == level
+            if level not in weights: weights[level] = numpy.zeros(len(angle))
+            weights[level][sel] += w[sel]
+
+    def spread_levels(sigma, base):
+        return base + numpy.ceil(numpy.log2(numpy.maximum(sigma, CURV_SPREAD * face_h) / sigma) - 1e-9).astype(numpy.int64)
+
+    for i in range(int(count.max())):
+        sigma = sigma0 * 2.0 ** i
+        f = numpy.where(count > i, feature / count, 0.0) * math.sqrt(2 * math.pi) * sigma / CURV_SATURATION
+        add(numpy.full(len(angle), i), use * crisp * f)
+        add(spread_levels(sigma, i), use * (1 - crisp) * f)
+
+    g = (1 - feature) * CURV_GAIN * distance
+    add(numpy.zeros(len(angle), numpy.int64), use * crisp * g)
+    add(spread_levels(sigma0, 0), use * (1 - crisp) * g)
+
+    return weights
+
+def measure_curvature_edges(points, normals, ed, weights, sigma, chunk=1024):
+    # Sum of weight * length * gaussian over the edges near every point, only
+    # counting edges that face the same way so thin walls stay apart
+    out = numpy.zeros(len(points))
+    keep = numpy.abs(weights) > 1e-12
+    if not keep.any() or len(points) == 0: return out
+
+    A, E, L = ed['pa'][keep], ed['evec'][keep], ed['elen'][keep]
+    NE, W = ed['edge_n'][keep], weights[keep]
+
+    # Split edges into pieces no longer than half a sigma
+    k = numpy.maximum(numpy.ceil(L / (0.5 * sigma)), 1).astype(numpy.int64)
+    idx = numpy.repeat(numpy.arange(len(L)), k)
+    j = numpy.arange(len(idx)) - numpy.repeat(numpy.cumsum(k) - k, k)
+    sp = A[idx] + E[idx] * ((j + 0.5) / k[idx])[:, None]
+    sw = W[idx] * L[idx] / k[idx]
+    sn = NE[idx]
+
+    # Merge the pieces into half sigma voxels per normal direction
+    ax = numpy.abs(sn).argmax(1)
+    nb = ax * 2 + (sn[numpy.arange(len(sn)), ax] < 0)
+    vkey = get_curvature_cell_keys(numpy.floor(sp / (0.5 * sigma)).astype(numpy.int64)) * 8 + nb
+    _, inv = numpy.unique(vkey, return_inverse=True)
+    inv = inv.ravel()
+    nvx = inv.max() + 1
+    aw = numpy.abs(sw) + 1e-12
+    va = numpy.bincount(inv, aw, nvx)
+    vw = numpy.bincount(inv, sw, nvx)
+    vp = numpy.stack([numpy.bincount(inv, sp[:, c] * aw, nvx) for c in range(3)], 1) / va[:, None]
+    vn = numpy.stack([numpy.bincount(inv, sn[:, c] * aw, nvx) for c in range(3)], 1)
+    vn /= numpy.maximum(numpy.linalg.norm(vn, axis=1), 1e-12)[:, None]
+
+    # Points and voxels hashed into cells of three sigma, each point cell
+    # gathers the voxels of its neighbor cells as one dense block
+    size = 3 * sigma
+    vck = get_curvature_cell_keys(numpy.floor(vp / size).astype(numpy.int64))
+    vo = numpy.argsort(vck)
+    vck_s = vck[vo]
+    pcell = numpy.floor(points / size).astype(numpy.int64)
+    pck = get_curvature_cell_keys(pcell)
+    po = numpy.argsort(pck)
+    pck_s = pck[po]
+    pst = numpy.flatnonzero(numpy.r_[True, pck_s[1:] != pck_s[:-1]])
+    pen = numpy.r_[pst[1:], len(po)]
+    offs = numpy.array([(x, y, z) for x in (-1, 0, 1) for y in (-1, 0, 1) for z in (-1, 0, 1)])
+    nk = get_curvature_cell_keys((pcell[po[pst]][:, None, :] + offs[None]).reshape(-1, 3)).reshape(len(pst), 27)
+    lo = numpy.searchsorted(vck_s, nk)
+    hi = numpy.searchsorted(vck_s, nk, 'right')
+
+    vp32 = vp.astype(numpy.float32)
+    vn32 = vn.astype(numpy.float32)
+    vw32 = (vw / (2 * math.pi * sigma * sigma)).astype(numpy.float32)
+    vsq = (vp32 * vp32).sum(1)
+    p32 = points.astype(numpy.float32)
+    n32 = normals.astype(numpy.float32)
+    inv2s2 = numpy.float32(1.0 / (2 * sigma * sigma))
+
+    for c in range(len(pst)):
+        m = hi[c] > lo[c]
+        if not m.any(): continue
+        vi = vo[numpy.concatenate([numpy.arange(a, b) for a, b in zip(lo[c][m], hi[c][m])])]
+        P_, N_, W_, Q_ = vp32[vi], vn32[vi], vw32[vi], vsq[vi]
+        cell_points = po[pst[c]:pen[c]]
+        for r in range(0, len(cell_points), chunk):
+            pi = cell_points[r:r + chunk]
+            T = p32[pi]
+            d2 = (T * T).sum(1)[:, None] + Q_[None, :] - 2 * (T @ P_.T)
+            g = numpy.exp(-numpy.maximum(d2, 0) * inv2s2)
+            g *= numpy.clip((n32[pi] @ N_.T + 0.1) * 2.5, 0, 1)
+            out[pi] = g @ W_
+
+    return out
+
+def interpolate_curvature_grid(values, step, P, N, M, threshold, ty, tx):
+    # Bilinear interpolation from the step spaced grid samples to the texels
+    # ty, tx, using only samples close in 3D and facing the same way
+    height, width = M.shape
+    y0 = (ty // step) * step
+    x0 = (tx // step) * step
+    fy = (ty - y0) / step
+    fx = (tx - x0) / step
+    acc = numpy.zeros(len(ty))
+    wsum = numpy.zeros(len(ty))
+    Pt = P[ty, tx]
+    Nt = N[ty, tx]
+    for dy, dx, w in ((0, 0, (1 - fy) * (1 - fx)), (0, step, (1 - fy) * fx), (step, 0, fy * (1 - fx)), (step, step, fy * fx)):
+        cy = y0 + dy
+        cx = x0 + dx
+        ok = (cy < height) & (cx < width) & (w > 0)
+        cy = numpy.minimum(cy, height - 1)
+        cx = numpy.minimum(cx, width - 1)
+        ok &= M[cy, cx]
+        ok &= ((P[cy, cx] - Pt) ** 2).sum(-1) < threshold * threshold
+        ok &= (N[cy, cx] * Nt).sum(-1) > 0.5
+        acc += w * ok * values[cy, cx]
+        wsum += w * ok
+    good = wsum > 1e-6
+    return numpy.where(good, acc / numpy.maximum(wsum, 1e-12), 0.0), ~good
+
+def get_per_pixel_curvature_values(ed, P, N, M, distance):
+    # Curvature for every texel of the position P and normal N maps, mid grey
+    # where flat. Returns None if no texel is covered
+    height, width = M.shape
+    both = M[:, 1:] & M[:, :-1]
+    if not both.any(): return None
+    texel = float(numpy.median(numpy.linalg.norm(P[:, 1:] - P[:, :-1], axis=-1)[both]))
+    sigma0 = 3 * texel
+    weights = get_curvature_level_weights(ed, sigma0, distance)
+
+    # The narrowest width draws the crisp lines so it is measured at every
+    # texel, wider ones are smooth enough to measure on a coarser grid
+    max_step = max(1, 8 * max(height, width) // 1024)
+    signal = numpy.zeros((height, width))
+    yy, xx = numpy.nonzero(M)
+    grids = {}
+    for level in sorted(weights):
+        sigma = sigma0 * 2.0 ** level
+        step = int(min(2 ** level, max_step))
+        if step == 1:
+            signal[yy, xx] += measure_curvature_edges(P[yy, xx], N[yy, xx], ed, weights[level], sigma)
+            continue
+        if step not in grids:
+            gm = M.copy()
+            gm[numpy.arange(height) % step != 0, :] = False
+            gm[:, numpy.arange(width) % step != 0] = False
+            gy, gx = numpy.nonzero(gm)
+            grids[step] = {'values': numpy.zeros((height, width)), 'levels': [], 'gy': gy, 'gx': gx}
+        g = grids[step]
+        g['values'][g['gy'], g['gx']] += measure_curvature_edges(P[g['gy'], g['gx']], N[g['gy'], g['gx']], ed, weights[level], sigma)
+        g['levels'].append(level)
+
+    # Interpolate each grid onto the next finer one, then the finest onto
+    # every texel. Texels without a usable sample are measured directly
+    def carry(g, step, ty, tx):
+        threshold = 0.75 * sigma0 * 2.0 ** min(g['levels'])
+        res, miss = interpolate_curvature_grid(g['values'], step, P, N, M, threshold, ty, tx)
+        if miss.any():
+            my, mx = ty[miss], tx[miss]
+            for level in g['levels']:
+                res[miss] += measure_curvature_edges(P[my, mx], N[my, mx], ed, weights[level], sigma0 * 2.0 ** level)
+        return res
+
+    steps = sorted(grids, reverse=True)
+    for a, b in zip(steps[:-1], steps[1:]):
+        ga, gb = grids[a], grids[b]
+        gb['values'][gb['gy'], gb['gx']] += carry(ga, a, gb['gy'], gb['gx'])
+        gb['levels'] = gb['levels'] + ga['levels']
+    if steps:
+        signal[yy, xx] += carry(grids[steps[-1]], steps[-1], yy, xx)
+
+    # Soft saturation, then stretch symmetrically so flat stays mid grey
+    signal = numpy.tanh(signal)
+    peak = numpy.abs(signal[M]).max()
+    if peak > 1e-5: signal /= peak
+    return numpy.where(M, 0.5 + 0.5 * signal, 0.5)
+
+def get_world_mesh_arrays(objs):
+    # Mesh data of every object in world space, so they share one measure
+    arrays = [[] for i in range(8)]
+    nv = ne = nl = 0
+    for ob in objs:
+        me = ob.data
+        if len(me.vertices) == 0 or len(me.polygons) == 0: continue
+
+        co, ls, lt, ev, le, lv, cn = get_mesh_corner_arrays(me)
+        mw = numpy.array(ob.matrix_world, dtype=numpy.float64)
+        co = co.astype(numpy.float64) @ mw[:3, :3].T + mw[:3, 3]
+        cn = cn.astype(numpy.float64) @ numpy.linalg.inv(mw[:3, :3])
+        cn /= numpy.maximum(numpy.linalg.norm(cn, axis=1), 1e-12)[:, None]
+        scale = numpy.full(len(ls), abs(numpy.linalg.det(mw[:3, :3])) ** (1.0 / 3.0))
+
+        for a, x in zip(arrays, (co, ls + nl, lt, ev + nv, le + ne, lv + nv, cn, scale)): a.append(x)
+        nv += len(co); ne += len(ev); nl += len(lv)
+
+    if nv == 0: return None
+    return [numpy.concatenate(a) for a in arrays]
+
+def get_per_pixel_curvature_image(mat, tex, bsdf, objs, distance, width, height):
+    # Bake the world position and true normal behind every texel, with one
+    # sample and no margin so uncovered texels stay empty, then measure the
+    # curvature of the mesh edges around each of them
+    scene = bpy.context.scene
+    image = bpy.data.images.new(TEMP_CURV_IMAGE, width=width, height=height, alpha=True, float_buffer=True)
+    image.colorspace_settings.name = get_noncolor_name()
+    tex.image = image
+    mat.node_tree.nodes.active = tex
+
+    ori_samples = scene.cycles.samples
+    ori_margin = get_scene_bake_margin(scene)
+    scene.cycles.samples = 1
+    set_scene_bake_margin(scene, 0)
+
+    geometry = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
+    maps = []
+    for name in ('Position', 'True Normal'):
+        mat.node_tree.links.new(geometry.outputs[name], bsdf.inputs[0])
+        bake_object_op()
+        pxs = numpy.empty(width * height * 4, dtype=numpy.float32)
+        image.pixels.foreach_get(pxs)
+        maps.append(pxs.reshape(height, width, 4)[:, :, :3].astype(numpy.float64))
+    simple_remove_node(mat.node_tree, geometry)
+
+    scene.cycles.samples = ori_samples
+    set_scene_bake_margin(scene, ori_margin)
+
+    positions, normals = maps
+    nlen = numpy.linalg.norm(normals, axis=-1)
+    covered = nlen > 0.5
+    normals /= numpy.maximum(nlen, 1e-9)[:, :, None]
+
+    arrays = get_world_mesh_arrays(objs)
+    values = None
+    if arrays:
+        edge_data = get_curvature_edge_data(*arrays)
+        values = get_per_pixel_curvature_values(edge_data, positions, normals, covered, distance)
+
+    if values is None:
+        remove_datablock(bpy.data.images, image)
+        return None
+
+    pxs = numpy.ones((height, width, 4), dtype=numpy.float32)
+    pxs[:, :, :3] = values[:, :, None]
+    image.pixels.foreach_set(pxs.ravel())
+    image.update()
+
+    return image
 
 def normalize_image_values(image):
     pxs = numpy.empty(shape=image.size[0] * image.size[1] * 4, dtype=numpy.float32)
@@ -2246,6 +2622,7 @@ def get_bake_properties_from_self(self):
         'wireframe_size',
         'wireframe_triangulated',
         'curvature_distance',
+        'curvature_method',
         'multires_base',
         'target_type',
         'fxaa',
@@ -4040,13 +4417,26 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
         objs.extend(other_objs)
 
+    # Curvature is read from the mesh data, so apply the modifiers first to
+    # match the geometry and normals that get rendered
+    elif bprops.type == 'CURVATURE' and any(m.show_render for ob in objs for m in ob.modifiers):
+        temp_objs.extend([get_merged_mesh_objects(scene, objs, True)])
+        objs = temp_objs
+
     # Join objects if the number of objects is higher than one
     elif not bprops.type.startswith('MULTIRES_') and bprops.type not in {'SELECTED_VERTICES'} and len(objs) > 1 and not is_join_objects_problematic(yp):
         temp_objs.extend([get_merged_mesh_objects(scene, objs, True)])
         objs = temp_objs
 
-    # Compute the per vertex curvature for the from mesh method
-    if bprops.type == 'CURVATURE':
+    # Per pixel curvature is measured per texel from the mesh edges, UDIM
+    # tiles are not supported yet so they fall back to the per vertex method
+    use_per_pixel = bprops.type == 'CURVATURE' and bprops.curvature_method == 'PER_PIXEL'
+    if use_per_pixel and bprops.use_udim:
+        print('INFO: Per Pixel curvature does not support UDIM yet, using the per vertex method')
+        use_per_pixel = False
+
+    # Compute the per vertex curvature
+    if bprops.type == 'CURVATURE' and not use_per_pixel:
         for ob in objs:
             fill_curvature_vcol(ob, bprops.curvature_distance, TEMP_CURV_VCOL)
 
@@ -4380,6 +4770,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     wire_extras = []
     contact_ao = None
     contact_mix = None
+    curv_image = None
+    curv_uv = None
     if bprops.type == 'BEVEL_NORMAL':
         bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
     elif bprops.type == 'BEVEL_MASK':
@@ -4590,10 +4982,27 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
     elif bprops.type == 'CURVATURE':
-        # Bake the smooth interpolation of the per vertex curvature that
-        # was computed into a temporary color attribute
-        src = mat.node_tree.nodes.new('ShaderNodeAttribute')
-        src.attribute_name = TEMP_CURV_VCOL
+        if use_per_pixel:
+            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+            curv_image = get_per_pixel_curvature_image(mat, tex, bsdf, objs, bprops.curvature_distance, width, height)
+
+        if curv_image:
+            # Bake the per texel curvature as is, it matches the bake texels
+            src = mat.node_tree.nodes.new('ShaderNodeTexImage')
+            src.image = curv_image
+            src.interpolation = 'Closest'
+            curv_uv = mat.node_tree.nodes.new('ShaderNodeUVMap')
+            curv_uv.uv_map = bprops.uv_map
+            mat.node_tree.links.new(curv_uv.outputs[0], src.inputs[0])
+        else:
+            if use_per_pixel:
+                for ob in objs:
+                    fill_curvature_vcol(ob, bprops.curvature_distance, TEMP_CURV_VCOL)
+
+            # Bake the smooth interpolation of the per vertex curvature that
+            # was computed into a temporary color attribute
+            src = mat.node_tree.nodes.new('ShaderNodeAttribute')
+            src.attribute_name = TEMP_CURV_VCOL
 
         # Disconnected pieces resting on the surface leave no shared edges
         # for the vertex pass to see, and vertices are too coarse to draw
@@ -4925,9 +5334,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
         # Curvature is always normalized so the result spans the full black to
         # white range. Stretching the pixels directly also covers rebakes onto
-        # an image whose float setting no longer matches the operator
+        # an image whose float setting no longer matches the operator. Per
+        # pixel curvature is already stretched around mid grey
         if bprops.type == 'CURVATURE':
-            if is_bl_newer_than(2, 83):
+            if is_bl_newer_than(2, 83) and not curv_image:
                 normalize_image_values(image)
 
         elif bprops.type == 'POINTINESS' and bprops.normalize and is_bl_newer_than(2, 83):
@@ -5360,6 +5770,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     for wn in wire_extras: simple_remove_node(mat.node_tree, wn)
     if contact_ao: simple_remove_node(mat.node_tree, contact_ao)
     if contact_mix: simple_remove_node(mat.node_tree, contact_mix)
+    if curv_uv: simple_remove_node(mat.node_tree, curv_uv)
 
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
