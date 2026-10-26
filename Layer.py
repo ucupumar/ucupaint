@@ -1499,21 +1499,7 @@ class YOpenImageAsLayerChannelSource(bpy.types.Operator, ImportHelper, BaseOpera
 
         return {'FINISHED'}
 
-class BaseMultipleImagesLayer(BaseOperator.OpenImage):
-
-    texcoord_type : EnumProperty(
-        name = 'Layer Coordinate Type',
-        description = 'Layer Coordinate Type',
-        items = texcoord_type_items,
-        default = 'UV'
-    )
-
-    uv_map : StringProperty(
-        name = 'UV Map',
-        description = 'UV Map to use for layer coordinate',
-        default = '')
-    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
-
+class BaseAddMaskProps():
     add_mask : BoolProperty(
         name = 'Add Mask',
         description = 'Add mask to new layer',
@@ -1578,6 +1564,72 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
         description = 'Use Image Atlas for Mask',
         default = False
     )
+
+    def draw_mask_options(self, layout, split_val=0.325):
+        row = split_layout(layout, split_val)
+        row.label(text='')
+        row.prop(self, 'add_mask', text='Add Mask')
+
+        if self.add_mask:
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Mask Type:')
+            row.prop(self, 'mask_type', text='')
+
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Mask Color:')
+            row.prop(self, 'mask_color', text='')
+
+            if self.mask_type == 'IMAGE':
+                row = split_layout(layout, split_val)
+                row.label(text='')
+                row.prop(self, 'mask_use_hdr')
+
+                row = split_layout(layout, split_val)
+                row.label(text='')
+                row.prop(self, 'mask_use_custom_resolution')
+
+                if not self.mask_use_custom_resolution:
+                    row = split_layout(layout, split_val)
+                    right_aligned_label(row, 'Mask Resolution:')
+                    crow = row.row(align=True)
+                    crow.prop(self, 'mask_image_resolution', expand=True)
+                else:
+                    row = split_layout(layout, split_val)
+                    rcol = row.column(align=True)
+                    right_aligned_label(rcol, 'Mask Width:')
+                    right_aligned_label(rcol, 'Mask Height:')
+
+                    rcol = row.column(align=True)
+                    rcol.prop(self, 'mask_width', text='')
+                    rcol.prop(self, 'mask_height', text='')
+
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Mask UV Map:')
+                row.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+                if is_udim_supported():
+                    row = split_layout(layout, split_val)
+                    row.label(text='')
+                    row.prop(self, 'use_udim_for_mask')
+
+                row = split_layout(layout, split_val)
+                row.label(text='')
+                row.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+
+class BaseMultipleImagesLayer(BaseOperator.OpenImage, BaseAddMaskProps):
+
+    texcoord_type : EnumProperty(
+        name = 'Layer Coordinate Type',
+        description = 'Layer Coordinate Type',
+        items = texcoord_type_items,
+        default = 'UV'
+    )
+
+    uv_map : StringProperty(
+        name = 'UV Map',
+        description = 'UV Map to use for layer coordinate',
+        default = '')
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     # NOTE: Most PBR textures are optimized to use 'displacement only without bump' in conjunction with normal map
     # Since this addon already produce normal map with the displacement, it's better to use only bump map by default
@@ -1907,55 +1959,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
             crow.prop(self, 'normal_height_priority', text='')
             crow.prop(self, 'normal_map_flip_y', text='', icon_value=lib.get_icon('g'))
 
-        row = split_layout(layout, split_val)
-        row.label(text='')
-        row.prop(self, 'add_mask', text='Add Mask')
-
-        if self.add_mask:
-            row = split_layout(layout, split_val)
-            right_aligned_label(row, 'Mask Type:')
-            row.prop(self, 'mask_type', text='')
-
-            row = split_layout(layout, split_val)
-            right_aligned_label(row, 'Mask Color:')
-            row.prop(self, 'mask_color', text='')
-
-            if self.mask_type == 'IMAGE':
-                row = split_layout(layout, split_val)
-                row.label(text='')
-                row.prop(self, 'mask_use_hdr')
-
-                row = split_layout(layout, split_val)
-                row.label(text='')
-                row.prop(self, 'mask_use_custom_resolution')
-
-                if not self.mask_use_custom_resolution:
-                    row = split_layout(layout, split_val)
-                    right_aligned_label(row, 'Mask Resolution:')
-                    crow = row.row(align=True)
-                    crow.prop(self, 'mask_image_resolution', expand=True)
-                else:
-                    row = split_layout(layout, split_val)
-                    rcol = row.column(align=True)
-                    right_aligned_label(rcol, 'Mask Width:')
-                    right_aligned_label(rcol, 'Mask Height:')
-
-                    rcol = row.column(align=True)
-                    rcol.prop(self, 'mask_width', text='')
-                    rcol.prop(self, 'mask_height', text='')
-
-                row = split_layout(layout, split_val)
-                right_aligned_label(row, 'Mask UV Map:')
-                row.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
-
-                if is_udim_supported():
-                    row = split_layout(layout, split_val)
-                    row.label(text='')
-                    row.prop(self, 'use_udim_for_mask')
-
-                row = split_layout(layout, split_val)
-                row.label(text='')
-                row.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+        self.draw_mask_options(layout, split_val)
 
         if display_relative_toggle:
             layout.prop(self, 'relative')
@@ -2256,7 +2260,7 @@ def copy_nodes_to_tree(source_nodes, source_links, tree):
 
     return copied_nodes
 
-class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper):
+class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper, BaseAddMaskProps):
     bl_idname = "wm.y_open_asset_as_layer"
     bl_label = "Open Asset as " + get_addon_title() + " Layer"
     bl_description = "Open asset as " + get_addon_title() + " layer"
@@ -2264,6 +2268,8 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper):
 
     asset_name : StringProperty(name='Asset')
     asset_library_path : StringProperty(default='')
+
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -2276,7 +2282,11 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper):
         return get_operator_description(self)
 
     def invoke(self, context, event):
-        return self.execute(context)
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        split_val = 0.325
+        self.draw_mask_options(self.layout, split_val)
 
     def cleanup(self, context):
         remove_datablock(bpy.data.materials, self.asset_mat)
@@ -2307,6 +2317,9 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper):
             blend_type='MIX', normal_blend_type='MIX',
             normal_map_type='BUMP_MAP', texcoord_type='UV',
             normal_space = 'INPUT_PASSTHROUGH',
+            add_mask=self.add_mask, mask_type=self.mask_type, mask_color=self.mask_color, mask_use_hdr=self.mask_use_hdr, 
+            mask_uv_name=self.mask_uv_name, mask_width=self.mask_width, mask_height=self.mask_height, 
+            use_image_atlas_for_mask=self.use_image_atlas_for_mask, use_udim_for_mask=self.use_udim_for_mask
         )
         yp.halt_update = False
 
@@ -2356,6 +2369,19 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper):
         # Reconnect
         reconnect_yp_nodes(yp_node.node_tree)
         rearrange_yp_nodes(yp_node.node_tree)
+
+        # Change mask name to use the name of the asset
+        if self.add_mask:
+            mask = layer.masks[0]
+            new_name = 'Mask ('+self.asset_mat.name+')'
+            source = get_mask_source(mask)
+            if mask.type == 'IMAGE':
+                if source and source.image:
+                    source.image.name = get_unique_name(new_name, bpy.data.images)
+            elif mask.type == 'VCOL':
+                objs = get_all_objects_with_same_materials(mat)
+                for obj in objs:
+                    change_vcol_name(yp, obj, source, new_name)
 
         layer.expand_content = True
         layer.expand_source = True
