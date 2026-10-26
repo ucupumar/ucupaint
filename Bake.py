@@ -3944,24 +3944,11 @@ def update_use_baked(self, context):
 
     if yp.halt_update: return
 
-    # Check subdiv setup
-    #height_ch = get_root_height_channel(yp)
-    #if height_ch:
-    #    if height_ch.enable_subdiv_setup and yp.use_baked and not ypup.eevee_next_displacement:
-    #        displacement_common.remember_subsurf_levels()
-    #    displacement_common.check_subdiv_setup(height_ch)
-    #    if height_ch.enable_subdiv_setup and not yp.use_baked and not ypup.eevee_next_displacement:
-    #        displacement_common.recover_subsurf_levels()
-
     # Check uv nodes
     check_uv_nodes(yp)
 
     # Check input and outputs
     check_all_channel_ios(yp, do_process_layers=is_layer_preview_mode_enabled(yp))
-
-    # NOTE: Already called in `update_enable_baked_outside` function
-    # Connect to outside displacement node
-    #connect_outside_displacement_node(yp)
 
     # Trigger active image update
     if yp.use_baked:
@@ -3983,84 +3970,6 @@ def update_enable_bake_to_vcol(self, context):
         yp.enable_baked_outside = False
         yp['enable_baked_outside'] = True
     update_use_baked(self, context)
-
-def update_subdiv_setup(self, context):
-    tree = self.id_data
-    yp = tree.yp
-
-    # Unset displacement node setup
-    if not self.enable_subdiv_setup:
-        mat = get_active_material()
-        node = get_active_ypaint_node()
-        displacement_common.check_displacement_node(mat, node, unset_one=True)
-
-    # Check input and outputs
-    check_all_channel_ios(yp, reconnect=False)
-
-    # Check subdiv setup
-    displacement_common.check_subdiv_setup(self)
-
-    # Reconnect layers
-    for layer in yp.layers:
-        reconnect_layer_nodes(layer)
-        rearrange_layer_nodes(layer)
-
-    # Reconnect nodes
-    reconnect_yp_nodes(tree)
-    rearrange_yp_nodes(tree)
-
-def update_enable_subdiv_setup(self, context):
-    tree = self.id_data
-    yp = tree.yp
-    height_ch = self
-
-    if height_ch.enable_subdiv_setup:
-        displacement_common.remember_subsurf_levels()
-
-    update_subdiv_setup(self, context)
-
-    if not height_ch.enable_subdiv_setup:
-        displacement_common.recover_subsurf_levels()
-
-def update_subdiv_max_polys(self, context):
-    mat = get_active_material()
-    tree = self.id_data
-    yp = tree.yp
-    ypup = get_user_preferences()
-    height_ch = self
-    objs = get_all_objects_with_same_materials(mat, True)
-
-    #if not ypup.eevee_next_displacement and (not yp.use_baked or not height_ch.enable_subdiv_setup or self.subdiv_adaptive): return
-    if not height_ch.enable_subdiv_setup: return
-
-    proportions = displacement_common.get_objs_size_proportions(objs)
-
-    for obj in objs:
-
-        subsurf = get_subsurf_modifier(obj)
-        multires = get_multires_modifier(obj)
-
-        if multires and not height_ch.subdiv_subsurf_only:
-            subsurf = multires 
-
-        if not subsurf: continue
-
-        displacement_common.setup_subdiv_to_max_polys(obj, height_ch.subdiv_on_max_polys * 1000 * proportions[obj.name], subsurf)
-
-#def update_subdiv_standard_type(self, context):
-#    obj = context.object
-#    tree = self.id_data
-#    yp = tree.yp
-#
-#    height_ch = self
-#
-#    subsurf = get_subsurf_modifier(obj)
-#    if not subsurf: return
-#
-#    subsurf.subdivision_type = height_ch.subdiv_standard_type
-
-def update_subdiv_global_dicing(self, context):
-    displacement_common.set_subdiv_global_dicing(self)
 
 classes = (
     YTransferSomeLayerUV,

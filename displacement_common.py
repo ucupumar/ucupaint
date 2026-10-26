@@ -180,6 +180,13 @@ def enable_displacement_setup(mat, yp=None, objs=[], thousand_polys_target=1000,
     if len(objs) == 0: objs = get_all_objects_with_same_materials(mat)
     if len(objs) == 0: return
 
+    import addon_utils
+
+    is_cycles_exist, ori_cycles_enabled = addon_utils.check('cycles')
+
+    if is_cycles_exist and not ori_cycles_enabled:
+        addon_utils.enable('cycles')
+
     # Remember the original modifier values if displacement setup isn't enabled yet
     if yp:
         height_root_ch = get_root_height_channel(yp)
@@ -199,7 +206,7 @@ def enable_displacement_setup(mat, yp=None, objs=[], thousand_polys_target=1000,
         mat.displacement_method = displacement_method
 
     # Set cycles displacement mode
-    if hasattr(mat.cycles, 'displacement_method'):
+    if hasattr(mat, 'cycles') and hasattr(mat.cycles, 'displacement_method'):
         mat.cycles.displacement_method = displacement_method
     
     # Displacement method is inside object data for Blender 2.77 and below 
@@ -225,7 +232,8 @@ def enable_displacement_setup(mat, yp=None, objs=[], thousand_polys_target=1000,
                 subsurf.use_adaptive_subdivision = use_adaptive_subdivision
                 if use_adaptive_subdivision: subsurf.adaptive_pixel_size = dicing_rate
         else:
-            obj.cycles.use_adaptive_subdivision = use_adaptive_subdivision
+            if hasattr(obj, 'cycles'):
+                obj.cycles.use_adaptive_subdivision = use_adaptive_subdivision
 
     if yp:
         # NOTE: Height as bump will always be disabled at this point for now
@@ -236,14 +244,6 @@ def disable_displacement_setup(mat, yp=None, objs=[], recover_original=False, di
     if len(objs) == 0: objs = get_all_objects_with_same_materials(mat)
     if len(objs) == 0: return
 
-    # Set displacement mode
-    if hasattr(mat, 'displacement_method'):
-        mat.displacement_method = displacement_method
-
-    # Set cycles displacement mode
-    if hasattr(mat.cycles, 'displacement_method'):
-        mat.cycles.displacement_method = displacement_method
-    
     # Displacement method is inside object data for Blender 2.77 and below 
     if not is_bl_newer_than(2, 78):
         for obj in objs:
@@ -277,7 +277,8 @@ def disable_displacement_setup(mat, yp=None, objs=[], recover_original=False, di
             for obj in objs:
                 subsurf = get_subsurf_modifier(obj)
                 if not is_bl_newer_than(5):
-                    obj.cycles.use_adaptive_subdivision = False
+                    if hasattr(obj, 'cycles'):
+                        obj.cycles.use_adaptive_subdivision = False
                 elif subsurf: subsurf.use_adaptive_subdivision = False
 
     # NOTE: Height as bump will always be enabled at this point for now
@@ -521,11 +522,13 @@ def check_subdiv_setup(height_ch):
         subsurf = get_subsurf_modifier(obj)
         if height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
             if not is_bl_newer_than(5):
-                obj.cycles.use_adaptive_subdivision = True
+                if hasattr(obj, 'cycles'):
+                    obj.cycles.use_adaptive_subdivision = True
             elif subsurf: subsurf.use_adaptive_subdivision = True
         else: 
             if not is_bl_newer_than(5):
-                obj.cycles.use_adaptive_subdivision = False
+                if hasattr(obj, 'cycles'):
+                    obj.cycles.use_adaptive_subdivision = False
             elif subsurf: subsurf.use_adaptive_subdivision = False
 
     set_active_object(ori_active_obj)

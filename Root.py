@@ -3618,52 +3618,25 @@ class YPaintChannel(bpy.types.PropertyGroup):
         name = 'Enable Displacement Setup',
         description = 'Enable displacement setup. Only works with Cycles or Eevee Next.',
         default = False,
-        #update = Bake.update_enable_subdiv_setup
     ) # Deprecated
-
-    #subdiv_standard_type : EnumProperty(
-    #        name = 'Subdivision Standard Type',
-    #        description = 'Subdivision Standard Type',
-    #        items = (
-    #            ('CATMULL_CLARK', 'Catmull-Clark', ''),
-    #            ('SIMPLE', 'Simple', ''),
-    #            ),
-    #        default = 'CATMULL_CLARK',
-    #        update=Bake.update_subdiv_standard_type
-    #        )
 
     subdiv_adaptive : BoolProperty(
         name = 'Use Adaptive Subdivision',
         description = 'Use Adaptive Subdivision (only works with Cycles)',
         default = False,
-        update = Bake.update_subdiv_setup
-    )
+    ) # Depcrecated
     
     subdiv_on_max_polys : IntProperty(
         name = 'Subdiv On Max Polygons',
         description = 'Max Polygons (in thousand) when displacement setup is on',
         default=1000, min=1, max=10000, 
-        update = Bake.update_subdiv_max_polys
-    )
+    ) # Depcrecated
 
-    #subdiv_on_level : IntProperty(
-    #        name = 'Subdiv On Level',
-    #        description = 'Subdivision level when displacement setup is on',
-    #        default=3, min=0, max=10, 
-    #        update=Bake.update_subdiv_on_off_level)
-
-    #subdiv_off_level : IntProperty(
-    #        name = 'Subdiv Off Level',
-    #        description = 'Subdivision level when displacement setup is off',
-    #        default=1, min=0, max=10, update=Bake.update_subdiv_on_off_level
-    #        )
-
-    # Depcrecated
     subdiv_tweak : FloatProperty(
         name = 'Subdiv Tweak',
         description = 'Tweak displacement height',
         default=1.0, min=-1000.0, max=1000.0
-    )
+    ) # Depcrecated
 
     height_tweak : FloatProperty(
         name = 'Height Tweak',
@@ -3694,15 +3667,13 @@ class YPaintChannel(bpy.types.PropertyGroup):
     subdiv_global_dicing : FloatProperty(
         subtype = 'PIXEL',
         default=1.0, min=0.5, max=1000,
-        update = Bake.update_subdiv_global_dicing
-    )
+    ) # Deprecated
 
     subdiv_subsurf_only : BoolProperty(
         name = 'Use Subsurf Modifier Only',
         description = 'Ignore Multires and use subsurf modifier exclusively (useful if you already baked the multires to layer)',
         default = False,
-        update = Bake.update_subdiv_setup
-    )
+    ) # Deprecated
 
     # Main uv is used for normal calculation of normal channel
     main_uv : StringProperty(
