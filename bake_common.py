@@ -6001,9 +6001,9 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     use_fxaa = not bprops.hdr and bprops.fxaa
 
     # Remember before doing preview
-    ori_channel_index = yp.active_channel_index
     ori_preview_mode = yp.preview_mode
     ori_preview_mode_type = yp.preview_mode_type
+    ori_preview_mode_channel_index = yp.preview_mode_channel_index
 
     ori_layer_intensity_value = 1.0
     changed_layer_channel_index = -1
@@ -6049,11 +6049,11 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     for i, ch in enumerate(layer.channels):
         if mask:
             if ch.enable and mask.channels[i].enable:
-                yp.active_channel_index = i
+                yp.preview_mode_channel_index = i
                 break
         else:
             if ch.enable:
-                yp.active_channel_index = i
+                yp.preview_mode_channel_index = i
 
                 # Make sure intensity value is 1.0
                 intensity_value = get_entity_prop_value(ch, 'intensity_value')
@@ -6181,7 +6181,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
                 m.show_viewport = ori_viewport_mods[obj.name][i]
 
     # Recover preview
-    yp.active_channel_index = ori_channel_index
+    yp.preview_mode_channel_index = ori_preview_mode_channel_index
     if yp.preview_mode != ori_preview_mode:
         yp.preview_mode = ori_preview_mode
     if yp.preview_mode_type != ori_preview_mode_type:
