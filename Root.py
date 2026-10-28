@@ -2038,7 +2038,7 @@ class YFixMissingUV(bpy.types.Operator):
 
             # Check bake target global settings
             if yp.bake_target_global_settings.uv_map == self.source_uv_name:
-                yp.bake_target_global_settings = target_uv_name
+                yp.bake_target_global_settings.uv_map = target_uv_name
 
             # Check baked normal channel
             for ch in yp.channels:
