@@ -275,6 +275,16 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default=0.05, min=0.0, max=1000.0
     )
 
+    curvature_method : EnumProperty(
+        name = 'Curvature Method',
+        description = 'Curvature method',
+        items = (
+            ('PER_VERTEX', 'Per Vertex', 'Curvature per vertex, blended across faces. Fast, best for dense, sculpted or subdivided meshes', 'VERTEXSEL', 0),
+            ('PER_PIXEL', 'Per Pixel', 'Curvature per pixel from the nearby mesh edges. Crisper creases and smoother gradients on low poly and hard surface meshes, but slower', 'IMAGE_DATA', 1)
+        ),
+        default='PER_VERTEX'
+    )
+
     multires_base : IntProperty(
         name = 'Multires Base',
         description = 'Baking will use the difference between the base level and max level,\nand after baking, base level will be used in the multires modifier',
@@ -813,6 +823,13 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
         elif self.type == 'CURVATURE':
             row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Method:')
+            rrow = row.row(align=True)
+            if self.use_udim:
+                rrow.label(text='Per Vertex', icon='VERTEXSEL')
+            else: rrow.prop(self, 'curvature_method', expand=True)
+
+            row = split_layout(lcol, split_val)
             right_aligned_label(row, 'Distance:')
             row.prop(self, 'curvature_distance', text='')
 
@@ -951,6 +968,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             row = split_layout(lcol, split_val)
             right_aligned_label(row, 'Bake Device:')
             row.prop(self, 'bake_device', text='')
+
+        if self.type == 'CURVATURE' and self.use_udim and self.curvature_method == 'PER_PIXEL':
+            lcol.separator()
+            lcol.label(text='UDIM doesn\'t support per-pixel curvature yet', icon='ERROR')
 
     def execute(self, context):
         if not self.execute_operator_prep(context): return {'CANCELLED'}

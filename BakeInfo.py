@@ -271,6 +271,16 @@ class YBakeInfoProps(bpy.types.PropertyGroup, BaseBakeInfoProps):
     # Curvature Props
     curvature_distance : FloatProperty(default=0.05, min=0.0, max=1000.0)
 
+    curvature_method : EnumProperty(
+        name = 'Curvature Method',
+        description = 'Curvature method',
+        items = (
+            ('PER_VERTEX', 'Per Vertex', '', 'VERTEXSEL', 0),
+            ('PER_PIXEL', 'Per Pixel', '', 'IMAGE_DATA', 1)
+        ),
+        default='PER_VERTEX'
+    )
+
     edge_detect_method : EnumProperty(
         name = 'Edge Detection Method',
         description = 'Edge detection method',
