@@ -6515,7 +6515,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
             ori_height = image.size[1]
 
         if ori_width == width and ori_height == height:
-            return
+            return image, segment
 
     book = remember_before_bake()
 
