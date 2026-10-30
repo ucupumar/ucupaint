@@ -3049,7 +3049,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
 
     # Get output node and remember original bsdf input
     output = get_material_output(mat, create_one=True)
-    ori_bsdf = output.inputs[0].links[0].from_socket
+    ori_bsdf = output.inputs[0].links[0].from_socket if len(output.inputs[0].links) > 0 else None
 
     # Create setup nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -3552,7 +3552,8 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                 mat.node_tree.links.new(soc, output.inputs['Displacement'])
 
     # Recover original bsdf
-    mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+    if ori_bsdf:
+        mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
     # Recover disabled layers
     if btprops.bake_disabled_layers:
