@@ -4974,30 +4974,6 @@ class BaseMainUI():
         # Update timer and UI here
         update_ui_and_timer(context)
 
-        # HACK: Create split layout to load all icons (Only for Blender 3.2+)
-        if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
-            split = split_layout(layout, 1.0)
-            row = split.row(align=True)
-        else:
-            row = layout.row(align=True)
-
-        # HACK: Load all icons earlier so no missing icons possible (Only for Blender 3.2+)
-        if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
-            wm.ypprops.all_icons_loaded = True
-            layout.label(text='', icon='BLANK1')
-            folder = lib.get_icon_folder()
-            # Add extra splits so the actual icons aren't actually visible
-            s1 = split_layout(split, 1.0)
-            s1.label(text='', icon='BLANK1')
-            s2 = split_layout(s1, 1.0)
-            s2.label(text='', icon='BLANK1')
-            invisible_row = s2.row(align=False)
-            # Load all icons on invisible area of the screen
-            for i, f in enumerate(os.listdir(folder)):
-                if f.endswith('.png'):
-                    icon_name = f.replace('_icon.png', '')
-                    invisible_row.label(text='', icon_value=lib.get_icon(icon_name))
-
     def base_draw_header_preset(self, context):
         ypui = context.window_manager.ypui
         ypup = get_user_preferences()
@@ -9356,7 +9332,7 @@ if not is_bl_newer_than(2, 80):
 
 def register_panels():
     # Set up icon value and register panels
-    icon_value = lib.get_icon('ucupaint')
+    icon_value = lib.get_sidebar_icon()
     for panel in panels:
         if hasattr(bpy.types, panel.__name__):
             bpy.utils.unregister_class(panel)

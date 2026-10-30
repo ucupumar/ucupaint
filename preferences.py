@@ -9,6 +9,9 @@ def update_icons(self, context):
     lib.unload_custom_icons()
     lib.load_custom_icons()
 
+    lib.unload_sidebar_icons()
+    lib.load_sidebar_icons()
+
     # Reload panel icon
     if is_bl_newer_than(5, 2):
         from . import ui

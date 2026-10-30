@@ -3965,6 +3965,7 @@ class YPaintMaterialProps(bpy.types.PropertyGroup):
 
 class YPaintTimer(bpy.types.PropertyGroup):
     time : StringProperty(default='')
+    custom_icon_timer : StringProperty(default='')
 
 class YPaintCacheAnimatedTree(bpy.types.PropertyGroup):
     name : StringProperty(default='')
@@ -3977,7 +3978,7 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     last_material : StringProperty(default='')
     last_mode : StringProperty(default='')
 
-    all_icons_loaded : BoolProperty(default=False)
+    use_custom_icons : BoolProperty(default=False)
 
     edit_image_editor_window_index : IntProperty(default=-1)
     edit_image_editor_area_index : IntProperty(default=-1)
