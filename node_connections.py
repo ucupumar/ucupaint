@@ -744,7 +744,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     for bt in yp.bake_targets:
         baked_node = nodes.get(bt.baked_node)
         if baked_node:
-            uv = yp.uvs.get(bt.uv_map)
+            from . import BakeTarget
+            uv_name = BakeTarget.get_bake_target_uv_name(bt)
+            uv = yp.uvs.get(uv_name)
             bt_uv_map = nodes.get(uv.uv_map) if uv else None
             if bt_uv_map and baked_node.type == 'TEX_IMAGE': 
                 create_link(tree, bt_uv_map.outputs[0], baked_node.inputs[0])

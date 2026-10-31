@@ -227,6 +227,10 @@ class BaseBakeTargetGlobalSettings(BaseBakeProps, BakeInfo.BaseBakeInfoProps):
 class YBakeTargetGlobalSettings(bpy.types.PropertyGroup, BaseBakeTargetGlobalSettings):
     pass
 
+def get_bake_target_uv_name(bt):
+    yp = bt.id_data.yp
+    return yp.bake_target_global_settings.uv_map if bt.bake_settings == 'GLOBAL' else bt.uv_map
+
 def get_global_settings_props():
     all_props = set()
     for parent in BaseBakeTargetGlobalSettings.__mro__:
@@ -483,7 +487,7 @@ def check_channel_bake_target_nodes(yp):
                 need_separate_xyzs.append(bt)
 
             # Fill the uv map dictionary
-            uv_map_dict[ch.name] = bt.uv_map
+            uv_map_dict[ch.name] = get_bake_target_uv_name(bt)
 
     # Check necessary bake target nodes
     for bt in yp.bake_targets:

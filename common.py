@@ -5914,6 +5914,11 @@ def is_any_entity_using_uv(yp, uv_name):
     if yp.baked_uv_name != '' and yp.baked_uv_name == uv_name:
         return True
 
+    if yp.bake_target_global_settings.uv_map != '' and yp.bake_target_global_settings.uv_map == uv_name:
+        for bt in yp.bake_targets:
+            if bt.baked_node != '' and bt.data_type == 'IMAGE' and bt.bake_settings == 'GLOBAL':
+                return True
+
     for layer in yp.layers:
         if is_uv_input_needed(layer, uv_name):
             return True
