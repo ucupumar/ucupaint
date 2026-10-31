@@ -3181,8 +3181,9 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         else: img.colorspace_settings.name = get_srgb_name()
 
         # Reset image by the base color
-        img.source = 'GENERATED'
-        img.generated_color = color
+        if img.source != 'TILED':
+            img.source = 'GENERATED'
+            img.generated_color = color
 
     # Check if normal need no bump
     no_bump_normal = any_normal_ch and height_root_ch and not bt.normal_includes_height and not is_vcol_baking
@@ -3413,11 +3414,13 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     if root_ch and soc:
 
         alpha_img = None
+        alpha_base_color = (color[3], color[3], color[3], 1.0)
         if not is_vcol_baking:
             # Create temp image
             alpha_img = img.copy()
-            alpha_img.source = 'GENERATED'
-            alpha_img.generated_color = (color[3], color[3], color[3], 1.0)
+            if alpha_img.source != 'TILED':
+                alpha_img.source = 'GENERATED'
+                alpha_img.generated_color = alpha_base_color
             alpha_img.colorspace_settings.name = get_noncolor_name()
         else:
             for obj in objs:
@@ -3455,6 +3458,10 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
 
             # Set temp filepath
             if img.source == 'TILED':
+                # Fill tiles
+                for tilenum in tilenums:
+                    UDIM.fill_tile(alpha_img, tilenum, alpha_base_color, width, height)
+
                 alpha_img.name = '__TEMP__'
                 UDIM.initial_pack_udim(alpha_img)
 
