@@ -1603,11 +1603,13 @@ def check_uv_nodes(yp, generate_missings=False):
         # Check for bake target image nodes
         bt_node = tree.nodes.get(bt.baked_node)
         if bt_node:
-            uv = yp.uvs.get(bt.uv_map)
+            from . import BakeTarget
+            uv_name = BakeTarget.get_bake_target_uv_name(bt)
+            uv = yp.uvs.get(uv_name)
             if not uv:
                 dirty = True
                 uv = yp.uvs.add()
-                uv.name = bt.uv_map
+                uv.name = uv_name
 
             if uv.name not in uv_names: 
                 uv_names.append(uv.name)
@@ -1619,6 +1621,17 @@ def check_uv_nodes(yp, generate_missings=False):
             dirty = True
             uv = yp.uvs.add()
             uv.name = yp.baked_uv_name
+
+        if uv.name not in uv_names: 
+            uv_names.append(uv.name)
+
+    # Node global bake target settings
+    if yp.bake_target_global_settings.uv_map != '':
+        uv = yp.uvs.get(yp.bake_target_global_settings.uv_map)
+        if not uv:
+            dirty = True
+            uv = yp.uvs.add()
+            uv.name = yp.bake_target_global_settings.uv_map
 
         if uv.name not in uv_names: 
             uv_names.append(uv.name)

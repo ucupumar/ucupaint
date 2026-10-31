@@ -1378,14 +1378,14 @@ class BaseBakeBakeTargetOperator():
         obook = None
         if any(image_bts):
 
-            uv_map = image_bts[0].uv_map
+            uv_map = BakeTarget.get_bake_target_uv_name(image_bts[0])
             force_bake_all_polygons = image_bts[0].force_bake_all_polygons
 
             # Check if some settings are the same
             settings_difference = False
             for i, bt in enumerate(image_bts):
                 if i == 0: continue
-                if (bt.uv_map != uv_map or
+                if (BakeTarget.get_bake_target_uv_name(bt) != uv_map or
                     bt.force_bake_all_polygons != force_bake_all_polygons
                 ):
                     settings_difference = True
@@ -1637,8 +1637,6 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
             self.report({'ERROR'}, "No valid bake targets to bake!")
             return {'CANCELLED'}
 
-        status = self.execute_bake_bake_target(context, bts, bake_device=gloset.bake_device)
-
         # Copy back operator settings to global bake target settings
         any_global_image_bts, any_global_vcol_bts = self.get_any_global_bts(yp)
         if self.with_prompt and (any_global_image_bts or any_global_vcol_bts):
@@ -1646,6 +1644,8 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
             for prop in props:
                 if prop == 'baked_counters': continue
                 setattr(gloset, prop, getattr(self, prop))
+
+        status = self.execute_bake_bake_target(context, bts, bake_device=gloset.bake_device)
 
         return status
 
@@ -3524,13 +3524,14 @@ def update_enable_baked_outside(self, context):
         # Bake target uvs
         for bt in yp.bake_targets:
             if bt.data_type == 'IMAGE':
-                uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + bt.uv_map)
+                uv_name = BakeTarget.get_bake_target_uv_name(bt)
+                uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + uv_name)
                 if not uv:
                     uv = mtree.nodes.new('ShaderNodeUVMap')
-                    uv.name = UV_OUTSIDE_PREFIX + bt.uv_map
+                    uv.name = UV_OUTSIDE_PREFIX + uv_name
                     set_outside_loc(uv, loc_x, loc_y, bt_frame)
                     loc_y -= 100
-                uv.uv_map = bt.uv_map
+                uv.uv_map = uv_name
 
         loc_y = ori_y
         loc_x += 250
@@ -3562,7 +3563,7 @@ def update_enable_baked_outside(self, context):
                     baked_node_outside.image = baked_node.image
 
                     # Connect uv 
-                    uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + bt.uv_map)
+                    uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + BakeTarget.get_bake_target_uv_name(bt))
                     if uv: mtree.links.new(uv.outputs[0], baked_node_outside.inputs[0])
 
                 separate_xyz = tree.nodes.get(bt.separate_xyz)
@@ -3874,7 +3875,7 @@ def update_enable_baked_outside(self, context):
             remove_node(mtree, bt, 'invert_a_outside', parent=bake_target_outside_frame)
 
             # Remove uv
-            uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + bt.uv_map)
+            uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + BakeTarget.get_bake_target_uv_name(bt))
             if uv: mtree.nodes.remove(uv)
 
         if baked_outside_frame:

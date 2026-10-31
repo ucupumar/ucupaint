@@ -1,4 +1,4 @@
-import bpy, os
+import bpy, os, time
 from .common import *
 from mathutils import *
 
@@ -273,6 +273,8 @@ icon_synonyms_27x = {
     'rename' : 'GREASEPENCIL',
 }
 
+NEED_CUSTOM_ICON_HACK = is_bl_newer_than(3, 2)
+
 def get_icon(icon_name='', default_icon='QUESTION'):
 
     # Use global icon dictionary when available for optimization
@@ -309,13 +311,37 @@ def get_icon(icon_name='', default_icon='QUESTION'):
             if upper_name in icons:
                 icon_value = icons[upper_name].value
 
-    # Get from custom icons
-    if icon_value == default_value and icon_name in custom_icons:
-        icon_value = custom_icons[icon_name].icon_id
+    # NOTE: HACK: Delay the use of custom icons only after several time already passed
+    # This is a workaround for missing custom icons in some files
+    wm = bpy.context.window_manager
+    try: ypprops = wm.ypprops
+    except: ypprops = None
+    if NEED_CUSTOM_ICON_HACK and ypprops and not ypprops.use_custom_icons:
 
-    # Set icon value to global dictionary for optimization
-    if icon_name not in icon_id_dict:
-        icon_id_dict[icon_name] = icon_value
+        # Get timestamp when get_icon first called
+        try: yptimer = wm.yptimer
+        except: yptimer = None
+        if yptimer and yptimer.custom_icon_timer == '':
+            yptimer.custom_icon_timer = str(time.time())
+
+        # Check delta time
+        if ypprops and yptimer and not ypprops.use_custom_icons:
+            deltatime = time.time() - float(yptimer.custom_icon_timer)
+
+            # Only load custom icons after 33ms
+            if deltatime > 0.033:
+                #print('STARTING TO USE CUSTOM ICON')
+                ypprops.use_custom_icons = True
+
+    if not NEED_CUSTOM_ICON_HACK or (ypprops and ypprops.use_custom_icons):
+
+        # Get from custom icons
+        if icon_value == default_value and icon_name in custom_icons:
+            icon_value = custom_icons[icon_name].icon_id
+
+        # Set icon value to global dictionary for optimization
+        if icon_name not in icon_id_dict:
+            icon_id_dict[icon_name] = icon_value
 
     return icon_value
 
@@ -340,22 +366,46 @@ def load_custom_icons():
     icon_id_dict = {}
 
     import bpy.utils.previews
+    if not hasattr(bpy.utils, 'previews'): return None
+
     # Custom Icon
-    if not hasattr(bpy.utils, 'previews'): return
     global custom_icons
-    custom_icons = bpy.utils.previews.new()
+    if 'custom_icons' not in globals() or custom_icons == None:
+        custom_icons = bpy.utils.previews.new()
 
     folder = get_icon_folder()
-
     for f in os.listdir(folder):
         icon_name = f.replace('_icon.png', '')
-        custom_icons.load(icon_name, folder + f, 'IMAGE')
+        if icon_name not in custom_icons:
+            custom_icons.load(icon_name, folder + f, 'IMAGE')
+
+    return None
 
 def unload_custom_icons():
     global custom_icons
     if hasattr(bpy.utils, 'previews'):
         bpy.utils.previews.remove(custom_icons)
         custom_icons = None
+
+def get_sidebar_icon():
+    return sidebar_icons['ucupaint'].icon_id
+
+def load_sidebar_icons():
+    # Sidebar Icon
+    if not hasattr(bpy.utils, 'previews'): return None
+    global sidebar_icons
+    sidebar_icons = bpy.utils.previews.new()
+
+    folder = get_icon_folder()
+    icon_name = 'ucupaint'
+    f = icon_name + '_icon.png'
+    sidebar_icons.load(icon_name, folder + f, 'IMAGE')
+
+def unload_sidebar_icons():
+    global sidebar_icons
+    if hasattr(bpy.utils, 'previews'):
+        bpy.utils.previews.remove(sidebar_icons)
+        sidebar_icons = None    
 
 def check_uv_difference_to_main_uv(entity):
     yp = entity.id_data.yp
@@ -549,6 +599,8 @@ def clean_unused_libraries():
 
 def register():
     load_custom_icons()
+    load_sidebar_icons()
 
 def unregister():
     unload_custom_icons()
+    unload_sidebar_icons()
