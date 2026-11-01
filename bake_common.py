@@ -4438,7 +4438,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
     # Per pixel curvature is measured per texel from the mesh edges, UDIM
     # tiles are not supported yet so they fall back to the per vertex method
-    use_per_pixel = bprops.type == 'CURVATURE' and bprops.curvature_method == 'PER_PIXEL'
+    use_per_pixel = bprops.type == 'CURVATURE' and bprops.curvature_method == 'PER_PIXEL' and is_bl_newer_than(2, 83)
     if use_per_pixel and bprops.use_udim:
         print('INFO: Per Pixel curvature does not support UDIM yet, using the per vertex method')
         use_per_pixel = False
