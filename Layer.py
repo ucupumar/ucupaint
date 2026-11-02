@@ -2114,7 +2114,7 @@ def get_all_connected_nodes_before(start_node):
 
     return nodes_set, links_set
 
-def get_nodes_and_links_from_mat_asset(asset_mat, yp_node=None):
+def get_nodes_and_links_from_mat_asset(asset_mat, yp=None, cur_mat=None):
 
     # Check for material output
     outp = get_material_output(asset_mat)
@@ -2126,9 +2126,9 @@ def get_nodes_and_links_from_mat_asset(asset_mat, yp_node=None):
 
     #TODO: Get all nodes before the bsdf node
     source_nodes, source_links = get_all_connected_nodes_before(shader_node)
-    #print([n.name for n in source_nodes])
 
-    source_vals = {}
+    # To store default values of the channels
+    source_sockets = {}
 
     # Convert shader node group to output standard sockets
     if shader_node.type == 'GROUP':
@@ -2138,6 +2138,22 @@ def get_nodes_and_links_from_mat_asset(asset_mat, yp_node=None):
         if not gout: return None, None, None
         bsdf = get_closest_bsdf_backward(gout)
         if not bsdf: return None, None, None
+
+        ## Get current yp
+        #if yp == None:
+        #    yp_node = get_active_ypaint_node()
+        #    if yp_node: yp = yp_node
+
+        ## Check if current material has the same bsdf
+        ## NOTE: Potentially miss the actual node since any of the bsdf can be a mix bsdf node
+        #cur_bsdf = None
+        #if cur_mat == None: cur_mat = get_active_material()
+        #if cur_mat:
+        #    matout = get_material_output(cur_mat)
+        #    if matout:
+        #        mbsdf = get_closest_bsdf_backward(matout)
+        #        if mbsdf.type == bsdf.type:
+        #            cur_bsdf = mbsdf
 
         for inp in bsdf.inputs:
             if len(inp.links) > 0:
@@ -2153,14 +2169,17 @@ def get_nodes_and_links_from_mat_asset(asset_mat, yp_node=None):
                 outp = gout.inputs.get(soc.name)
                 if outp: tree.links.new(link.from_socket, outp)
 
+            bpytypes = get_bpytypes()
+            if hasattr(bpytypes, 'bpy_prop_array') and type(inp.default_value) == bpytypes.bpy_prop_array:
+                val = tuple(inp.default_value)
             else:
-                if yp_node == None: yp_node = get_active_ypaint_node()
-                if yp_node:
-                    yp = yp_node.node_tree.yp
+                val = inp.default_value
 
-                    # Check default values
-                    if inp.name in yp.channels:
-                        source_vals[inp.name] = inp.default_value
+            # Get default values
+            #if (yp and inp.name in yp.channels) or (cur_bsdf and inp.name in cur_bsdf.inputs):
+            source_sockets[inp.name] = dotdict()
+            source_sockets[inp.name].value = val
+            source_sockets[inp.name].has_link = len(inp.links) > 0
 
         # Check for displacement
         disp_outp = shader_node.outputs.get('Displacement')
@@ -2191,7 +2210,7 @@ def get_nodes_and_links_from_mat_asset(asset_mat, yp_node=None):
         # Remove input socket that has no output
         remove_unused_inputs(tree)
 
-    return source_nodes, source_links, source_vals
+    return source_nodes, source_links, source_sockets
 
 def copy_nodes_to_tree(source_nodes, source_links, tree):
 
@@ -2298,18 +2317,105 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper, BaseAddMaskProps):
                     data_to.materials.append(mat)
         self.asset_mat = bpy.data.materials.get(self.asset_name)
 
-        source_nodes, source_links, source_vals = get_nodes_and_links_from_mat_asset(self.asset_mat)
+        source_nodes, source_links, source_sockets = get_nodes_and_links_from_mat_asset(self.asset_mat)
         if not source_nodes:
             self.cleanup(context)
             self.report({'ERROR'}, "Invalid asset!")
             return {'CANCELLED'}
 
-        #bsdf_node = source_nodes[0]
         mat = get_active_material()
+        yp_node = get_active_ypaint_node()
+        tree = yp_node.node_tree
+        yp = tree.yp
+
+        to_node = None
+        for outp in yp_node.outputs:
+            for link in outp.links:
+                to_node = link.to_node
+                break
+
+        #if mat:
+        #    matout = get_material_output(mat)
+        #    bsdf = get_closest_bsdf_backward(matout) if matout else None
+
+        # Compare returned channels to current bsdf inputs
+        if to_node:
+            new_channel_names = []
+
+            # Check for necessary sockets
+            socket_names = []
+            unneeded_names = []
+            for key, item in source_sockets.items():
+                if item.has_link: continue
+
+                # Check for Emission Color
+                if key == 'Emission Strength' and item.value == 1.0 and 'Emission Color' in source_sockets:
+                    col_item = source_sockets['Emission Color']
+                    if col_item.value[:3] == (0.0, 0.0, 0.0):
+                        if 'Emission Strength' not in unneeded_names:
+                            unneeded_names.append('Emission Strength')
+                        if 'Emission Color' not in unneeded_names:
+                            unneeded_names.append('Emission Color')
+
+                #if key.endswith(' Weight'):
+                #    pass
+
+            # Fill out necessary sockets
+            for key, item in source_sockets.items():
+                if key not in unneeded_names:
+                    socket_names.append(key)
+
+            # Add new channels when necessary
+            for key in socket_names:
+                if key in yp.channels or (key == 'Base Color' and 'Color' in yp.channels): continue
+                item = source_sockets[key]
+
+                inp = to_node.inputs.get(key)
+                if not inp: continue
+
+                need_new_channel = False
+                if item.has_link:
+                    # Always create new channel if the original socket is connected
+                    need_new_channel = True
+                else:
+                    # Check if socket with no link has different default value
+
+                    bpytypes = get_bpytypes()
+                    if hasattr(bpytypes, 'bpy_prop_array') and type(inp.default_value) == bpytypes.bpy_prop_array:
+                        val = tuple(inp.default_value)
+                    else: val = inp.default_value
+
+                    if inp and type(val) == type(item.value):
+                        if type(val) == float:
+                            # NOTE: Subsurface scale in some libraries returns 0.05 while the default one is now 0.005)
+                            if not math.isclose(val, item.value, abs_tol=0.05):
+                                need_new_channel = True
+                        else:
+                            if val != item.value:
+                                need_new_channel = True
+
+                # Create new channel
+                if need_new_channel:
+                    #print(key, val, item.value)
+                    channel_type = 'RGB'
+                    if inp and inp.type in {'VALUE', 'VECTOR'}:
+                        channel_type = inp.type
+
+                    channel = channel_common.create_new_yp_channel(tree, key, channel_type, yp_node=yp_node)
+                    new_channel_names.append(channel.name)
+        
+            # Connect new channels
+            if len(new_channel_names) > 0:
+                check_all_channel_ios(yp, yp_node=yp_node)
+
+                for ch_name in new_channel_names:
+                    channel = yp.channels[ch_name]
+
+                    if channel.name in to_node.inputs and channel.name in yp_node.outputs:
+                        tree = to_node.id_data
+                        if tree: create_link(tree, yp_node.outputs[channel.name], to_node.inputs[channel.name])
 
         # Create new bundle input layer
-        yp_node = get_active_ypaint_node()
-        yp = yp_node.node_tree.yp
         yp.halt_update = True
         layer = layer_common.add_new_layer(
             group_tree=yp_node.node_tree, layer_name='Input Layer', #tree.name,
@@ -2323,18 +2429,19 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper, BaseAddMaskProps):
         )
         yp.halt_update = False
 
-        # Copy asset nodes to current material tree
-        copied_nodes = copy_nodes_to_tree(source_nodes, source_links, mat.node_tree)
-
         # Get combine bundle node
         comb = layer_common.get_combine_bundle_node(yp_node, layer)
 
         # Set default values
-        for key, item, in source_vals.items():
+        for key, item in source_sockets.items():
             inp = comb.inputs.get(key)
+            val = item.value
             if inp:
-                try: inp.default_value = item
+                try: inp.default_value = val
                 except Exception as e: print('EXCEPTIION:', e)
+
+        # Copy asset nodes to current material tree
+        copied_nodes = copy_nodes_to_tree(source_nodes, source_links, mat.node_tree)
 
         # Make sure copied nodes aren't overlapped
         resolve_overlapped_nodes(mat.node_tree, copied_nodes, margin=50.0)
