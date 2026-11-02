@@ -822,12 +822,13 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 row.prop(self, 'wireframe_triangulated')
 
         elif self.type == 'CURVATURE':
-            row = split_layout(lcol, split_val)
-            right_aligned_label(row, 'Method:')
-            rrow = row.row(align=True)
-            if self.use_udim:
-                rrow.label(text='Per Vertex', icon='VERTEXSEL')
-            else: rrow.prop(self, 'curvature_method', expand=True)
+            if is_bl_newer_than(2, 83):
+                row = split_layout(lcol, split_val)
+                right_aligned_label(row, 'Method:')
+                rrow = row.row(align=True)
+                if self.use_udim:
+                    rrow.label(text='Per Vertex', icon='VERTEXSEL')
+                else: rrow.prop(self, 'curvature_method', expand=True)
 
             row = split_layout(lcol, split_val)
             right_aligned_label(row, 'Distance:')
