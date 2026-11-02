@@ -128,7 +128,7 @@ def remove_channel_socket_from_bundle_layers(yp_node, channel_name):
 def set_bundle_input_default_value(inp, socket_type, special_type='NONE'):
     if socket_type == 'FLOAT':
         if special_type == 'HEIGHT':
-            inp.default_value = 0.5
+            inp.default_value = 0.0 #0.5
     elif socket_type == 'RGBA':
         if special_type == 'NORMAL':
             inp.default_value = (0.5, 0.5, 1.0, 1.0)

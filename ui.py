@@ -2993,7 +2993,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 rrrow = ssplit.row(align=True)
                 draw_input_prop(rrrow, ch, 'intensity_value', layer=layer)
 
-            elif root_ch.special_type == 'HEIGHT':
+            elif root_ch.special_type == 'HEIGHT' and layer.type not in {'INPUT_BUNDLE'}:
                 rrrow = ssplit.row(align=True)
 
                 draw_input_prop(rrrow, ch, 'bump_distance', layer=layer)
@@ -3132,7 +3132,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         if root_ch.special_type == 'HEIGHT':
 
-            if layer.type not in {'GROUP', 'PREV_LAYERS'}:
+            if layer.type not in {'GROUP', 'PREV_LAYERS', 'INPUT_BUNDLE'}:
                 # Height
                 row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
@@ -3274,7 +3274,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                     #row.label(text='', icon='BLANK1')
 
-        if root_ch.special_type == 'NORMAL' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
+        if root_ch.special_type == 'NORMAL' and layer.type not in {'GROUP', 'PREV_LAYERS'} and layer.type not in  {'INPUT_BUNDLE'}:
 
             #height_as_normal_disabled = ch == normal_ch and (height_ch == None or not height_ch.enable or not height_ch.use_height_as_normal)
 
@@ -3286,20 +3286,18 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             row.label(text=label)
             #if ch.normal_map_type == 'NORMAL_MAP':
             row = row.row(align=True)
-            row.scale_x = 1.4 if ch.normal_space == 'INPUT_PASSTHROUGH' else 1.0
             row.prop(ch, 'normal_space', text='')
 
             # Normal Strength
-            if ch.normal_space != 'INPUT_PASSTHROUGH':
-                row = mcol.row(align=True)
-                row.label(text='', icon='BLANK1')
-                #row.active = height_as_normal_disabled
-                label = 'Strength:'
-                row.label(text=label)
-                if ch.normal_map_type == 'NORMAL_MAP':
-                    row = row.row(align=True)
-                    row.scale_x = 1.4
-                draw_input_prop(row, ch, 'normal_strength', layer=layer)
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            #row.active = height_as_normal_disabled
+            label = 'Strength:'
+            row.label(text=label)
+            if ch.normal_map_type == 'NORMAL_MAP':
+                row = row.row(align=True)
+                row.scale_x = 1.4
+            draw_input_prop(row, ch, 'normal_strength', layer=layer)
 
         if root_ch.special_type == 'VDISP' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
 

@@ -1336,8 +1336,6 @@ class YNewLayer(bpy.types.Operator):
 
         yp.halt_update = True
 
-        normal_space = self.normal_space if self.type != 'INPUT_BUNDLE' else 'INPUT_PASSTHROUGH'
-
         layer = layer_common.add_new_layer(
             node.node_tree, self.name, self.type, 
             channel_idx, self.blend_type, self.normal_blend_type,
@@ -1354,7 +1352,7 @@ class YNewLayer(bpy.types.Operator):
             use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
             mask_edge_detect_radius=self.mask_edge_detect_radius, mask_edge_detect_method=self.mask_edge_detect_method,
             edge_detect_radius=self.edge_detect_radius, edge_detect_method=self.edge_detect_method,
-            mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance, normal_space=normal_space,
+            mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance, normal_space=self.normal_space,
             height_blend_type = self.height_blend_type,
             add_modifier = self.type == 'PREV_LAYERS',
             modifier_type = self.modifier_type
@@ -2422,7 +2420,6 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper, BaseAddMaskProps):
             layer_type='INPUT_BUNDLE', channel_idx=-1,
             blend_type='MIX', normal_blend_type='MIX',
             normal_map_type='BUMP_MAP', texcoord_type='UV',
-            normal_space = 'INPUT_PASSTHROUGH',
             add_mask=self.add_mask, mask_type=self.mask_type, mask_color=self.mask_color, mask_use_hdr=self.mask_use_hdr, 
             mask_uv_name=self.mask_uv_name, mask_width=self.mask_width, mask_height=self.mask_height, 
             use_image_atlas_for_mask=self.use_image_atlas_for_mask, use_udim_for_mask=self.use_udim_for_mask

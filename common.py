@@ -290,7 +290,6 @@ normal_space_items = (
     ('WORLD', 'World Space', 'World space normal mapping'),
     ('BLENDER_OBJECT', 'Blender Object Space', 'Object space normal mapping, compatible with Blender render baking'),
     ('BLENDER_WORLD', 'Blender World Space', 'World space normal mapping, compatible with Blender render baking'),
-    ('INPUT_PASSTHROUGH', 'Input Passthrough', 'Use normal input as is'),
 )
 
 normal_type_labels = {
@@ -5755,6 +5754,8 @@ def is_height_process_needed(layer):
 
     height_ch = get_height_channel(layer)
     if not height_ch or not height_ch.enable: return False
+
+    if layer.type in {'INPUT_BUNDLE'}: return False
 
     if is_layer_preview_mode_enabled(yp) and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
