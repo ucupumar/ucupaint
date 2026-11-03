@@ -5871,7 +5871,7 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
         for l in lays:
             if not l.enable: continue
             if l.type == 'PREV_LAYERS': continue
-            if channel_idx >= len(l.channels): continue
+            if channel_idx >= len(l.channels) or channel_idx < 0: continue
             c = l.channels[channel_idx]
 
             if l.type not in {'GROUP', 'BACKGROUND'}:
@@ -5885,8 +5885,8 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
                 height_c = l.channels[height_ch_idx] if height_ch and height_ch_idx < len(l.channels) else None
 
                 # NOTE: Normal will automatically enabled if a layer height channel uses 'Height as Normal'
-                if channel_idx == normal_ch_idx and height_ch_idx < len(l.channels):
-                    if height_c.enable and height_c.use_height_as_normal:
+                if channel_idx == normal_ch_idx:
+                    if height_c and height_c.enable and height_c.use_height_as_normal:
                         return True
 
                 # Height channel converted to normal won't be not counted

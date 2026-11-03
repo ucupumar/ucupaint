@@ -2038,7 +2038,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False, rows=3):
                 special_type_available = not vdisp_ch_exists
 
             # NOTE: Replaced by base layer
-            if channel.type in {'RGB', 'VALUE'}:
+            if channel.special_type != 'NORMAL':
                 brow = bcol.row(align=True)
 
                 #brow.label(text='', icon_value=lib.get_icon('input'))
@@ -2046,11 +2046,14 @@ def draw_root_channels_ui(context, layout, node, show_header=False, rows=3):
 
                 if channel.type == 'RGB':
                     brow.label(text='Background:')
-                elif channel.type == 'VALUE':
+                elif channel.type in {'VALUE', 'VECTOR'}:
                     brow.label(text='Base Value:')
 
                 if not yp.use_baked or (channel.no_layer_using and len(inp.links) == 0):
-                    brow.prop(inp,'default_value', text='')
+                    brrow = brow.row(align=True)
+                    if channel.type == 'VECTOR':
+                        brrow.scale_x = 0.8
+                    brrow.prop(inp,'default_value', text='')
 
                 if yp.use_baked and not channel.no_layer_using:
                     brow.label(text='', icon_value=lib.get_icon('texture'))
@@ -2337,6 +2340,10 @@ def draw_base_layer_ui(context, layout, yp, node):
                     rcrow.prop(inputs[input_index], 'default_value', text='') #, emboss=False)
                 elif root_ch.type == 'RGB':
                     rcrow.prop(inputs[input_index], 'default_value', text='', icon='COLOR')
+                elif root_ch.special_type != 'NORMAL':
+                    rrcrow = rcrow.row(align=True)
+                    rrcrow.scale_x = 0.6
+                    rrcrow.prop(inputs[input_index], 'default_value', text='')
 
             if ypup.developer_mode and root_ch.type=='RGB' and root_ch.enable_alpha:
                 if len(inputs[input_index + 1].links) == 0:
@@ -6770,8 +6777,10 @@ class YChannelSpecialTypeMenu(bpy.types.Menu):
                 col.operator('wm.y_set_channel_special_type', text='Alpha', icon=icon).type = 'ALPHA'
 
         if channel.type == 'VECTOR':
-            icon = 'RADIOBUT_ON' if channel.special_type == 'NORMAL' else 'RADIOBUT_OFF'
-            col.operator('wm.y_set_channel_special_type', text='Normal', icon=icon).type = 'NORMAL'
+            normal_ch_exists = any([c for c in yp.channels if c.special_type == 'NORMAL' and c != channel])
+            if not normal_ch_exists:
+                icon = 'RADIOBUT_ON' if channel.special_type == 'NORMAL' else 'RADIOBUT_OFF'
+                col.operator('wm.y_set_channel_special_type', text='Normal', icon=icon).type = 'NORMAL'
 
         if channel.type == 'VALUE':
             height_ch_exists = any([c for c in yp.channels if c.special_type == 'HEIGHT' and c != channel])
