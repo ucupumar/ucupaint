@@ -2279,11 +2279,12 @@ def check_blend_type_nodes(root_ch, layer, ch):
         if remove_node(tree, ch, 'layer_intensity'): need_reconnect = True
         if remove_node(tree, ch, 'intensity'): need_reconnect = True
 
-    if root_ch.type in {'RGB', 'VALUE'}:
+    #if root_ch.type in {'RGB', 'VALUE'}:
+    if root_ch.special_type not in {'NORMAL'}:
         if channel_enabled:
             if root_ch.special_type == 'HEIGHT':
                 blend, need_reconnect = set_height_blend_node(tree, layer, root_ch, ch, prop_name='blend', blend_type=blend_type, need_reconnect=need_reconnect)
-            elif root_ch.type == 'RGB':
+            elif root_ch.type in {'RGB', 'VECTOR'}:
                 if (has_parent or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX':
 
                     if (

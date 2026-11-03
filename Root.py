@@ -1490,7 +1490,7 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
                 set_blend_method = True
 
         # Set input default value
-        if inp and self.type != 'VECTOR': 
+        if inp and channel.special_type != 'NORMAL': 
             channel_common.set_input_default_value(node, channel, inp.default_value)
         else: channel_common.set_input_default_value(node, channel)
 
