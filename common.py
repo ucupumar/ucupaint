@@ -1544,6 +1544,19 @@ def get_nodes_using_yp(mat, yp):
             yp_nodes.append(node)
     return yp_nodes
 
+def get_all_nodes_using_yp(yp):
+    # NOTE: Probably need a better way than iterate through all the materials with their nodes
+    yp_nodes = []
+
+    for mat in bpy.data.materials:
+        if not mat.node_tree: continue
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP':
+                if node.node_tree and node.node_tree.yp.is_ypaint_node and node not in yp_nodes:
+                    yp_nodes.append(node)
+
+    return yp_nodes
+
 #def remove_tree_data_recursive(node):
 #
 #    try: tree = node.node_tree

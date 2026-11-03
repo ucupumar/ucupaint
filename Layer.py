@@ -2168,10 +2168,11 @@ def get_nodes_and_links_from_mat_asset(asset_mat, yp=None, cur_mat=None):
                 if outp: tree.links.new(link.from_socket, outp)
 
             bpytypes = get_bpytypes()
-            if hasattr(bpytypes, 'bpy_prop_array') and type(inp.default_value) == bpytypes.bpy_prop_array:
-                val = tuple(inp.default_value)
-            else:
-                val = inp.default_value
+            val = None
+            if hasattr(inp, 'default_value'):
+                if hasattr(bpytypes, 'bpy_prop_array') and type(inp.default_value) == bpytypes.bpy_prop_array:
+                    val = tuple(inp.default_value)
+                else: val = inp.default_value
 
             # Get default values
             #if (yp and inp.name in yp.channels) or (cur_bsdf and inp.name in cur_bsdf.inputs):
@@ -2399,7 +2400,8 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper, BaseAddMaskProps):
                     if inp and inp.type in {'VALUE', 'VECTOR'}:
                         channel_type = inp.type
 
-                    channel = channel_common.create_new_yp_channel(tree, key, channel_type, yp_node=yp_node)
+                    channel = channel_common.create_new_yp_channel(tree, key, channel_type)
+
                     new_channel_names.append(channel.name)
         
             # Connect new channels
@@ -2412,6 +2414,12 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper, BaseAddMaskProps):
                     if channel.name in to_node.inputs and channel.name in yp_node.outputs:
                         tree = to_node.id_data
                         if tree: create_link(tree, yp_node.outputs[channel.name], to_node.inputs[channel.name])
+
+                    # Set sockets and their default values
+                    if ch_name in source_sockets:
+                        item = source_sockets[ch_name]
+                        channel_common.set_input_default_value(yp_node, channel, custom_value=item.value)
+                        channel_common.add_channel_socket_to_input_bundle_layers(yp_node, channel, default_value=item.value)
 
         # Create new bundle input layer
         yp.halt_update = True

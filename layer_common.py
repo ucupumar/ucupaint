@@ -167,7 +167,10 @@ def create_new_combine_bundle_node(mat, yp_node, layer, source=None):
             if inp:
                 # Get channel
                 channel = yp.channels.get(soc.name)
-                if channel: channel_common.set_bundle_input_default_value(inp, socket_type, special_type=channel.special_type)
+                if channel:
+                    node_inp = yp_node.inputs.get(soc.name)
+                    default_value = node_inp.default_value if node_inp else None
+                    channel_common.set_bundle_input_default_value(inp, socket_type, special_type=channel.special_type, default_value=default_value)
 
             # Create geometry nodes for default normal socket
             if outp.name == 'Normal' and socket_type == 'VECTOR':

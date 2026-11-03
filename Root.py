@@ -1492,7 +1492,13 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
         # Set input default value
         if inp and channel.special_type != 'NORMAL': 
             channel_common.set_input_default_value(node, channel, inp.default_value)
-        else: channel_common.set_input_default_value(node, channel)
+            bundle_default_value = inp.default_value
+        else: 
+            channel_common.set_input_default_value(node, channel)
+            bundle_default_value = None
+
+        # Add socket to bundle node
+        channel_common.add_channel_socket_to_input_bundle_layers(node, channel, default_value=bundle_default_value)
 
         # Set strength input default value
         if strength_inp and self.set_strength_to_one:

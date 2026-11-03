@@ -689,7 +689,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 dirty = create_prop_input(ch, 'override_1_color', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
-            if layer.type != 'GROUP':
+            if layer.type not in {'GROUP', 'INPUT_BUNDLE'}:
                 if root_ch.special_type == 'HEIGHT':
                     # Height/bump distance input
                     dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)

@@ -125,8 +125,11 @@ def remove_channel_socket_from_bundle_layers(yp_node, channel_name):
                     item = source.bundle_items.get(channel_name)
                     if item: source.bundle_items.remove(item)
 
-def set_bundle_input_default_value(inp, socket_type, special_type='NONE'):
-    if socket_type == 'FLOAT':
+def set_bundle_input_default_value(inp, socket_type, special_type='NONE', default_value=None):
+    if default_value != None:
+        try: inp.default_value = default_value
+        except Exception as e: print('EXCEPTIION:', e)
+    elif socket_type == 'FLOAT':
         if special_type == 'HEIGHT':
             inp.default_value = 0.0 #0.5
     elif socket_type == 'RGBA':
@@ -135,7 +138,7 @@ def set_bundle_input_default_value(inp, socket_type, special_type='NONE'):
         if inp.name in {'Emission', 'Emission Color'} or special_type == 'VDISP':
             inp.default_value = (0.0, 0.0, 0.0, 1.0)
 
-def add_channel_socket_to_input_bundle_layers(yp_node, channel):
+def add_channel_socket_to_input_bundle_layers(yp_node, channel, default_value=None):
     yp = yp_node.node_tree.yp
 
     socket_type = 'FLOAT'
@@ -161,7 +164,7 @@ def add_channel_socket_to_input_bundle_layers(yp_node, channel):
                         # Set default value
                         combinp = comb.inputs.get(channel.name)
                         if combinp:
-                            set_bundle_input_default_value(combinp, socket_type, channel.special_type)
+                            set_bundle_input_default_value(combinp, socket_type, channel.special_type, default_value=default_value)
 
                         socket_created = True
 
@@ -174,7 +177,10 @@ def add_channel_socket_to_input_bundle_layers(yp_node, channel):
             ch = layer.channels[get_channel_index(channel)]
             ch.socket_input_name = channel.name
 
-def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False, special_type='NONE', add_bake_target=True, yp_node=None):
+            # Enable the channel
+            ch.enable = True
+
+def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False, special_type='NONE', add_bake_target=True):
     yp = group_tree.yp
 
     yp.halt_reconnect = True
@@ -256,9 +262,6 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
     if bt: channel.bake_target_name = bt.name
         
-    if yp_node:
-        add_channel_socket_to_input_bundle_layers(yp_node, channel)
-
     yp.halt_reconnect = False
 
     return channel
@@ -843,7 +846,7 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
     add_bake_target = mode not in {'ALPHA', 'AO'} or (mode == 'AO' and not orm_bt)
 
     # Create new channel
-    channel = create_new_yp_channel(group_tree, ch_name, ch_type, non_color=True, special_type=special_type, add_bake_target=add_bake_target, yp_node=node)
+    channel = create_new_yp_channel(group_tree, ch_name, ch_type, non_color=True, special_type=special_type, add_bake_target=add_bake_target)
     actual_ch_name = channel.name
 
     # Add AO to ORM bake target
@@ -860,15 +863,19 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
     check_all_channel_ios(yp, yp_node=node)
 
     # Create the node setup
+    bundle_default_value = None
     if mode == 'AO':
         create_ao_node(mat, node, channel, shift_other_nodes=True)
+        bundle_default_value = (1.0, 1.0, 1.0, 1.0)
     elif mode == 'ALPHA':
         make_channel_as_alpha(mat, node, channel, do_setup=True, move_index=True, ch_pair_name=channel_pair_name)
         set_material_methods(mat, blend_method, shadow_method)
+        bundle_default_value = 1.0
     elif mode == 'HEIGHT':
         root_normal_ch = get_root_normal_channel(yp)
         if not root_normal_ch or not root_normal_ch.use_height_as_bump:
             do_displacement_node_setup(mat, node, channel, is_vector_disp=False)
+        bundle_default_value = 0.0
     elif mode == 'NORMAL':
         outp = node.outputs.get(channel.name)
         mat.node_tree.links.new(outp, normal_inp)
@@ -882,8 +889,14 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
         if emission_strength_inp:
             emission_strength_inp.default_value = 1.0
 
+        bundle_default_value = 0.0
+
     elif mode == 'VDISP':
         do_displacement_node_setup(mat, node, channel, is_vector_disp=True)
+        bundle_default_value = (0.0, 0.0, 0.0, 1.0)
+
+    # Add socket to bundle node
+    add_channel_socket_to_input_bundle_layers(node, channel, default_value=bundle_default_value)
 
     # Set active channel to the newly created one
     channel = yp.channels.get(actual_ch_name)
