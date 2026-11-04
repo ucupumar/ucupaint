@@ -724,13 +724,14 @@ def draw_input_bundle_props(entity, source, layout):
         for inp in comb.inputs:
             if inp.name == '': continue
             if len(inp.links) == 0:
-                if col == None: col = layout.column(align=True)
-                row = col.row()
-                row.label(text=inp.name+':')
-                if inp.type in {'VECTOR', 'CLOSURE', 'BUNDLE'}:
-                    row.label(text='Not Connected!')
-                else:
-                    row.prop(inp, 'default_value', text='')
+                pass
+                #if col == None: col = layout.column(align=True)
+                #row = col.row()
+                #row.label(text=inp.name+':')
+                #if inp.type in {'VECTOR', 'CLOSURE', 'BUNDLE'}:
+                #    row.label(text='Not Connected!')
+                #else:
+                #    row.prop(inp, 'default_value', text='')
             elif first_node == None:
                 link = inp.links[0]
                 first_node = link.from_node
@@ -2790,7 +2791,7 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
 
     return label
 
-def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
+def draw_layer_channels(context, node, layout, layer, layer_tree, image, specific_ch):
     #T = time.time()
 
     yp = layer.id_data.yp
@@ -2970,6 +2971,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         # Alpha channel with color channel enabled will not show blend and opacity options
         show_blend_opacity = alpha_ch != ch or (alpha_ch == ch and (not get_channel_enabled(color_ch) or color_ch.unpair_alpha))
 
+        comb = layer_common.get_combine_bundle_node(node, layer) if node and layer.type == 'INPUT_BUNDLE' else None
+        combinp = comb.inputs.get(root_ch.name) if comb else None
+        combinp_val_is_accessible = combinp and len(combinp.links) == 0
+
         #if layer.type != 'BACKGROUND':
         if not chui.expand_content: # and ch.enable:
             rrow = split.row(align=True)
@@ -3017,6 +3022,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                         rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
                     elif ch.override_type != 'DEFAULT':
                         rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
+
+            elif layer.type == 'INPUT_BUNDLE' and combinp_val_is_accessible and not ch.override:
+                rrrow = ssplit.row(align=True)
+                rrrow.prop(combinp, 'default_value', text='')
+
+                rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
 
             elif root_ch.special_type == 'VDISP':
                 rrrow = ssplit.row(align=True)
@@ -3136,6 +3147,16 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             row.label(text='', icon='BLANK1')
             row.label(text='Opacity:')
             draw_input_prop(row, ch, 'intensity_value', layer=layer)
+
+        if layer.type == 'INPUT_BUNDLE' and combinp_val_is_accessible and not ch.override:
+
+            # Normal Space
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            label = 'Input Value:'
+            row.label(text=label)
+            row = row.row(align=True)
+            row.prop(combinp, 'default_value', text='')
 
         if root_ch.special_type == 'HEIGHT':
 
@@ -4878,7 +4899,7 @@ def draw_layers_ui(context, layout, node):
 
         if not specific_mask:
             # Channels
-            draw_layer_channels(context, col, layer, layer_tree, image, specific_ch)
+            draw_layer_channels(context, node, col, layer, layer_tree, image, specific_ch)
 
         if not specific_ch:
             # Masks
