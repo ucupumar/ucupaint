@@ -1133,7 +1133,7 @@ class YConnectYPaintChannel(bpy.types.Operator):
                 channel_common.do_alpha_setup(mat, node, channel)
 
         # Set input default value
-        if inp and self.channel.type != 'VECTOR': 
+        if inp and self.channel.special_type != 'NORMAL': 
             channel_common.set_input_default_value(node, channel, inp.default_value)
         else: channel_common.set_input_default_value(node, channel)
 
