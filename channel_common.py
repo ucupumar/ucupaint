@@ -269,8 +269,11 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 def set_input_default_value(group_node, channel, custom_value=None):
 
     if custom_value:
-        if channel.type == 'RGB' and len(custom_value) == 3:
-            custom_value = (custom_value[0], custom_value[1], custom_value[2], 1)
+        if channel.type == 'RGB':
+            if type(custom_value) == bool:
+                custom_value = (float(custom_value), float(custom_value), float(custom_value), 1.0)
+            elif len(custom_value) == 3:
+                custom_value = (custom_value[0], custom_value[1], custom_value[2], 1)
 
         group_node.inputs[channel.name].default_value = custom_value
         return

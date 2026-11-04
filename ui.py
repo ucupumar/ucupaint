@@ -737,8 +737,8 @@ def draw_input_bundle_props(entity, source, layout):
                 first_node = link.from_node
 
         # Draw inputs from the first connected node
-        col = None
-        if first_node:
+        if first_node and first_node.type != 'NEW_GEOMETRY':
+            col = None
             for inp in first_node.inputs:
                 if inp.name == '' or inp.type in {'VECTOR', 'CLOSURE', 'BUNDLE'}: continue
                 if len(inp.links) == 0:
@@ -746,6 +746,10 @@ def draw_input_bundle_props(entity, source, layout):
                     row = col.row()
                     row.label(text=inp.name+':')
                     row.prop(inp, 'default_value', text='')
+        else:
+            col = layout.column(align=True)
+            row = col.row()
+            row.label(text='Bundle input node isn\'t connected!', icon='ERROR')
 
 def draw_colorid_props(entity, source, layout, layer=None):
     col = layout.column()
