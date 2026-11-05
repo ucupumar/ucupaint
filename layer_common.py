@@ -427,13 +427,17 @@ def add_new_layer(
     yp.halt_reconnect = False
     #yp.halt_update = False
 
-    # Check layer IO
-    input_outputs.check_all_layer_channel_io_and_nodes(layer, tree)
-    input_outputs.check_start_end_root_ch_nodes(group_tree)
+    if layer.type == 'BSDF':
+        input_outputs.check_all_channel_ios(yp)
+    else:
 
-    # Rearrange node inside layers
-    reconnect_layer_nodes(layer)
-    rearrange_layer_nodes(layer)
+        # Check layer IO
+        input_outputs.check_all_layer_channel_io_and_nodes(layer, tree)
+        input_outputs.check_start_end_root_ch_nodes(group_tree)
+
+        # Rearrange node inside layers
+        reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
     # Make sure new parent subitems is expanded
     if layer.parent_idx != -1:

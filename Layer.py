@@ -4812,6 +4812,14 @@ def update_normal_map_type(self, context):
     # Update list items
     ListItem.refresh_list_items(yp)
 
+def update_bsdf_blend_type(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    if check_bsdf_blend_type_nodes(self):
+        rearrange_layer_nodes(self)
+        reconnect_layer_nodes(self)
+
 def update_blend_type(self, context):
     T = time.time()
 
@@ -6046,6 +6054,13 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
         default = 'IMAGE'
     )
 
+    bsdf_blend_type : EnumProperty(
+        name = 'BSDF Blend Type',
+        description = 'Blend type of BSDF layer',
+        items = bsdf_blend_type_items,
+        update = update_bsdf_blend_type
+    )
+
     intensity_value : FloatProperty(
         name = 'Layer Opacity', 
         description = 'Layer opacity',
@@ -6305,6 +6320,10 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
     mod_group : StringProperty(default='') # Deprecated
     mod_group_1 : StringProperty(default='') # Deprecated
     mod_groups : CollectionProperty(type=Modifier.YPaintModifierGroupNode)
+
+    # BSDF related
+    bsdf_intensity : StringProperty(default='')
+    bsdf_blend : StringProperty(default='')
 
     # Mask
     enable_masks : BoolProperty(

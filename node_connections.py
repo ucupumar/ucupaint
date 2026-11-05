@@ -370,6 +370,24 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         tangent = None
         bitangent = None
 
+    # BSDF layer connections
+    bsdf_stream = get_essential_node(tree, TREE_START).get('BSDF')
+    for layer in reversed(yp.layers):
+        node = nodes.get(layer.group_node)
+
+        bsdf_outp = node.outputs.get('BSDF')
+        bsdf_inp = node.inputs.get('BSDF')
+        if bsdf_inp and bsdf_stream:
+            create_link(tree, bsdf_stream, bsdf_inp)
+            bsdf_stream = bsdf_outp
+
+        if not bsdf_stream:
+            bsdf_stream = bsdf_outp
+
+    end_bsdf = get_essential_node(tree, TREE_END).get('BSDF')
+    if end_bsdf and bsdf_stream:
+        create_link(tree, bsdf_stream, end_bsdf)
+
     baked_uv = yp.uvs.get(yp.baked_uv_name)
     baked_uv_map = nodes.get(baked_uv.uv_map) if baked_uv else None
     if baked_uv_map: baked_uv_map = baked_uv_map.outputs[0]
@@ -1154,6 +1172,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # Root mask value for merging mask
     root_mask_val = get_essential_node(tree, ONE_VALUE)[0]
 
+    # BSDF Alpha
+    bsdf_alpha = get_essential_node(tree, ONE_VALUE)[0]
+
     # Layer Masks
     for i, mask in enumerate(layer.masks):
 
@@ -1258,6 +1279,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Mask intensity
         mask_intensity = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'intensity_value'))
 
+        mask_mix_bsdf = nodes.get(mask.mix_bsdf)
+        if mask_mix_bsdf:
+            mmixcol0, mmixcol1, mmixout = get_mix_color_indices(mask_mix_bsdf)
+            if mask_intensity: create_link(tree, mask_intensity, mask_mix_bsdf.inputs[0])
+            create_link(tree, mask_val, mask_mix_bsdf.inputs[mmixcol1])
+            bsdf_alpha = create_link(tree, bsdf_alpha, mask_mix_bsdf.inputs[mmixcol0])[mmixout]
+
         # Mask channels
         for j, c in enumerate(mask.channels):
             root_ch = yp.channels[j]
@@ -1344,6 +1372,38 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             relevant_chs.append(normal_ch)
     else:
         relevant_chs = [ch for ch in layer_channels]
+
+    # BSDF blending
+    prev_bsdf = get_essential_node(tree, TREE_START).get('BSDF')
+    next_bsdf = get_essential_node(tree, TREE_END).get('BSDF')
+    bsdf_intensity = nodes.get(layer.bsdf_intensity)
+    bsdf_blend = nodes.get(layer.bsdf_blend)
+
+    #for mask in layer.masks:
+    #    mix_bsdf = nodes.get(mask, 'mix_bsdf')
+
+    if bsdf_intensity:
+        bsdf_alpha = create_link(tree, bsdf_alpha, bsdf_intensity.inputs[0])[0]
+        if layer_intensity_value: create_link(tree, layer_intensity_value, bsdf_intensity.inputs[1])
+
+    if bsdf_blend:
+        if bsdf_blend.type == 'ADD_SHADER':
+            idx_a = 0
+            idx_b = 1
+        else:
+            idx_a = 1
+            idx_b = 2
+            if bsdf_alpha: create_link(tree, bsdf_alpha, bsdf_blend.inputs[0])
+
+        if prev_bsdf: create_link(tree, prev_bsdf, bsdf_blend.inputs[idx_a])
+
+        bsdf_val = None
+
+        if layer.type == 'BSDF':
+            bsdf_val = create_link(tree, source.outputs[0], bsdf_blend.inputs[idx_b])[0]
+
+        if bsdf_val and next_bsdf:
+            create_link(tree, bsdf_val, next_bsdf)
 
     # Layer Channels
     for ch in layer_channels:

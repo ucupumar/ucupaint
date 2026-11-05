@@ -2334,6 +2334,9 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     elif layer.type == 'GROUP':
         icon_value = lib.get_icon('group')
         label += layer.name
+    elif layer.type == 'BSDF':
+        icon_value = lib.get_icon('material_data')
+        label += layer.name
     elif layer.type == 'HEMI':
         icon_value = lib.get_icon('hemi')
         label += layer.name
@@ -2422,6 +2425,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             icon_value = lib.get_icon('background')
         elif layer.type == 'GROUP':
             icon_value = lib.get_icon('group')
+        elif layer.type == 'BSDF':
+            icon_value = lib.get_icon('material_data')
         elif layer.type == 'HEMI':
             icon_value = lib.get_icon('hemi')
         elif layer.type in {'EDGE_DETECT', 'AO'}:
@@ -2744,7 +2749,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
     normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
 
-    enabled_channels = [c for c in layer.channels if c.enable or (c == alpha_ch and color_ch.enable)]
+    enabled_channels = [c for i, c in enumerate(layer.channels) if (c.enable or (c == alpha_ch and color_ch.enable)) and is_layer_channel_props_needed(layer, c, layer_tree, yp.channels[i])]
 
     root_ch = None
     ch = None
@@ -2752,6 +2757,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
     if not specific_ch:
 
         label = pgettext_iface('Channel')
+
+        if layer.type == 'BSDF' and not lui.expand_channels:
+            label += ' (BSDF)'
+
         if len(enabled_channels) == 0:
             #label += ' (0)'
             pass
@@ -2785,7 +2794,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         else:
             label = pgettext_iface('Channels') + ' (' + str(len(enabled_channels)) + ')'
 
-        if not lui.expand_channels and len(enabled_channels) == 1:
+        if not lui.expand_channels and (len(enabled_channels) == 1 or (len(enabled_channels) == 0 and layer.type == 'BSDF')):
             label += ':'
         
         row = layout.row(align=False)
@@ -2799,7 +2808,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             rrow.prop(lui, 'expand_channels', text=label, emboss=False, icon_value=icon_value)
         else: rrow.label(text=label, icon_value=icon_value)
 
-        if ch and root_ch:
+        if layer.type == 'BSDF' and not lui.expand_channels:
+            rrow = row.row(align=True)
+            rrow.alignment = 'RIGHT'
+            rrow.scale_x = 1.5
+            rrow.prop(layer, 'bsdf_blend_type', text='')
+        elif ch and root_ch:
             rrow = row.row(align=True)
             rrow.alignment = 'RIGHT'
             if ch == height_ch and height_ch.use_height_as_normal:
@@ -2843,6 +2857,18 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
     ch_count = 0
     extra_separator = False
+
+    # BSDF Blending
+    if layer.type == 'BSDF':
+        #ccol = rcol.column()
+        row = rcol.row(align=True)
+        row.label(text='', icon='BLANK1')
+        split = split_layout(row, 0.35)
+        split.label(text='BSDF:', icon='NODE_SOCKET_SHADER')
+        split.prop(layer, 'bsdf_blend_type', text='')
+        if ypui.expand_channels:
+            row.label(text='', icon='BLANK1')
+
     for i, ch in enumerate(layer.channels):
 
         ch_enabled = ch.enable or (alpha_ch == ch and color_ch.enable)
@@ -2858,6 +2884,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             continue
 
         root_ch = yp.channels[i]
+
+        need_channel_props = is_layer_channel_props_needed(layer, ch, layer_tree, root_ch)
+        if not need_channel_props: continue
+
         ch_count += 1
 
         try: chui = ypui.layer_ui.channels[i]
@@ -3498,7 +3528,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if not specific_ch and extra_separator and i < len(layer.channels)-1:
             ccol.separator()
 
-    if not ypui.expand_channels and ch_count == 0:
+    if not ypui.expand_channels and ch_count == 0 and layer.type != 'BSDF':
         rcol.label(text='No active channel!')
 
     if not specific_ch:
@@ -5723,6 +5753,7 @@ def layer_listing(layout, layer, show_expand=False):
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon(icon_name))
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
         elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
+        elif layer.type == 'BSDF': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('material_data'))
         else: 
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
     else:
@@ -5752,6 +5783,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('group'))
+            elif layer.type == 'BSDF': 
+                row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('material_data'))
             else: 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('texture'))
         else:
@@ -5775,6 +5808,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.label(text='', icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
                 row.label(text='', icon_value=lib.get_icon('group'))
+            elif layer.type == 'BSDF': 
+                row.label(text='', icon_value=lib.get_icon('material_data'))
             else: 
                 row.label(text='', icon_value=lib.get_icon('texture'))
 
@@ -7087,6 +7122,7 @@ class YNewLayerMenu(bpy.types.Menu):
             col.menu("NODE_MT_y_new_adjustment_layer_menu", text='Adjustment', icon_value=lib.get_icon('modifier'))
             col.separator()
             col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
+            col.operator("wm.y_new_layer", icon_value=lib.get_icon('material_data'), text='BSDF').type = 'BSDF'
         else:
             row = self.layout.row()
             col = row.column()
@@ -8211,6 +8247,9 @@ class YLayerTypeMenu(bpy.types.Menu):
 
         icon = 'RADIOBUT_ON' if layer.type == 'PREV_LAYERS' else 'RADIOBUT_OFF'
         col.operator("wm.y_replace_layer_type", icon=icon, text='Adjustment (Previous Layers)').type = 'PREV_LAYERS'
+
+        icon = 'RADIOBUT_ON' if layer.type == 'BSDF' else 'RADIOBUT_OFF'
+        col.operator("wm.y_replace_layer_type", icon=icon, text='BSDF').type = 'BSDF'
 
         col.separator()
 

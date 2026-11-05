@@ -592,16 +592,24 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
     for i, mask in enumerate(layer.masks):
         if specific_mask and mask != specific_mask: continue
 
+        # BSDF Mix
+        if layer.type == 'BSDF' and layer.enable and layer.enable_masks and mask.enable:
+            mix_bsdf = check_new_mix_node(tree, mask, 'mix_bsdf', 'Mask BSDF Blend')
+            mix_bsdf.blend_type = mask.blend_type
+        else:
+            if remove_node(tree, mask, 'mix_bsdf'): need_reconnect = True
+
         for j, c in enumerate(mask.channels):
 
             ch = layer.channels[j]
             root_ch = yp.channels[j]
             channel_enabled = is_blend_node_needed(ch, layer, root_ch)
             write_height = get_write_height(ch)
+            need_channel_props = is_layer_channel_props_needed(layer, ch, tree, root_ch)
 
             if specific_ch and ch != specific_ch: continue
 
-            if not channel_enabled or not layer.enable_masks or not mask.enable or not c.enable:
+            if not channel_enabled or not layer.enable_masks or not mask.enable or not c.enable or not need_channel_props:
                 if remove_node(tree, c, 'mix'): need_reconnect = True
                 if remove_node(tree, c, 'mix_remains'): need_reconnect = True
                 if remove_node(tree, c, 'mix_limit'): need_reconnect = True
@@ -2216,6 +2224,24 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
     # Update linear stuff
     check_layer_channel_linear_node(ch, layer, root_ch, reconnect=True)
 
+def check_bsdf_blend_type_nodes(layer, tree=None):
+    if not tree: tree = get_tree(layer)
+
+    need_reconnect = False
+
+    # BSDF blend
+    if layer.type == 'BSDF' and get_layer_enabled(layer):
+        bsdf_intensity = check_new_node(tree, layer, 'bsdf_intensity', 'ShaderNodeMath', 'BSDF Opacity')
+        bsdf_intensity.operation = 'MULTIPLY'
+        if layer.bsdf_blend_type == 'ADD':
+            bsdf_blend, need_reconnect = replace_new_node(tree, layer, 'bsdf_blend', 'ShaderNodeAddShader', 'BSDF Add', return_status=True)
+        else: bsdf_blend, need_reconnect = replace_new_node(tree, layer, 'bsdf_blend', 'ShaderNodeMixShader', 'BSDF Mix', return_status=True)
+    else:
+        if remove_node(tree, layer, 'bsdf_intensity'): need_reconnect = True
+        if remove_node(tree, layer, 'bsdf_blend'): need_reconnect = True
+
+    return need_reconnect
+
 def check_blend_type_nodes(root_ch, layer, ch):
 
     #print("Checking blend type nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
@@ -2249,6 +2275,9 @@ def check_blend_type_nodes(root_ch, layer, ch):
     # Check if channel is enabled
     channel_enabled = is_blend_node_needed(ch, layer, root_ch)
 
+    # Check if nodes are needed for the layer channel
+    need_channel_props = is_layer_channel_props_needed(layer, ch, tree, root_ch)
+
     # Background layer always using mix blend type
     if root_ch.special_type == 'HEIGHT':
         blend_type = ch.height_blend_type
@@ -2260,7 +2289,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     # Layer intensity nodes
     # NOTE: No need intensity nodes for converted height to bump (expect for group)
-    if channel_enabled and not (layer.type != 'GROUP' and ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal):
+    if need_channel_props and channel_enabled and not (layer.type != 'GROUP' and ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal):
         layer_intensity = tree.nodes.get(ch.layer_intensity)
         if not layer_intensity:
             layer_intensity = new_node(tree, ch, 'layer_intensity', 'ShaderNodeMath', 'Layer Opacity')
@@ -2281,7 +2310,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     #if root_ch.type in {'RGB', 'VALUE'}:
     if root_ch.special_type not in {'NORMAL'}:
-        if channel_enabled:
+        if need_channel_props and channel_enabled:
             if root_ch.special_type == 'HEIGHT':
                 blend, need_reconnect = set_height_blend_node(tree, layer, root_ch, ch, prop_name='blend', blend_type=blend_type, need_reconnect=need_reconnect)
             elif root_ch.type in {'RGB', 'VECTOR'}:
@@ -2346,7 +2375,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
             if remove_node(tree, ch, 'extra_alpha'): need_reconnect = True
 
     elif root_ch.special_type == 'NORMAL':
-        if channel_enabled:
+        if need_channel_props and channel_enabled:
 
             #lib_name = lib.VECTOR_MIX
 

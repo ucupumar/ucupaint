@@ -236,6 +236,14 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     try: active_preview_ch = yp.channels[yp.preview_mode_channel_index]
     except: active_preview_ch = None
 
+    # BSDF Socket
+    need_bsdf_socket = any([l for l in yp.layers if l.type == 'BSDF'])
+    if need_bsdf_socket:
+        create_input(group_tree, 'BSDF', 'NodeSocketShader', valid_inputs, input_index)
+        create_output(group_tree, 'BSDF', 'NodeSocketShader', valid_outputs, output_index)
+        input_index += 1
+        output_index += 1
+
     # Get channel pairs
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
     normal_ch, height_ch = get_normal_height_ch_pairs(yp)
@@ -440,6 +448,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
     height_ch = get_height_channel(layer)
     if height_ch:
         check_transition_bump_nodes(layer, tree, height_ch)
+
+    # Bsdf blend nodes
+    check_bsdf_blend_type_nodes(layer, tree)
 
     # Channel nodes
     for i, ch in enumerate(layer.channels):
@@ -660,6 +671,8 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
             root_ch = yp.channels[i]
 
+            if not is_layer_channel_props_needed(layer, ch, tree, root_ch): continue
+
             # Get default value
             default_value = ch.intensity_value
 
@@ -795,9 +808,18 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 dirty = create_prop_input(mask, 'ao_distance', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
+    # BSDF IO
+    if layer_enabled and layer.type == 'BSDF':
+        dirty = create_input(tree, 'BSDF', 'NodeSocketShader', valid_inputs, input_index, dirty)
+        input_index += 1
+
+        dirty = create_output(tree, 'BSDF', 'NodeSocketShader', valid_outputs, output_index, dirty)
+        output_index += 1
+
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
+        if not is_layer_channel_props_needed(layer, ch, tree, root_ch): continue
         channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch)) or (ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal)
 
         force_normal_input = root_ch.special_type in {'NORMAL', 'HEIGHT'} and need_prev_normal and layer_enabled

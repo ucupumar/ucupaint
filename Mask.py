@@ -2473,6 +2473,9 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     # Only useful for merging mask for now
     mix : StringProperty(default='')
 
+    # For BSDF blending
+    mix_bsdf : StringProperty(default='')
+
     need_temp_uv_refresh : BoolProperty(default=False)
 
     tangent : StringProperty(default='')

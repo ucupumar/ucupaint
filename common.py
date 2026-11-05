@@ -117,6 +117,11 @@ height_blend_type_items = (
     ("COMPARE", "Compare Height", ""),
 )
 
+bsdf_blend_type_items = (
+    ("MIX", "Mix", ""),
+    ("ADD", "Add", ""),
+)
+
 blend_type_labels = {
     "MIX" : "Mix",
     "ADD" : "Add",
@@ -318,6 +323,7 @@ layer_type_items = (
     ('EDGE_DETECT', 'Edge Detect', ''),
     ('AO', 'Ambient Occlusion', ''),
     ('PREV_LAYERS', 'Previous Layers', ''),
+    ('BSDF', 'BSDF Layer', ''),
 )
 
 mask_type_items = (
@@ -387,6 +393,7 @@ layer_type_labels = {
     'EDGE_DETECT' : 'Edge Detect',
     'AO' : 'Ambient Occlusion',
     'PREV_LAYERS' : 'Previous Layers',
+    'BSDF' : 'BSDF Layer',
 }
 
 mask_type_labels = {
@@ -620,6 +627,7 @@ layer_node_bl_idnames = {
     'MODIFIER' : 'ShaderNodeGroup',
     'AO' : 'ShaderNodeAmbientOcclusion',
     'PREV_LAYERS' : 'NodeGroupInput',
+    'BSDF' : 'ShaderNodeBsdfPrincipled',
 }
 
 io_suffix = {
@@ -6059,6 +6067,8 @@ def get_layer_type_icon(layer_type):
         return 'FILE_FOLDER'
     elif layer_type == 'COLOR':
         return 'COLOR'
+    elif layer_type == 'BSDF':
+        return 'MATERIAL_DATA'
     elif layer_type == 'HEMI':
         if is_bl_newer_than(2, 80): return 'LIGHT'
         return 'LAMP'
@@ -6413,7 +6423,7 @@ def get_all_baked_channel_images(tree):
 def is_layer_using_vector(layer, exclude_baked=False):
     yp = layer.id_data.yp
 
-    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'PREV_LAYERS', 'BSDF'}:
         return True
 
     for i, ch in enumerate(layer.channels):
@@ -8734,4 +8744,28 @@ def is_layer_preview_mode_enabled(yp):
 
 def is_channel_preview_mode_enabled(yp):
     return yp.preview_mode and (yp.preview_mode_type == 'CHANNEL' or yp.use_baked)
+
+def is_layer_channel_props_needed(layer, ch, tree=None, root_ch=None):
+    if layer.type != 'BSDF': return True
+    yp = ch.id_data.yp
+
+    if not root_ch:
+        ch_idx = get_channel_index(root_ch)
+        root_ch = yp.channels[ch_idx]
+    if not tree: tree = get_tree(layer)
+
+    bsdf = get_layer_source(layer, tree)
+
+    names = [root_ch.name]
+    if root_ch.name == 'Color':
+        names.append('Base Color')
+    elif root_ch.name == 'Emission':
+        names.append('Emission Color')
+
+    # NOTE: BSDF layer doesn't need matching channel props processing
+    for name in names:
+        if name in bsdf.inputs:
+            return False
+
+    return True
 

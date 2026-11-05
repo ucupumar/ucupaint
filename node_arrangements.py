@@ -150,6 +150,11 @@ def rearrange_layer_frame_nodes(layer, tree=None):
     if not tree: tree = get_tree(layer)
     #nodes = tree.nodes
 
+    if layer.type == 'BSDF':
+        frame = get_frame(tree, '__bsdf_blend__', '', 'BSDF Blend')
+        check_set_node_parent(tree, layer.bsdf_intensity, frame)
+        check_set_node_parent(tree, layer.bsdf_blend, frame)
+
     # Layer channels
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
@@ -240,6 +245,8 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, mask.mapping, frame)
         check_set_node_parent(tree, mask.baked_mapping, frame)
         check_set_node_parent(tree, mask.texcoord, frame)
+
+        check_set_node_parent(tree, mask.mix_bsdf, frame)
 
         for c in mask.channels:
             check_set_node_parent(tree, c.mix, frame)
@@ -1228,6 +1235,9 @@ def rearrange_layer_nodes(layer, tree=None):
 
         bookmark_x = loc.x
 
+        if check_set_node_loc(tree, mask.mix_bsdf, loc, True):
+            loc.y -= 40
+
         if check_set_node_loc(tree, mask.mix, loc, True):
             loc.y -= 40
 
@@ -1346,6 +1356,17 @@ def rearrange_layer_nodes(layer, tree=None):
 
     loc.y = 0
     bookmark_x = loc.x
+
+    if check_set_node_loc(tree, layer.bsdf_intensity, loc):
+        loc.x += 200
+        farthest_x = loc.x
+
+    if check_set_node_loc(tree, layer.bsdf_blend, loc):
+        loc.x += 250
+        farthest_x = loc.x
+
+    loc.x = bookmark_x
+    loc.y -= 240
 
     # Channel blends
     for i, ch in enumerate(layer.channels):
