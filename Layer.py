@@ -2300,11 +2300,27 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper, BaseAddMaskProps):
         return get_operator_description(self)
 
     def invoke(self, context, event):
+        obj = bpy.context.object
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        # Use active uv layer name by default
+        if obj and obj.type == 'MESH':
+            uv_name = get_default_uv_name(obj, yp)
+            self.mask_uv_name = uv_name
+
+            # UV Map collections update
+            self.uv_map_coll.clear()
+            for uv in obj.data.uv_layers:
+                if not uv.name.startswith(TEMP_UV):
+                    self.uv_map_coll.add().name = uv.name
+
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
         split_val = 0.325
-        self.draw_mask_options(self.layout, split_val)
+        col = self.layout.column()
+        self.draw_mask_options(col, split_val)
 
     def cleanup(self, context):
         remove_datablock(bpy.data.materials, self.asset_mat)
@@ -2418,8 +2434,10 @@ class YOpenAssetAsLayer(bpy.types.Operator, ImportHelper, BaseAddMaskProps):
                     # Set sockets and their default values
                     if ch_name in source_sockets:
                         item = source_sockets[ch_name]
-                        channel_common.set_input_default_value(yp_node, channel, custom_value=item.value)
-                        channel_common.add_channel_socket_to_input_bundle_layers(yp_node, channel, default_value=item.value)
+                        inp = yp_node.inputs.get(channel.name)
+                        default_value = inp.default_value if inp else None
+                        channel_common.set_input_default_value(yp_node, channel, custom_value=default_value)
+                        channel_common.add_channel_socket_to_input_bundle_layers(yp_node, channel, default_value=default_value)
 
         # Create new bundle input layer
         yp.halt_update = True
