@@ -4739,7 +4739,7 @@ def update_channel_enable(self, context):
     # Update list items
     ListItem.refresh_list_items(yp)
 
-    print('INFO: Channel '+ root_ch.name + ' of ' + layer.name + 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Channel '+ root_ch.name + ' of '+layer.name+' is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
 def update_blend_type(self, context):

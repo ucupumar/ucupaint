@@ -26,22 +26,22 @@ def check_layer_channel_normal_convention(ch, layer=None, root_ch=None, tree=Non
     if not layer or not root_ch: return
     if not tree: tree = get_tree(layer)
 
-    normal_proc = tree.nodes.get(ch.normal_proc)
-    if normal_proc and normal_proc.type == 'NORMAL_MAP':
-        # Check for flip_y node
-        flip_y = tree.nodes.get(ch.flip_y)
+    # Check for flip_y node
+    flip_y = tree.nodes.get(ch.flip_y)
 
-        if not flip_y and hasattr(normal_proc, 'convention'):
+    if not flip_y and is_bl_newer_than(5, 1):
+        normal_proc = tree.nodes.get(ch.normal_proc)
+        if normal_proc and normal_proc.type == 'NORMAL_MAP':
             normal_proc.convention = ch.normal_convention
-        else:
-            if get_channel_enabled(ch, layer, root_ch) and ch.normal_convention == 'DIRECTX':
-                flip_y = check_new_node(tree, ch, 'flip_y', 'ShaderNodeGroup', 'Flip Y')
-                flip_y.node_tree = lib.get_node_tree_lib(lib.FLIP_Y)
-            else: remove_node(tree, ch, 'flip_y')
+    else:
+        if get_channel_enabled(ch, layer, root_ch) and ch.normal_convention == 'DIRECTX':
+            flip_y = check_new_node(tree, ch, 'flip_y', 'ShaderNodeGroup', 'Flip Y')
+            flip_y.node_tree = lib.get_node_tree_lib(lib.FLIP_Y)
+        else: remove_node(tree, ch, 'flip_y')
 
-            if reconnect:
-                reconnect_layer_nodes(layer)
-                rearrange_layer_nodes(layer)
+        if reconnect:
+            reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
 
 def move_legacy_mod_groups(layer, from_tree, to_tree):
     props = ['mod_group', 'mod_group_1']
