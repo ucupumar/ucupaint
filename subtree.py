@@ -15,32 +15,33 @@ def check_layer_divider_alpha(layer, tree=None):
     else:
         remove_node(tree, layer, 'divider_alpha')
 
-def check_entity_image_flip_y(entity):
-    yp = entity.id_data.yp
+def check_layer_channel_normal_convention(ch, layer=None, root_ch=None, tree=None, reconnect=False):
+    yp = ch.id_data.yp
+    if not layer or not root_ch:
+        m1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', ch.path_from_id())
+        if m1: 
+            layer = yp.layers[int(m1.group(1))]
+            root_ch = yp.channels[int(m1.group(2))]
 
-    m1 = re.match(r'yp\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity.path_from_id())
+    if not layer or not root_ch: return
+    if not tree: tree = get_tree(layer)
 
-    if m1:
-        layer = entity
-        tree = get_source_tree(layer)
-        flip_y_needed = layer.image_flip_y and layer.type == 'IMAGE'
+    normal_proc = tree.nodes.get(ch.normal_proc)
+    if normal_proc and normal_proc.type == 'NORMAL_MAP':
+        # Check for flip_y node
+        flip_y = tree.nodes.get(ch.flip_y)
 
-    elif m2:
-        layer = yp.layers[int(m2.group(1))]
-        ch = entity
-        tree = get_tree(layer)
-        flip_y_needed = ch.image_flip_y and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type == 'IMAGE'
-    else:
-        return None
+        if not flip_y and hasattr(normal_proc, 'convention'):
+            normal_proc.convention = ch.normal_convention
+        else:
+            if get_channel_enabled(ch, layer, root_ch) and ch.normal_convention == 'DIRECTX':
+                flip_y = check_new_node(tree, ch, 'flip_y', 'ShaderNodeGroup', 'Flip Y')
+                flip_y.node_tree = lib.get_node_tree_lib(lib.FLIP_Y)
+            else: remove_node(tree, ch, 'flip_y')
 
-    if flip_y_needed:
-        flip_y = check_new_node(tree, entity, 'flip_y', 'ShaderNodeGroup', 'Flip Y')
-        flip_y.node_tree = lib.get_node_tree_lib(lib.FLIP_Y)
-    else:
-        remove_node(tree, entity, 'flip_y')
-
-    return layer
+            if reconnect:
+                reconnect_layer_nodes(layer)
+                rearrange_layer_nodes(layer)
 
 def move_legacy_mod_groups(layer, from_tree, to_tree):
     props = ['mod_group', 'mod_group_1']
@@ -2104,57 +2105,6 @@ def update_preview_mix(blend_type, preview):
     if mix and mix.blend_type != blend_type:
         mix.blend_type = blend_type
 
-def check_override_1_layer_channel_nodes(root_ch, layer, ch):
-
-    yp = layer.id_data.yp
-    layer_tree = get_tree(layer)
-
-    # Current source
-    source = layer_tree.nodes.get(ch.source_1)
-
-    prev_type = ''
-
-    # Source 1 will only use default value or image for now
-    if source:
-        if source.bl_idname == 'ShaderNodeRGB':
-            prev_type = 'DEFAULT'
-        else: prev_type = 'IMAGE'
-
-        if prev_type != ch.override_1_type or not ch.override_1:
-
-            # Save source to cache if it's not default
-            if prev_type != 'DEFAULT':
-
-                ch.cache_1_image = source.name
-                # Remove uv input link
-                if any(source.inputs) and any(source.inputs[0].links):
-                    layer_tree.links.remove(source.inputs[0].links[0])
-                source.label = ''
-                ch.source_1 = ''
-
-    # Try to get channel source
-    if ch.override_1 and ch.override_1_type != 'DEFAULT':
-        source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
-
-        cache = layer_tree.nodes.get(ch.cache_1_image)
-        if cache:
-            # Delete non cached source
-            if prev_type == 'DEFAULT':
-                remove_node(layer_tree, ch, 'source_1')
-
-            ch.source_1 = cache.name
-            ch.cache_1_image = ''
-
-            cache.label = source_label
-        else:
-            source = replace_new_node(layer_tree, ch, 'source_1', 'ShaderNodeTexImage', source_label)
-
-    else:
-        remove_node(layer_tree, ch, 'source_1')
-
-    # Update linear stuff
-    check_layer_channel_linear_node(ch, layer, root_ch, reconnect=True)
-
 def check_override_layer_channel_nodes(root_ch, layer, ch):
 
     yp = layer.id_data.yp
@@ -2392,6 +2342,8 @@ def check_blend_type_nodes(root_ch, layer, ch):
                 normal_proc, need_reconnect = replace_new_node(tree, ch, 'normal_proc', 'ShaderNodeNormalMap', label='Normal Process', return_status=True)
                 normal_proc.uv_map = layer.uv_name
                 normal_proc.space = ch.normal_space
+                if hasattr(normal_proc, 'convention'):
+                    normal_proc.convention = ch.normal_convention
             else:
                 if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
 

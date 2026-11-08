@@ -2456,13 +2456,6 @@ class YFixMissingData(bpy.types.Operator):
                         remove_node(ltree, ch, 'source')
                         ch.override_type = 'DEFAULT'
 
-                src = get_channel_source_1(ch, layer)
-                if ch.override_1 and ch.override_1_type != 'DEFAULT': 
-                    if not src or (ch.override_1_type == 'IMAGE' and not src.image):
-                        ltree = get_tree(layer)
-                        remove_node(ltree, ch, 'source_1')
-                        ch.override_1_type = 'DEFAULT'
-
         if yp.active_layer_index > len(yp.layers):
             yp.active_layer_index = len(yp.layers)-1
 

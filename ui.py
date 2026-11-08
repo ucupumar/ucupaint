@@ -265,7 +265,7 @@ class NODE_MT_copy_image_path_menu(bpy.types.Menu):
             op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Containing Folder Path")
             op.clipboard_text = folder_path
 
-def draw_image_props(context, source, layout, entity=None, show_flip_y=False, show_datablock=True, show_source_input=False):
+def draw_image_props(context, source, layout, entity=None, show_datablock=True, show_source_input=False):
 
     image = source.image
 
@@ -413,11 +413,6 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
     #scol.prop(source, 'projection', text='')
     #if source.projection == 'BOX':
     #    scol.prop(entity, 'projection_blend', text='')
-
-    if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
-        row = col.row(align=True)
-        row.label(text='Flip G:')
-        row.prop(entity, 'image_flip_y', text='')
 
 def draw_object_index_props(entity, layout):
     col = layout.column()
@@ -1458,11 +1453,6 @@ def draw_stats_ui(context, layout, node, show_header=False):
                             vcols.append(vcol_name)
                     elif ch.override_type not in {'DEFAULT'}:
                         num_gen_texs += 1
-                if ch.override_1:
-                    if ch.override_1_type == 'IMAGE':
-                        src = layer_tree.nodes.get(ch.source_1)
-                        if src.image and src.image not in images:
-                            images.append(src.image)
 
                 for mod in ch.modifiers:
                     if not mod.enable: continue
@@ -2448,7 +2438,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         ccol.active = not layer.use_baked
 
         if image:
-            draw_image_props(context, source, ccol, layer, show_flip_y=True, show_datablock=False)
+            draw_image_props(context, source, ccol, layer, show_datablock=False)
 
             # NOTE: Divide rgb by alpha is mostly useless for image layer, 
             # so it's hidden under experimental feature unless the user ever enabled it before
@@ -2701,12 +2691,12 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
 
             layout.separator()
 
-def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False):
+def get_layer_channel_input_label(layer, ch, source=None):
     yp = layer.id_data.yp
 
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
-    override = ch.override if not secondary_input else ch.override_1
-    override_type = ch.override_type if not secondary_input else ch.override_1_type
+    override = ch.override
+    override_type = ch.override_type
 
     if override:
         if not source: source = get_channel_source(ch, layer)
@@ -2728,7 +2718,7 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
             if not color_ch.override and color_ch.socket_input_name == 'Alpha':
                 label = 'Solid Value (1.0)'
             else: label += ' Alpha'
-        else: label += ' ' + get_channel_input_socket_name(layer, ch, secondary_input=secondary_input)
+        else: label += ' ' + get_channel_input_socket_name(layer, ch)
 
     return label
 
@@ -3248,6 +3238,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 row = row.row(align=True)
                 row.scale_x = 1.4
             row.prop(ch, 'normal_space', text='')
+
+            # Normal convention
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            #row.active = height_as_normal_disabled
+            row.label(text='Convention:')
+            row.prop(ch, 'normal_convention', text='')
 
         if root_ch.special_type == 'VDISP' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
@@ -4448,10 +4445,6 @@ def draw_layers_ui(context, layout, node):
                         override_image = source.image
                     elif c.override_type == 'VCOL':
                         override_vcol = get_vcol_from_source(obj, source)
-                elif c.override_1 and c.override_1_type == 'IMAGE' and c.active_edit_1:
-                    source = get_channel_source_1(c, layer)
-                    if source and source.image:
-                        override_image = source.image
 
             # Check for active mask
             for i, m in enumerate(layer.masks):
@@ -5672,14 +5665,12 @@ def layer_listing(layout, layer, show_expand=False):
         for i, c in enumerate(layer.channels):
             root_ch = yp.channels[i]
             #if not c.enable: continue
-            if (c.override and c.override_type != 'DEFAULT') or (c.override_1 and c.override_1_type != 'DEFAULT'):
+            if c.override and c.override_type != 'DEFAULT':
                 if c.enable or (c == alpha_ch and color_ch.enable): 
                     selectable_overrides.append(c)
                 all_overrides.append(c)
-                if c.active_edit or c.active_edit_1:
+                if c.active_edit:
                     active_override = c
-                if c.active_edit_1:
-                    override_idx = 1
 
     # Try to get image masks
     all_masks = []
@@ -5728,8 +5719,6 @@ def layer_listing(layout, layer, show_expand=False):
     else:
         if active_override:
             ae_prop = 'active_edit'
-            if override_idx == 1 and hasattr(active_override, 'active_edit_1'):
-                ae_prop = 'active_edit_1'
             row.active = False
             if image: 
                 if ypup.use_image_preview and image.preview:
@@ -5820,28 +5809,6 @@ def layer_listing(layout, layer, show_expand=False):
                 else:
                     icon_name = get_ch_type_icon_prefix(layer, c) + 'texture'
                     row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(icon_name))
-
-        if c.override_1 and c.override_1_type != 'DEFAULT' and c.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-            row = master.row(align=True)
-            row.active = c.active_edit_1
-            if c.active_edit_1:
-                src = get_channel_source_1(c, layer)
-                override_ch = c
-                if src and c.override_1_type == 'IMAGE':
-                    active_override_image = src.image
-                    if ypup.use_image_preview and src.image.preview: 
-                        #if not src.image.preview: src.image.preview_ensure()
-                        row.label(text='', icon_value=src.image.preview.icon_id)
-                    else: 
-                        row.label(text='', icon_value=lib.get_icon('vector_image'))
-            else:
-                if c.override_1_type == 'IMAGE':
-                    src = get_channel_source_1(c, layer)
-                    if src: 
-                        if ypup.use_image_preview and src.image.preview: 
-                            #if not src.image.preview: src.image.preview_ensure()
-                            row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=src.image.preview.icon_id)
-                        else: row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=lib.get_icon('vector_image'))
 
     # Mask icons
     active_mask_image = None
@@ -7276,7 +7243,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
             op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
             op.socket_name = get_channel_input_socket_name(layer, ch)
-            op.set_normal_input = False
         else:
             if layer.type in {'GROUP', 'PREV_LAYERS'}:
                 label = 'Group ' if layer.type == 'GROUP' else 'Previous '
@@ -7284,7 +7250,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
                 icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
                 op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
                 op.socket_name = ch.socket_input_name
-                op.set_normal_input = False
             else:
                 source = get_layer_source(layer)
                 for outp in get_available_source_outputs(source, layer.type):
@@ -7301,7 +7266,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
                     op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
                     op.socket_name = outp.name
-                    op.set_normal_input = False
 
         col.separator()
 
@@ -7314,7 +7278,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if ch.override and ch.override_type == 'DEFAULT' else 'RADIOBUT_OFF'
         op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
         op.socket_name = ''
-        op.set_normal_input = False
 
         # Custom Data
         label = 'Custom '

@@ -947,7 +947,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     mapping = nodes.get(layer.mapping)
     linear = nodes.get(layer.linear)
     divider_alpha = nodes.get(layer.divider_alpha)
-    flip_y = nodes.get(layer.flip_y)
     decal_process = nodes.get(layer.decal_process)
 
     # Get tangent and bitangent
@@ -1107,7 +1106,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb_connections[name] = create_link(tree, rgb_connections[name], divider_alpha.inputs[mixcol0])[mixout]
                 create_link(tree, alpha_connections[name], divider_alpha.inputs[mixcol1])
             if linear: rgb_connections[name] = create_link(tree, rgb_connections[name], linear.inputs[0])[0]
-            if flip_y: rgb_connections[name] = create_link(tree, rgb_connections[name], flip_y.inputs[0])[0]
 
         mod_group = None
         if i < len(layer.mod_groups):
@@ -1474,9 +1472,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if ch_tb_fac: create_link(tree, ch_tb_fac, intensity_multiplier.inputs['Factor'])
 
         ch_linear = nodes.get(ch.linear)
-        if ch_linear:
-            create_link(tree, rgb, ch_linear.inputs[0])
-            rgb = ch_linear.outputs[0]
+        if ch_linear: rgb = create_link(tree, rgb, ch_linear.inputs[0])[0]
+
+        ch_flip_y = nodes.get(ch.flip_y)
+        if ch_flip_y: rgb = create_link(tree, rgb, ch_flip_y.inputs[0])[0]
 
         # NOTE: Swizzle currently only works with non custom layer channel source
         if ch.swizzle_input_mode != 'RGB' and not ch.override:
@@ -2022,10 +2021,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         active_found = True
                         break
 
-                    if ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.active_edit_1:
-                        active_found = True
-                        break
-                
                 if not active_found and alpha_preview:
                     create_link(tree, source.outputs[0], alpha_preview)
 

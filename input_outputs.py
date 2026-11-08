@@ -419,9 +419,6 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
         if not mapping:
             mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
 
-    # Flip Y
-    #update_image_flip_y(self, context)
-
     # Linear node
     check_layer_image_linear_node(layer)
 
@@ -432,9 +429,6 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
 
     # Check the need of divider alpha
     check_layer_divider_alpha(layer)
-
-    # Check the need of flip y
-    check_entity_image_flip_y(layer)
 
     # Update transition related nodes
     height_ch = get_height_channel(layer)
@@ -451,6 +445,10 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
 
         # Check mask mix nodes
         check_mask_mix_nodes(layer, tree, specific_ch=ch)
+
+        # Layer normal convention
+        if root_ch.special_type == 'NORMAL':
+            check_layer_channel_normal_convention(ch, layer, root_ch, tree)
 
     # Mask nodes
     for mask in layer.masks:
@@ -677,11 +675,6 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 else:
                     dirty = create_prop_input(ch, 'override_color', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
-
-            # Override 1 values
-            if ch.override_1 and ch.override_1_type == 'DEFAULT':
-                dirty = create_prop_input(ch, 'override_1_color', valid_inputs, input_index, dirty, float_factor_input_names)
-                input_index += 1
 
             if layer.type != 'GROUP':
                 if root_ch.special_type == 'HEIGHT':

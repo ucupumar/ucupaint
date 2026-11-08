@@ -1769,6 +1769,20 @@ def update_yp_tree(tree):
                     img.colorspace_settings.name = get_noncolor_name()
                 else: img.colorspace_settings.name = get_srgb_name()
 
+    # Version 3.0.2 added normal convention, converted from image_flip_y
+    if version_tuple(yp.version) < (3, 0, 2):
+        for layer in yp.layers:
+            for i, ch in enumerate(layer.channels):
+                try: root_ch = yp.channels[i]
+                except: continue
+                if root_ch.special_type == 'NORMAL' and (layer.image_flip_y or ch.image_flip_y):
+                    # Remove flip_y node from layer
+                    layer_tree = get_tree(layer)
+                    flip_y = layer_tree.nodes.get(layer.flip_y)
+                    if flip_y: remove_node(layer_tree, layer, 'flip_y')
+
+                    ch.normal_convention = 'DIRECTX'
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha

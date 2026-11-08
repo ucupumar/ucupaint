@@ -57,11 +57,6 @@ def refresh_list_items(yp, repoint_active=False):
                         active_item_name = layer.name + ' ' + root_ch.name
                         active_item_type = 'CHANNEL_OVERRIDE'
 
-                    #if root_ch.type == 'NORMAL' and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.active_edit_1:
-                    #    active_item_name = layer.name + ' ' + root_ch.name + ' 1'
-                    #    active_item_type = 'CHANNEL_OVERRIDE'
-                    #    active_item_is_second_member = True
-
         # Get current item
         elif yp.active_item_index < len(yp.list_items):
             item = yp.list_items[yp.active_item_index]
@@ -134,33 +129,6 @@ def refresh_list_items(yp, repoint_active=False):
                 elif active_item_name == layer.name + ' ' + root_ch.name and active_item_type == 'CHANNEL_OVERRIDE':
                     new_active_index = layer_item_index
 
-                # Channel Override 1 / Normal
-                #if (layer.expand_subitems and 
-                #    (root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}) and 
-                #    (ch.override_1 and ch.override_1_type != 'DEFAULT') and
-                #    ch.enable and
-                #    yp.enable_expandable_subitems
-                #    ):
-                #    item = yp.list_items.add()
-                #    item.type = 'CHANNEL_OVERRIDE'
-                #    item.index = j
-                #    item.parent_index = i
-                #    item.parent_name = layer.name
-                #    item.name = layer.name + ' ' + root_ch.name + ' 1'
-                #    item.is_second_member = True
-
-                #    if (
-                #        # Select channel with active edit after expand subitems
-                #        (repoint_active and yp.active_layer_index == i and ch.active_edit_1) or 
-
-                #        # Select correct mask after other layer uncollapsing
-                #        (active_item_name == item.name and active_item_type == 'CHANNEL_OVERRIDE' and active_item_is_second_member)
-                #    ):
-                #        new_active_index = len(yp.list_items)-1
-
-                #elif active_item_name == layer.name + ' ' + root_ch.name + ' 1' and active_item_type == 'CHANNEL_OVERRIDE':
-                #    new_active_index = layer_item_index
-
             # Masks
             for j, mask in enumerate(layer.masks):
 
@@ -206,7 +174,7 @@ class YListItem(bpy.types.PropertyGroup):
     parent_index : IntProperty(default=-1)
 
     # To mark normal override
-    is_second_member : BoolProperty(default=False)
+    is_second_member : BoolProperty(default=False) # Deprecated
 
     type : EnumProperty(
         name = 'Item Type',
@@ -261,7 +229,6 @@ def update_list_item_index(self, context):
                     if mask.active_edit: mask.active_edit = False
                 for ch in layer.channels:
                     if ch.active_edit: ch.active_edit = False
-                    if ch.active_edit_1: ch.active_edit_1 = False
 
     elif item.type == 'MASK':
         layer_index = item.parent_index
@@ -277,9 +244,8 @@ def update_list_item_index(self, context):
             layer = yp.layers[layer_index]
             if item.index < len(layer.channels):
                 ch = layer.channels[item.index]
-                if not item.is_second_member:
-                    ch.active_edit = True
-                else: ch.active_edit_1 = True
+                #if not item.is_second_member:
+                ch.active_edit = True
 
     if layer_index != -1 and layer_index < len(yp.layers): # and yp.active_layer_index != layer_index:
         yp.active_layer_index = layer_index
@@ -364,11 +330,8 @@ def set_active_entity_item(entity):
         ch = layer.channels[int(m2.group(2))]
         root_ch = yp.channels[int(m2.group(2))]
 
-        if not yp.enable_expandable_subitems or not layer.expand_subitems or (not ch.active_edit_1 and not ch.active_edit):
+        if not yp.enable_expandable_subitems or not layer.expand_subitems or not ch.active_edit:
             repoint_to_layer = True
-
-        if ch.active_edit_1:
-            appendix = ' 1'
 
     elif m3: 
         layer = yp.layers[int(m3.group(1))]

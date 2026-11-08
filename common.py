@@ -3683,12 +3683,6 @@ def is_active_uv_map_mismatch_active_entity(obj, layer):
             use_baked = False
             break
 
-        if ch.active_edit_1:
-            entity = layer
-            entity_type = ch.override_1_type
-            use_baked = False
-            break
-
     if not entity:
         entity = layer
         entity_type = entity.type
@@ -3886,7 +3880,7 @@ def refresh_temp_uv(obj, entity):
     remove_temp_uv(obj, entity)
 
     # No need to use temp uv if override is not using image
-    if m3 and ((entity.active_edit and entity.override_type != 'IMAGE') or (entity.active_edit_1 and entity.override_1_type != 'IMAGE')):
+    if m3 and entity.active_edit and entity.override_type != 'IMAGE':
         return False
 
     # No need to use temp uv if layer/mask is not using image
@@ -3918,9 +3912,7 @@ def refresh_temp_uv(obj, entity):
         mapping = get_mask_mapping(entity, get_baked=entity.use_baked)
         #print('Mask!')
     elif m3: 
-        if entity.active_edit_1:
-            source = layer_tree.nodes.get(entity.source_1)
-        else: source = layer_tree.nodes.get(entity.source)
+        source = layer_tree.nodes.get(entity.source)
         mapping = get_layer_mapping(layer)
         entity = layer
         #print('Channel!')
@@ -5417,12 +5409,6 @@ def set_active_image_for_editor_and_painting(yp):
 
                         image = source.image
 
-                    if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.override_1_type == 'IMAGE':
-                        source = tree.nodes.get(ch.source_1)
-                        source.select = True
-                        layer_tree.nodes.active = source
-                        image = source.image
-
                 if not image:
                     source = get_layer_source(layer, tree)
                     baked_source = get_layer_source(layer, get_baked=True)
@@ -5532,17 +5518,6 @@ def get_active_image_and_stuffs(obj, yp):
 
             elif ch.override_type == 'VCOL' and obj and obj.type == 'MESH':
                 vcol = vcols.get(get_source_vcol_name(source)) if vcols else None
-
-        if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT':
-            source = tree.nodes.get(ch.source_1)
-            entity = ch
-
-            if ch.override_1_type == 'IMAGE':
-                uv_name = layer.uv_name
-                source_1 = get_channel_source_1(ch)
-                image = source_1.image
-                src_of_img = ch
-                mapping = get_layer_mapping(layer)
 
     if not entity: 
         entity = layer
@@ -6182,11 +6157,6 @@ def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=Fals
                 if source and source.image and source.image not in images:
                     images.append(source.image)
 
-            if ch.override_1 and ch.override_1_type == 'IMAGE':
-                source = get_channel_source_1(ch, lay)
-                if source and source.image and source.image not in images:
-                    images.append(source.image)
-
         baked_source = get_layer_source(lay, get_baked=True)
         if baked_source and baked_source.image and baked_source.image not in images:
             images.append(baked_source.image)
@@ -6277,10 +6247,6 @@ def get_yp_entites_using_same_image(yp, image):
         for ch in layer.channels:
             if ch.override and ch.override_type == 'IMAGE':
                 source = get_channel_source(ch, layer)
-                if source and source.image == image:
-                    entities.append(ch)
-            elif ch.override_1 and ch.override_1_type == 'IMAGE':
-                source = get_channel_source_1(ch, layer)
                 if source and source.image == image:
                     entities.append(ch)
 
@@ -6721,26 +6687,6 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP', 'PREV_LAYERS'}
         ):
             return 1.0 / GAMMA
-
-    return 1.0
-
-def get_layer_channel_normal_gamma_value(ch, layer=None, root_ch=None, layer_tree=None, channel_enabled=None):
-    yp = ch.id_data.yp
-    if not layer or not root_ch: layer, root_ch = get_layer_and_root_ch_from_layer_ch(ch)
-
-    if channel_enabled == None: channel_enabled = get_channel_enabled(ch, layer, root_ch)
-    if not channel_enabled: return 1.0
-
-    image = None
-    source = None
-    if layer_tree == None: layer_tree = get_tree(layer)
-    if ch.override_1 and ch.override_1_type == 'IMAGE':
-        source = layer_tree.nodes.get(ch.source_1)
-        if source: image = source.image
-
-    # Convert srgb normal map override to linear
-    if ch.override_1 and image and is_image_source_srgb(image, source):
-        return 1.0 / GAMMA
 
     return 1.0
 
@@ -8488,10 +8434,10 @@ def is_modifier_used_by_alpha_channel(mod):
 
     return False
 
-def get_channel_input_socket_name(layer, ch, source=None, secondary_input=False):
+def get_channel_input_socket_name(layer, ch, source=None):
     if not source: source = get_layer_source(layer)
 
-    socket_input_name = ch.socket_input_name if not secondary_input else ch.socket_input_1_name
+    socket_input_name = ch.socket_input_name
 
     if source:
         # Check if channel prop is in output name
@@ -8507,10 +8453,10 @@ def get_channel_input_socket_name(layer, ch, source=None, secondary_input=False)
 
     return 'Error'
 
-def get_channel_input_socket(layer, ch, source=None, secondary_input=False):
+def get_channel_input_socket(layer, ch, source=None):
     if not source: source = get_layer_source(layer)
 
-    socket_name = get_channel_input_socket_name(layer, ch, source, secondary_input)
+    socket_name = get_channel_input_socket_name(layer, ch, source)
     return source.outputs.get(socket_name)
 
 def get_mask_input_socket_name(mask, source=None):

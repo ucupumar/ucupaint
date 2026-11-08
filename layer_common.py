@@ -71,11 +71,6 @@ def check_layer_projection_blends(layer):
             if hasattr(source, 'projection_blend'):
                 source.projection_blend = layer.projection_blend
 
-        if ch.override_1 and ch.override_1_type == 'IMAGE':
-            source = get_channel_source_1(ch, layer)
-            if hasattr(source, 'projection_blend'):
-                source.projection_blend = layer.projection_blend
-
 def check_layer_projections(layer):
     # Set image source projection
     if layer.type == 'IMAGE':
@@ -86,10 +81,6 @@ def check_layer_projections(layer):
     for ch in layer.channels:
         if ch.override and ch.override_type == 'IMAGE':
             source = get_channel_source(ch, layer)
-            source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object'} else 'FLAT'
-
-        if ch.override_1 and ch.override_1_type == 'IMAGE':
-            source = get_channel_source_1(ch, layer)
             source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object'} else 'FLAT'
 
     # Check projection blends
@@ -897,14 +888,6 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                         vcol_user_types.append('CHANNEL')
                         vcol_nodes.append(ch_source)
                         vcol_names.append(vcol_name)
-
-            if ch.override_1 and ch.override_1_type == 'IMAGE':
-                ch_source = get_channel_source_1(ch, layer)
-                img = ch_source.image
-                if img:
-                    img_users.append(ch)
-                    img_nodes.append(ch_source)
-                    imgs.append(img)
 
         # Duplicate masks
 
