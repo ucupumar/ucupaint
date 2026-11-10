@@ -2239,7 +2239,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     )
 
             # Check if height converted to normal
-            height_as_normal = ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal
+            height_as_normal = ch == normal_ch and height_ch and height_ch.use_height_as_normal and get_channel_enabled(height_ch, layer, root_height_ch)
 
             # Normal process
             if height_as_normal:

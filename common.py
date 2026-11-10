@@ -5598,7 +5598,7 @@ def is_tangent_input_needed(layer, uv_name):
                 if is_layer_using_normal_map(layer, normal_root_ch) and normal_ch.normal_blend_type == 'OVERLAY':
                     return True
 
-                if normal_ch and height_ch and height_ch.use_height_as_normal and has_channel_children(layer, normal_root_ch):
+                if normal_ch and height_ch and height_ch.use_height_as_normal and has_channel_children(layer, normal_root_ch) and has_channel_children(layer, height_root_ch):
                     return True
 
             else:

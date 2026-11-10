@@ -2829,6 +2829,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
     bump_ch_found = True if get_transition_bump_channel(layer) else False
     showed_bump_ch_found = True if get_showed_transition_bump_channel(layer) else False
 
+    # Check if height channel is converted to normal
+    height_root_ch = get_root_height_channel(yp)
+    height_as_normal_enabled = height_ch and height_ch.use_height_as_normal and get_channel_enabled(height_ch, layer, height_root_ch)
+
     ch_count = 0
     extra_separator = False
     for i, ch in enumerate(layer.channels):
@@ -2842,7 +2846,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             continue
 
         # Hide normal channel if 'Use height as normal' is enabled
-        if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+        if ch == normal_ch and height_as_normal_enabled:
             continue
 
         root_ch = yp.channels[i]
@@ -2873,7 +2877,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         label = ''
         alt_ch_for_icon = None
-        if ch == height_ch and height_ch.use_height_as_normal:
+        if ch == height_ch and height_as_normal_enabled:
             root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
             alt_ch_for_icon = root_normal_ch
             label = root_normal_ch.name+' from '+root_height_ch.name
@@ -2909,7 +2913,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 ssplit = split_layout(rrow, 0.4, align=True)
                 
-                if ch == height_ch and height_ch.use_height_as_normal:
+                if ch == height_ch and height_as_normal_enabled:
                     label = normal_blend_labels[normal_ch.normal_blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(normal_ch, 'normal_blend_type', text='')
                 elif root_ch.special_type == 'NORMAL':
@@ -3027,7 +3031,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
             rrow = split.row(align=True)
 
-            if height_ch == ch and height_ch.use_height_as_normal:
+            if height_ch == ch and height_as_normal_enabled:
                 rrow.prop(normal_ch, 'normal_blend_type', text='')
             elif root_ch.special_type == 'NORMAL':
                 rrow.prop(ch, 'normal_blend_type', text='')

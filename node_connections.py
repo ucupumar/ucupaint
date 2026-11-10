@@ -1555,9 +1555,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if layer_intensity and layer_intensity_value:
             if ch_intensity:
                 # NOTE: Layer group with height as normal enabled will use height channel intensity rather than it's own
-                if layer.type == 'GROUP' and ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+                if layer.type == 'GROUP' and ch == normal_ch and height_ch and height_ch.use_height_as_normal and get_channel_enabled(height_ch, layer, height_root_ch):
                     height_ch_intensity = get_essential_node(tree, TREE_START).get(get_entity_input_name(height_ch, 'intensity_value'))
-                    ch_intensity = create_link(tree, height_ch_intensity, layer_intensity.inputs[0])[0]
+                    if height_ch_intensity:
+                        ch_intensity = create_link(tree, height_ch_intensity, layer_intensity.inputs[0])[0]
                 else:
                     ch_intensity = create_link(tree, ch_intensity, layer_intensity.inputs[0])[0]
             create_link(tree, layer_intensity_value, layer_intensity.inputs[1])
@@ -1581,7 +1582,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if normal_proc:
                 ch_normal_strength = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'normal_strength'))
-                if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+                if ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal:
                     # Height channel as bump
                     if height_ch_rgb and 'Height' in normal_proc.inputs:
                         create_link(tree, height_ch_rgb, normal_proc.inputs['Height'])
