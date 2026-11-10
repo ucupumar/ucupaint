@@ -1783,121 +1783,38 @@ def remove_unused_deprecated_height_related_nodes(tree, height_ch):
 
 def set_height_blend_node(tree, layer, root_ch, ch, prop_name='height_blend', blend_type='MIX', need_reconnect=False):
 
-    if not root_ch.enable_smooth_bump:
-        # Has parent
-        if (layer.parent_idx != -1 or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX' and not ch.use_height_as_normal: #in {'MIX', 'COMPARE'}:
-            #if blend_type == 'COMPARE':
-            #    lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE
-            #else: 
-            lib_name = lib.STRAIGHT_OVER
+    normal_ch = get_normal_channel(layer)
 
-            height_blend, need_reconnect = replace_new_node(
-                tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
-            )
+    # Has parent
+    if (layer.parent_idx != -1 or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX' and (not ch.use_height_as_normal or not normal_ch): #in {'MIX', 'COMPARE'}:
+        #if blend_type == 'COMPARE':
+        #    lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE
+        #else: 
+        lib_name = lib.STRAIGHT_OVER
 
-            #if ch.write_height:
-            #    height_blend.inputs['Divide'].default_value = 1.0
-            #else: height_blend.inputs['Divide'].default_value = 0.0
-        else:
-            if blend_type == 'COMPARE':
-                lib_name = lib.HEIGHT_COMPARE
+        height_blend, need_reconnect = replace_new_node(
+            tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
+            lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
+        )
 
-                height_blend, need_reconnect = replace_new_node(
-                    tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                    lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
-                )
-            else:
-                height_blend, need_reconnect = replace_new_mix_node(
-                    tree, ch, prop_name, 'Height Blend', 
-                    return_status=True, dirty=need_reconnect
-                )
-
-                height_blend.blend_type = blend_type
+        #if ch.write_height:
+        #    height_blend.inputs['Divide'].default_value = 1.0
+        #else: height_blend.inputs['Divide'].default_value = 0.0
     else:
-
-        if blend_type == 'MIX':
-
-            # Has parent
-            if layer.parent_idx != -1 or (is_normal_height_input_connected(root_ch) and root_ch.enable_smooth_bump):
-                if root_ch.enable_smooth_bump:
-                    lib_name = lib.STRAIGHT_OVER_HEIGHT_MIX_SMOOTH
-                else: lib_name = lib.STRAIGHT_OVER_HEIGHT_MIX
-
-                height_blend, need_reconnect = replace_new_node(
-                    tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                    lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
-                )
-
-                if ch.write_height:
-                    height_blend.inputs['Divide'].default_value = 1.0
-                else: height_blend.inputs['Divide'].default_value = 0.0
-
-            # No parent
-            else:
-                if root_ch.enable_smooth_bump:
-                    height_blend, need_reconnect = replace_new_node(
-                        tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                        lib.HEIGHT_MIX_SMOOTH, return_status=True, hard_replace=True, dirty=need_reconnect
-                    )
-                else:
-                    height_blend, need_reconnect = replace_new_mix_node(
-                        tree, ch, prop_name, 'Height Blend', 
-                        return_status=True, dirty=need_reconnect
-                    )
-
-                    height_blend.blend_type = 'MIX'
-
-        elif blend_type == 'ADD':
-
-            # Has parent
-            if layer.parent_idx != -1 or (is_normal_height_input_connected(root_ch) and root_ch.enable_smooth_bump):
-                if root_ch.enable_smooth_bump:
-                    lib_name = lib.STRAIGHT_OVER_HEIGHT_ADD_SMOOTH
-                else: lib_name = lib.STRAIGHT_OVER_HEIGHT_ADD
-
-                height_blend, need_reconnect = replace_new_node(
-                    tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                    lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
-                )
-
-                if ch.write_height:
-                    height_blend.inputs['Divide'].default_value = 1.0
-                else: height_blend.inputs['Divide'].default_value = 0.0
-
-            # No parent
-            else:
-                if root_ch.enable_smooth_bump:
-                    height_blend, need_reconnect = replace_new_node(
-                        tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                        lib.HEIGHT_ADD_SMOOTH, return_status=True, hard_replace=True, dirty=need_reconnect
-                    )
-                else:
-                    height_blend, need_reconnect = replace_new_mix_node(
-                        tree, ch, prop_name, 'Height Blend', 
-                        return_status=True, dirty=need_reconnect
-                    )
-
-                    height_blend.blend_type = 'ADD'
-
-        else:
-
-            # Has parent
-            if layer.parent_idx != -1 or (is_normal_height_input_connected(root_ch) and root_ch.enable_smooth_bump):
-                if root_ch.enable_smooth_bump:
-                    lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE_SMOOTH
-                else: lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE
-
-            # No parent
-            else:
-                if root_ch.enable_smooth_bump:
-                    lib_name = lib.HEIGHT_COMPARE_SMOOTH
-                else: lib_name = lib.HEIGHT_COMPARE
+        if blend_type == 'COMPARE':
+            lib_name = lib.HEIGHT_COMPARE
 
             height_blend, need_reconnect = replace_new_node(
                 tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
                 lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
             )
+        else:
+            height_blend, need_reconnect = replace_new_mix_node(
+                tree, ch, prop_name, 'Height Blend', 
+                return_status=True, dirty=need_reconnect
+            )
+
+            height_blend.blend_type = blend_type
 
     return height_blend, need_reconnect
 

@@ -5558,9 +5558,6 @@ def is_uv_input_needed(layer, uv_name):
             return True
 
         if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-            return True
-
-        if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
             if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
                 return True
 
@@ -5580,93 +5577,47 @@ def is_uv_input_needed(layer, uv_name):
 
     return False
 
-def is_entity_need_tangent_input(entity, uv_name):
-    yp = entity.id_data.yp
+def is_tangent_input_needed(layer, uv_name):
+    yp = layer.id_data.yp
 
-    m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', entity.path_from_id())
-    if m: 
-        layer = yp.layers[int(m.group(1))]
-        entity_enabled = get_mask_enabled(entity)
-        is_mask = True
-    else: 
-        layer = entity
-        entity_enabled = get_layer_enabled(entity)
-        is_mask = False
+    normal_root_ch = get_root_normal_channel(yp)
+    if not normal_root_ch: return False
+    height_root_ch = get_root_height_channel(yp)
 
-    if entity_enabled and (entity.use_baked or entity.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}):
+    if get_layer_enabled(layer) and (layer.use_baked or layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}):
 
-        height_root_ch = get_root_height_channel(yp)
         height_ch = get_height_channel(layer)
-        normal_root_ch = get_root_normal_channel(yp)
         normal_ch = get_normal_channel(layer)
 
-        height_channel_enabled = get_channel_enabled(height_ch, layer, height_root_ch) if height_root_ch and height_ch else False
-        normal_channel_enabled = get_channel_enabled(normal_ch, layer, normal_root_ch) if normal_root_ch and normal_ch else False
+        tangent_uv = normal_root_ch.main_uv if normal_root_ch.main_uv != '' else layer.uv_name
 
-        # Previous normal is calculated using normal process
-        if height_root_ch and height_root_ch.enable_smooth_bump and check_need_prev_normal(layer):
-            return True
+        if tangent_uv == uv_name:
 
-        #if normal_root_ch and normal_ch and get_channel_enabled(normal_ch, layer, normal_root_ch):
+            if layer.type == 'GROUP':
 
-        if entity.type == 'GROUP':
-
-            if normal_root_ch and is_layer_using_normal_map(entity, normal_root_ch):
-                return True
-
-            if normal_ch and height_ch and height_ch.use_height_as_normal and has_channel_children(entity, normal_root_ch):
-                return True
-
-        elif normal_root_ch and uv_name == normal_root_ch.main_uv:
-
-            if normal_channel_enabled and normal_ch.normal_blend_type == 'OVERLAY':
-                return True
-
-            if height_channel_enabled and height_ch.use_height_as_normal and normal_ch.normal_blend_type == 'OVERLAY':
-                return True
-
-            if height_channel_enabled and height_root_ch.enable_smooth_bump:
-                if height_ch.enable_transition_bump:
+                if is_layer_using_normal_map(layer, normal_root_ch) and normal_ch.normal_blend_type == 'OVERLAY':
                     return True
 
-                # Main UV Tangent is needed if smooth bump is on and entity is using non-uv texcoord or have different UV
-                if (entity.texcoord_type != 'UV' or entity.uv_name != uv_name) and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                if normal_ch and height_ch and height_ch.use_height_as_normal and has_channel_children(layer, normal_root_ch):
                     return True
 
-                # Fake neighbor need tangent
-                if entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT', 'AO'} and not entity.use_baked:
+            else:
+
+                height_channel_enabled = get_channel_enabled(height_ch, layer, height_root_ch) if height_root_ch and height_ch else False
+                normal_channel_enabled = get_channel_enabled(normal_ch, layer, normal_root_ch) if normal_root_ch and normal_ch else False
+
+                if normal_channel_enabled and normal_ch and normal_ch.normal_blend_type == 'OVERLAY':
                     return True
 
-        elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
-
-            # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
-            #if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-            if height_channel_enabled and height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name:
-                return True
-
-    return False
-
-def is_tangent_input_needed(layer, uv_name):
-
-    if is_entity_need_tangent_input(layer, uv_name):
-        return True
-
-    for mask in layer.masks:
-        if is_entity_need_tangent_input(mask, uv_name):
-            return True
+                if height_channel_enabled and height_ch and height_ch.use_height_as_normal and normal_ch and normal_ch.normal_blend_type == 'OVERLAY':
+                    return True
 
     return False
 
 def is_tangent_process_needed(yp, uv_name):
 
-    height_root_ch = get_root_height_channel(yp)
     normal_root_ch = get_root_normal_channel(yp)
-    if height_root_ch or normal_root_ch:
-
-        if height_root_ch and height_root_ch.main_uv == uv_name and (
-                (is_normal_height_input_connected(height_root_ch) and height_root_ch.enable_smooth_bump)
-            ):
-            return True
+    if normal_root_ch:
 
         for layer in yp.layers:
             if is_tangent_input_needed(layer, uv_name):
@@ -5682,15 +5633,12 @@ def is_height_process_needed(layer):
     height_ch = get_height_channel(layer)
     if not height_ch or not height_ch.enable: return False
 
-    if is_layer_preview_mode_enabled(yp) and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+    if is_layer_preview_mode_enabled(yp): return True
 
     if layer.type in {'GROUP', 'PREV_LAYERS'}: 
-        if is_layer_using_bump_map(layer, height_root_ch):
-            return True
-    elif height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
-        return True
+        return is_layer_using_bump_map(layer, height_root_ch)
 
-    return False
+    return True
 
 def is_vdisp_process_needed(layer):
     yp = layer.id_data.yp
@@ -5700,32 +5648,10 @@ def is_vdisp_process_needed(layer):
     vdisp_ch = get_vdisp_channel(layer)
     if not vdisp_ch or not vdisp_ch.enable: return False
 
-    #if is_layer_preview_mode_enabled(yp) and vdisp_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
-
     if layer.type in {'GROUP', 'PREV_LAYERS'}: 
         return is_layer_using_vdisp_map(layer, vdisp_root_ch)
-    #elif vdisp_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or vdisp_ch.enable_transition_bump:
-    #    return True
 
     return True
-
-def is_normal_process_needed(layer):
-    yp = layer.id_data.yp
-    height_root_ch = get_root_height_channel(yp)
-    if not height_root_ch: return False
-
-    height_ch = get_height_channel(layer)
-    if not height_ch or not height_ch.enable: return False
-
-    if is_layer_preview_mode_enabled(yp) and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
-
-    if layer.type in {'GROUP', 'PREV_LAYERS'}: 
-        if is_layer_using_bump_map(layer, height_root_ch) and not height_ch.write_height:
-            return True
-    elif height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not height_ch.write_height:
-        return True
-
-    return False
 
 ''' Check if layer is practically enabled or not '''
 def get_layer_enabled(layer):
@@ -5945,15 +5871,15 @@ def is_layer_using_vdisp_map(layer, root_ch=None):
 
     return False
 
-def is_layer_using_normal_map(layer, root_ch=None):
+def is_layer_using_normal_map(layer, root_normal_ch=None):
     yp = layer.id_data.yp
-    if not root_ch: root_ch = get_root_height_channel(yp)
-    if not root_ch: return False
+    if not root_normal_ch: root_normal_ch = get_root_normal_channel(yp)
+    if not root_normal_ch: return False
 
-    channel_idx = get_channel_index(root_ch)
+    channel_idx = get_channel_index(root_normal_ch)
     try: ch = layer.channels[channel_idx]
     except: return False
-    if get_channel_enabled(ch, layer, root_ch):
+    if get_channel_enabled(ch, layer, root_normal_ch):
         if layer.type in {'GROUP', 'PREV_LAYERS'}:
             if layer.type == 'GROUP':
                 other_layers = get_list_of_direct_children(layer)
@@ -5962,7 +5888,7 @@ def is_layer_using_normal_map(layer, root_ch=None):
             for ol in other_layers:
                 if is_layer_using_normal_map(ol) or (not ch.write_height and is_layer_using_bump_map(ol)):
                     return True
-        elif not ch.write_height or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+        else:
             return True
 
     return False

@@ -1715,6 +1715,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'source')
             remove_node(ttree, ch, 'blend')
             remove_node(ttree, ch, 'intensity')
+            remove_node(ttree, ch, 'layer_intensity')
             remove_node(ttree, ch, 'extra_alpha')
 
             remove_node(ttree, ch, 'disp_blend')
@@ -1730,6 +1731,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
             remove_node(ttree, ch, 'normal_process')
             remove_node(ttree, ch, 'normal_flip')
+            remove_node(ttree, ch, 'normal_overlay')
             remove_node(ttree, ch, 'mod_n')
             remove_node(ttree, ch, 'mod_s')
             remove_node(ttree, ch, 'mod_e')

@@ -501,8 +501,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             # UV inputs
             uv_names = []
 
-            if root_height_ch and root_height_ch.main_uv != '':
-                uv_names.append(root_height_ch.main_uv)
+            if root_normal_ch and root_normal_ch.main_uv != '':
+                uv_names.append(root_normal_ch.main_uv)
 
             if layer.texcoord_type == 'UV' and layer.uv_name not in uv_names:
                 uv_names.append(layer.uv_name)
@@ -949,18 +949,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     divider_alpha = nodes.get(layer.divider_alpha)
     decal_process = nodes.get(layer.decal_process)
 
-    # Get tangent and bitangent
-    layer_tangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['TANGENT'])
-    layer_bitangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['BITANGENT'])
-
+    # Root normal and height channels
     normal_root_ch = get_root_normal_channel(yp)
     height_root_ch = get_root_height_channel(yp)
-    if height_root_ch and height_root_ch.main_uv != '':
-        tangent = get_essential_node(tree, TREE_START).get(height_root_ch.main_uv + io_suffix['TANGENT'])
-        bitangent = get_essential_node(tree, TREE_START).get(height_root_ch.main_uv + io_suffix['BITANGENT'])
+
+    # Get tangent and bitangent
+    if normal_root_ch and normal_root_ch.main_uv != '':
+        tangent = get_essential_node(tree, TREE_START).get(normal_root_ch.main_uv + io_suffix['TANGENT'])
+        bitangent = get_essential_node(tree, TREE_START).get(normal_root_ch.main_uv + io_suffix['BITANGENT'])
     else:
-        tangent = layer_tangent
-        bitangent = layer_bitangent
+        tangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['TANGENT'])
+        bitangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['BITANGENT'])
 
     # Fake lighting stuff
     bump_process = nodes.get(layer.bump_process)
@@ -973,9 +972,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if prev_height and 'Height' in bump_process.inputs: create_link(tree, prev_height, bump_process.inputs['Height'])
         if prev_max_height and 'Max Height' in bump_process.inputs: create_link(tree, prev_max_height, bump_process.inputs['Max Height'])
 
-        if prev_normal and 'Normal' in bump_process.inputs: create_link(tree, prev_normal, bump_process.inputs['Normal'])
         if tangent and 'Tangent' in bump_process.inputs: create_link(tree, tangent, bump_process.inputs['Tangent'])
         if bitangent and 'Bitangent' in bump_process.inputs: create_link(tree, bitangent, bump_process.inputs['Bitangent'])
+
+        if 'Normal' in bump_process.inputs: 
+            if prev_normal:
+                create_link(tree, prev_normal, bump_process.inputs['Normal'])
+            else:
+                create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], bump_process.inputs['Normal'])
 
     # Edge Detect related
     if layer.type == 'EDGE_DETECT':
@@ -1602,10 +1606,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         create_link(tree, rgb_original, normal_overlay.inputs[2])
                         create_link(tree, alpha, normal_overlay.inputs[3])
 
-                        if layer_tangent and 'Tangent' in normal_overlay.inputs:
-                            create_link(tree, layer_tangent, normal_overlay.inputs['Tangent'])
-                        if layer_bitangent and 'Bitangent' in normal_overlay.inputs:
-                            create_link(tree, layer_bitangent, normal_overlay.inputs['Bitangent'])
+                        if tangent and 'Tangent' in normal_overlay.inputs:
+                            create_link(tree, tangent, normal_overlay.inputs['Tangent'])
+                        if bitangent and 'Bitangent' in normal_overlay.inputs:
+                            create_link(tree, bitangent, normal_overlay.inputs['Bitangent'])
 
                         rgb = normal_overlay.outputs[0]
                         alpha = normal_overlay.outputs[1]

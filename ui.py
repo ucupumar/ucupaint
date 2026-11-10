@@ -1032,9 +1032,7 @@ def draw_preview_mode_popover_settings(context, layout, node, show_types=True):
     layout.label(text='Preview Mode Settings')
 
     try: root_ch = yp.channels[yp.preview_mode_channel_index]
-    except:
-        layout.label(text='No channel to preview', icon='ERROR')
-        return
+    except: root_ch = None
 
     if show_types:
         row = split_layout(layout, 0.4)
@@ -1072,7 +1070,7 @@ def draw_preview_mode_popover_settings(context, layout, node, show_types=True):
     ccol.template_list("NODE_UL_YPaint_simple_channels", "", yp,
             "channels", yp, "preview_mode_channel_index", rows=len(yp.channels), maxrows=5)  
 
-    if root_ch.special_type == 'NORMAL':
+    if root_ch and root_ch.special_type == 'NORMAL':
         ccol = col.column(align=True)
         ccol.label(text='Normal Space')
         ccol.prop(yp, 'preview_mode_normal_space', text='')
@@ -1081,7 +1079,7 @@ def draw_preview_mode_popover_settings(context, layout, node, show_types=True):
     if (yp.preview_mode_type == 'CHANNEL' or yp.use_baked) and alpha_ch != None:
         row = col.row()
             
-        row.active = root_ch != alpha_ch
+        row.active = root_ch and root_ch != alpha_ch
         row.prop(yp, 'preview_mode_use_alpha', text='Use Alpha')
 
 def draw_preview_mode_settings(context, layout, node):
@@ -3095,16 +3093,18 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     draw_input_prop(row, ch, 'bump_smooth_multiplier', layer=layer)
 
             # Write Height
-            row = mcol.row(align=True)
-            row.label(text='', icon='BLANK1')
-            row.label(text='Use as Normal Only:')
-            row.prop(ch, 'use_height_as_normal', text='')
-
-            if ch.use_height_as_normal:
+            if normal_ch or ch.use_height_as_normal:
                 row = mcol.row(align=True)
+                row.active = normal_ch != None
                 row.label(text='', icon='BLANK1')
-                row.label(text='Height Blend:')
-                row.prop(ch, 'height_blend_type', text='')
+                row.label(text='Use as Normal Only:')
+                row.prop(ch, 'use_height_as_normal', text='')
+
+                if normal_ch and ch.use_height_as_normal:
+                    row = mcol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    row.label(text='Height Blend:')
+                    row.prop(ch, 'height_blend_type', text='')
 
             if ch.show_transition_bump or ch.enable_transition_bump:
 
