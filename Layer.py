@@ -4786,6 +4786,17 @@ def update_normal_convention(self, context):
 
     check_layer_channel_normal_convention(self, reconnect=True)
 
+def update_normal_map_base(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    tree = get_tree(layer)
+
+    normal_proc = tree.nodes.get(self.normal_proc)
+    if normal_proc and hasattr(normal_proc, 'base'):
+        normal_proc.base = self.normal_map_base
+
 def update_flip_backface_normal(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -5341,11 +5352,22 @@ class YLayerChannel(bpy.types.PropertyGroup):
         name = 'Normal Convention',
         description = 'Convention of the normal map',
         items = (
-            ('OPENGL', 'OpenGL', 'OpenGL normal convention'),
-            ('DIRECTX', 'DirectX', 'DirectX normal convention'),
+            ('OPENGL', 'OpenGL', 'OpenGL normal convention, with Y axis in the green channel pointing up.'),
+            ('DIRECTX', 'DirectX', 'DirectX normal convention, with Y axis in the green channel pointing down.'),
         ),
         default = 'OPENGL',
         update = update_normal_convention
+    )
+
+    normal_map_base : EnumProperty(
+        name = 'Normal Map Base',
+        description = 'Base of the normal map',
+        items = (
+            ('ORIGINAL', 'Original', 'Apply normal map relative to the smooth undisplaced surface, for normal maps that match the displacement map.'),
+            ('DISPLACED', 'Displaced', 'Apply normal map relative to the displaced surface, for normal maps that are to be applied in addition to the displacement map.'),
+        ),
+        default = 'DISPLACED',
+        update = update_normal_map_base
     )
 
     intensity_value : FloatProperty(

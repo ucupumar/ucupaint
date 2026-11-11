@@ -3219,36 +3219,36 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         if root_ch.special_type == 'NORMAL' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
-            #height_as_normal_disabled = ch == normal_ch and (height_ch == None or not height_ch.enable or not height_ch.use_height_as_normal)
-
             # Normal Strength
             row = mcol.row(align=True)
             row.label(text='', icon='BLANK1')
-            #row.active = height_as_normal_disabled
-            label = 'Normal Strength:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Strength:'
+            label = 'Strength:'
             row.label(text=label)
-            if ch.normal_map_type == 'NORMAL_MAP':
-                row = row.row(align=True)
-                row.scale_x = 1.4
+            row = row.row(align=True)
+            row.scale_x = 1.4
             draw_input_prop(row, ch, 'normal_strength', layer=layer)
 
             # Normal Space
             row = mcol.row(align=True)
             row.label(text='', icon='BLANK1')
-            #row.active = height_as_normal_disabled
-            label = 'Normal Space:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Space:'
+            label = 'Space:'
             row.label(text=label)
-            if ch.normal_map_type == 'NORMAL_MAP':
-                row = row.row(align=True)
-                row.scale_x = 1.4
-            row.prop(ch, 'normal_space', text='')
+            rrow = row.row(align=True)
+            rrow.scale_x = 1.4
+            rrow.prop(ch, 'normal_space', text='')
+
+            show_normal_base = ch.normal_space == 'TANGENT' and is_bl_newer_than(5, 2) and height_root_ch and not height_root_ch.use_height_as_bump
 
             # Normal convention
             row = mcol.row(align=True)
             row.label(text='', icon='BLANK1')
-            #row.active = height_as_normal_disabled
             row.label(text='Convention:')
-            row.prop(ch, 'normal_convention', text='')
+            rrow = row.row(align=True)
+            if not show_normal_base:
+                rrow.scale_x = 1.4
+            rrow.prop(ch, 'normal_convention', text='')
+            if show_normal_base:
+                rrow.prop(ch, 'normal_map_base', text='')
 
         if root_ch.special_type == 'VDISP' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
 

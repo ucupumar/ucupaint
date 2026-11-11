@@ -2261,6 +2261,8 @@ def check_blend_type_nodes(root_ch, layer, ch):
                 normal_proc.space = ch.normal_space
                 if hasattr(normal_proc, 'convention'):
                     normal_proc.convention = ch.normal_convention
+                if hasattr(normal_proc, 'base'):
+                    normal_proc.base = ch.normal_map_base
             else:
                 if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
 
