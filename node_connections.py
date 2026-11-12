@@ -353,6 +353,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     # Get normal and height channel
     root_normal_ch = get_root_normal_channel(yp)
     root_height_ch = get_root_height_channel(yp)
+    root_vdisp_ch = get_root_vdisp_channel(yp)
 
     # Get main UV
     main_uv = None
@@ -730,7 +731,10 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     alpha = baked_vcol.outputs['Alpha']
 
         if io_name in get_essential_node(tree, TREE_END): 
-            create_link(tree, rgb, get_essential_node(tree, TREE_END)[io_name])
+            # Blender 5.3 can show displacement while in sculpt mode, so there's a need to disable the displacement temporarily
+            if yp.sculpt_mode and is_bl_newer_than(5, 3) and ch in {root_height_ch, root_vdisp_ch}:
+                create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], get_essential_node(tree, TREE_END)[io_name])
+            else: create_link(tree, rgb, get_essential_node(tree, TREE_END)[io_name])
 
         #if ch.type == 'RGB' and ch.enable_alpha:
         if ch.enable_alpha:
