@@ -581,13 +581,12 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
         settings = tmpscene.render.image_settings
+        ori_scene = bpy.context.window.scene
+        bpy.context.window.scene = tmpscene
 
         # Blender 2.80 has filmic as default color settings, change it to standard
         if is_bl_newer_than(2, 80):
             tmpscene.view_settings.view_transform = 'Standard'
-
-        ori_scene = bpy.context.window.scene
-        bpy.context.window.scene = tmpscene
 
         images = []
 
@@ -629,6 +628,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 settings.file_format = 'OPEN_EXR'
             else: settings.file_format = self.file_format
 
+            # Set file format to the image
+            image.file_format = settings.file_format
+
             settings.color_depth = '8' if settings.file_format != 'OPEN_EXR' else '16'
             if image.is_float:
                 settings.color_depth = '16' if settings.file_format != 'OPEN_EXR' else '32'
@@ -665,8 +667,8 @@ class YSaveAllBakedImages(bpy.types.Operator):
             override['edit_image'] = image
             if is_bl_newer_than(4):
                 with bpy.context.temp_override(**override):
-                    bpy.ops.image.save_as(copy=self.copy, filepath=path, relative_path=True)
-            else: bpy.ops.image.save_as(override, copy=self.copy, filepath=path, relative_path=True)
+                    bpy.ops.image.save_as(save_as_render=True, copy=self.copy, filepath=path, relative_path=True)
+            else: bpy.ops.image.save_as(override, save_as_render=True, copy=self.copy, filepath=path, relative_path=True)
 
             # Set the filepath to the image
             image.filepath = path
@@ -1002,20 +1004,53 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
             self.report({'ERROR'}, 'Unpacking image atlas is not supported yet!')
             return {'CANCELLED'}
 
+        ori_scene = bpy.context.window.scene
+        tmpscene = bpy.data.scenes.new('Temp Save As Scene')
+        settings = tmpscene.render.image_settings
+        bpy.context.window.scene = tmpscene
+
+        # Blender 2.80 has filmic as default color settings, change it to standard
+        if is_bl_newer_than(2, 80):
+            tmpscene.view_settings.view_transform = 'Standard'
+
+        # Copy settings
+        if hasattr(settings, 'file_format'): settings.file_format = self.file_format
+        if hasattr(settings, 'color_mode'): settings.color_mode = self.color_mode
+        if hasattr(settings, 'color_depth'): settings.color_depth = self.color_depth
+        if hasattr(settings, 'tiff_codec'): settings.tiff_codec = self.tiff_codec
+        if hasattr(settings, 'exr_codec'): settings.exr_codec = self.exr_codec
+        if hasattr(settings, 'jpeg2k_codec'): settings.jpeg2k_codec = self.jpeg2k_codec
+        if hasattr(settings, 'compression'): settings.compression = self.compression
+        if hasattr(settings, 'quality'): settings.quality = self.quality
+        if hasattr(settings, 'use_jpeg2k_cinema_48'): settings.use_jpeg2k_cinema_48 = self.use_jpeg2k_cinema_48
+        if hasattr(settings, 'use_jpeg2k_cinema_preset'): settings.use_jpeg2k_cinema_preset = self.use_jpeg2k_cinema_preset
+        if hasattr(settings, 'use_jpeg2k_ycc'): settings.use_jpeg2k_ycc = self.use_jpeg2k_ycc
+        if hasattr(settings, 'use_cineon_log'): settings.use_cineon_log = self.use_cineon_log
+        if hasattr(settings, 'use_zbuffer'): settings.use_zbuffer = self.use_zbuffer
+
         if self.copy:
             image = self.image = duplicate_image(image, ondisk_duplicate=False)
+
+        # Set file format to the image
+        image.file_format = self.file_format
 
         # Save image
         override = bpy.context.copy()
         override['edit_image'] = image
         if is_bl_newer_than(4):
             with bpy.context.temp_override(**override):
-                bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
-        else: bpy.ops.image.save_as(override, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
+                bpy.ops.image.save_as(save_as_render=True, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
+        else: bpy.ops.image.save_as(override, save_as_render=True, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
 
         # Delete copied image
         if self.copy:
             remove_datablock(bpy.data.images, image)
+
+        # Back to original scene
+        bpy.context.window.scene = ori_scene
+
+        # Delete temporary scene
+        remove_datablock(bpy.data.scenes, tmpscene)
 
         return {'FINISHED'}
 
