@@ -1,6 +1,6 @@
 import bpy, numpy, time, math, bmesh
 from bpy.props import *
-from . import Layer, lib, ListItem
+from . import layer_common, lib, ListItem
 from .common import *
 from .vector_displacement_lib import *
 from .input_outputs import *
@@ -1687,7 +1687,7 @@ class YRemoveVDMandAddMultires(bpy.types.Operator):
             if i in vdm_layer_ids:
                 l = yp.layers[i]
                 remove_entity_fcurves(l)
-                Layer.remove_layer(yp, i)
+                layer_common.remove_layer(yp, i)
 
         # Remove tangent and bitangent images since they're no longer useful
         tanimage, bitimage = get_tangent_bitangent_images(obj, uv_name)
