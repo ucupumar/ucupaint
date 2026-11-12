@@ -666,6 +666,12 @@ EXTERNAL_BUNDLE_ALPHA = 'Alpha'
 def is_external_bundle_supported():
     return hasattr(bpy.types, 'NodeSocketBundle') and hasattr(bpy.types, 'NodeSeparateBundle')
 
+def is_external_input_connected(yp, name):
+    node = get_active_ypaint_node()
+    if not node or node.node_tree != yp.id_data: return False
+    inp = node.inputs.get(name)
+    return inp != None and len(inp.links) > 0
+
 def is_external_input_name(name):
     return name.startswith(EXTERNAL_INPUT_PREFIX) or name.startswith(EXTERNAL_MASK_PREFIX)
 

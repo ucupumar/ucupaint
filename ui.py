@@ -2527,8 +2527,14 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         row.label(text='', icon='BLANK1')
         rrow = row.column()
         for i, ch in enumerate(layer.channels):
-            if not ch.enable: continue
             root_ch = yp.channels[i]
+
+            if not ch.enable:
+                if root_ch.type == 'RGB' and root_ch.special_type != 'VDISP' and is_external_bundle_supported():
+                    check_name = get_layer_external_bundle_input_name(layer, root_ch)
+                else:
+                    check_name = get_layer_external_input_name(layer, root_ch)
+                if not is_external_input_connected(yp, check_name): continue
 
             if root_ch.type == 'RGB' and root_ch.special_type != 'VDISP' and is_external_bundle_supported():
                 draw_external_input_info(rrow, layer, root_ch=root_ch, bundle=True)
@@ -3006,13 +3012,23 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
             elif root_ch.special_type == 'HEIGHT':
                 rrrow = ssplit.row(align=True)
+                rrrow.context_pointer_set('parent', ch)
+                rrrow.context_pointer_set('channel', ch)
+                rrrow.context_pointer_set('layer', layer)
 
-                draw_input_prop(rrrow, ch, 'bump_distance', layer=layer)
+                if layer.type == 'EXTERNAL' and not ch.override:
+                    # Show the actual source socket instead of the scale value
+                    label = get_layer_channel_input_label(layer, ch)
+                    rrrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
+                else:
+                    draw_input_prop(rrrow, ch, 'bump_distance', layer=layer)
 
-                if ch.override and ch.override_type == 'DEFAULT':
-                    draw_input_prop(rrrow, ch, 'override_value', layer=layer)
-
-                rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
+                    if ch.override and ch.override_type == 'DEFAULT':
+                        draw_input_prop(rrrow, ch, 'override_value', layer=layer)
+                        rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
+                    else:
+                        label = get_layer_channel_input_label(layer, ch)
+                        rrrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
 
                 if ch.enable and ch.override:
                     if ch.override_type == 'IMAGE':
@@ -3497,6 +3513,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         row = srow.row(align=True)
         label = get_layer_channel_input_label(layer, ch, source)
         row.context_pointer_set('parent', ch)
+        row.context_pointer_set('channel', ch)
+        row.context_pointer_set('layer', layer)
         if ch.override and ch.override_type == 'DEFAULT' and not ch.expand_source:
             split = split_layout(row, 0.55, align=True)
             split.menu("NODE_MT_y_layer_channel_input_menu", text=label)
@@ -7304,7 +7322,8 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         return get_active_ypaint_node()
 
     def draw(self, context):
-        ch = context.channel
+        ch = getattr(context, 'channel', None)
+        if not ch: ch = getattr(context, 'parent', None)
         yp = ch.id_data.yp
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
         if m: 
@@ -7342,7 +7361,10 @@ class YLayerChannelInputMenu(bpy.types.Menu):
                     label += ' ('+source.attribute_name+')'
 
             op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-            op.socket_name = get_channel_input_socket_name(layer, ch)
+            if layer.type == 'EXTERNAL':
+                op.socket_name = get_layer_external_input_name(layer, root_ch)
+            else:
+                op.socket_name = get_channel_input_socket_name(layer, ch)
         else:
             if layer.type in {'GROUP', 'PREV_LAYERS', 'EXTERNAL'}:
                 if layer.type == 'GROUP': label = 'Group '
@@ -7351,7 +7373,15 @@ class YLayerChannelInputMenu(bpy.types.Menu):
                 label += root_ch.name
                 icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
                 op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-                op.socket_name = ch.socket_input_name
+
+                if layer.type == 'EXTERNAL':
+                    if (root_ch.type == 'RGB' and root_ch.special_type != 'VDISP' and
+                            is_external_bundle_supported()):
+                        op.socket_name = get_layer_external_bundle_input_name(layer, root_ch)
+                    else:
+                        op.socket_name = get_layer_external_input_name(layer, root_ch)
+                else:
+                    op.socket_name = ch.socket_input_name
             else:
                 source = get_layer_source(layer)
                 for outp in get_available_source_outputs(source, layer.type):

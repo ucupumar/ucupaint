@@ -134,15 +134,20 @@ def get_external_input_specs(layer, yp):
         bundle_supported = is_external_bundle_supported()
 
         for i, ch in enumerate(layer.channels):
-            if not ch.enable: continue
             root_ch = yp.channels[i]
 
             is_bundle_ch = root_ch.type == 'RGB' and root_ch.special_type != 'VDISP'
 
             if is_bundle_ch and bundle_supported:
                 # Color + alpha packed into a single bundle socket
+                name = get_layer_external_bundle_input_name(layer, root_ch)
+
+                # Keep the socket when the channel is disabled but still connected,
+                # so toggling a channel doesn't break external links.
+                if not ch.enable and not is_external_input_connected(yp, name): continue
+
                 specs.append({
-                    'name': get_layer_external_bundle_input_name(layer, root_ch),
+                    'name': name,
                     'socket_type': 'NodeSocketBundle',
                     'default_value': None,
                     'min_value': None,
@@ -152,8 +157,17 @@ def get_external_input_specs(layer, yp):
                 })
                 continue
 
+            name = get_layer_external_input_name(layer, root_ch)
+            alpha_name = get_layer_external_alpha_input_name(layer, root_ch)
+
+            if not ch.enable:
+                connected = is_external_input_connected(yp, name)
+                if is_bundle_ch:
+                    connected = connected or is_external_input_connected(yp, alpha_name)
+                if not connected: continue
+
             specs.append({
-                'name': get_layer_external_input_name(layer, root_ch),
+                'name': name,
                 'socket_type': channel_socket_input_bl_idnames[root_ch.type],
                 'default_value': get_external_input_default(root_ch),
                 'min_value': 0.0 if root_ch.type == 'VALUE' else None,
@@ -165,7 +179,7 @@ def get_external_input_specs(layer, yp):
             # Fallback for Blender versions without bundle sockets
             if is_bundle_ch:
                 specs.append({
-                    'name': get_layer_external_alpha_input_name(layer, root_ch),
+                    'name': alpha_name,
                     'socket_type': 'NodeSocketFloatFactor',
                     'default_value': 1.0,
                     'min_value': 0.0,
@@ -602,23 +616,41 @@ def check_external_bundle_nodes(layer, tree):
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i] if i < len(yp.channels) else None
+        if not root_ch: continue
 
-        needs_bundle = (
-            bundle_supported and layer.type == 'EXTERNAL' and not layer.use_baked and
-            ch.enable and root_ch and root_ch.type == 'RGB' and root_ch.special_type != 'VDISP'
+        is_bundle_ch = (
+            bundle_supported and layer.type == 'EXTERNAL' and
+            root_ch.type == 'RGB' and root_ch.special_type != 'VDISP'
         )
 
-        if not needs_bundle:
+        linked = (
+            is_bundle_ch and
+            is_external_input_connected(yp, get_layer_external_bundle_input_name(layer, root_ch))
+        )
+
+        needs_bundle = (
+            is_bundle_ch and not layer.use_baked and (ch.enable or linked)
+        )
+
+        if needs_bundle:
+            bundle = check_new_node(tree, ch, 'external_bundle', 'NodeSeparateBundle', 'External Bundle')
+            ensure_external_bundle_items(bundle)
+        else:
             remove_node(tree, ch, 'external_bundle')
-            continue
 
-        bundle = check_new_node(tree, ch, 'external_bundle', 'NodeSeparateBundle', 'External Bundle')
-        ensure_external_bundle_items(bundle)
+        # Keep the channel source name valid even when the channel is disabled,
+        # so selecting the external source later works as expected.
+        if layer.type == 'EXTERNAL':
+            if is_bundle_ch:
+                expected_name = get_layer_external_bundle_input_name(layer, root_ch)
+            else:
+                expected_name = get_layer_external_input_name(layer, root_ch)
 
-        ori_halt_update = yp.halt_update
-        yp.halt_update = True
-        ch.socket_input_name = get_layer_external_bundle_input_name(layer, root_ch)
-        yp.halt_update = ori_halt_update
+            if ch.socket_input_name != expected_name:
+                ori_halt_update = yp.halt_update
+                yp.halt_update = True
+                ch.socket_input_name = expected_name
+                yp.halt_update = ori_halt_update
 
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False, hard_reset=False): #, check_uvs=False): #, has_parent=False):
 

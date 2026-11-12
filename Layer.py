@@ -3913,7 +3913,8 @@ class YSetLayerChannelInput(bpy.types.Operator):
         return self.execute(context)
 
     def execute(self, context):
-        ch = context.channel
+        ch = getattr(context, 'channel', None)
+        if not ch: ch = getattr(context, 'parent', None)
         layer = context.layer
 
         if self.socket_name == '':
@@ -3921,6 +3922,7 @@ class YSetLayerChannelInput(bpy.types.Operator):
             ch.override_type = 'DEFAULT'
             if not ch.enable: ch.enable = True
         else:
+            if not ch.enable: ch.enable = True
             ch.override = False
             ch.socket_input_name = self.socket_name
 
