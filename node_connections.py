@@ -332,6 +332,10 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     nodes = tree.nodes
     ypup = get_user_preferences()
 
+    # Make sure external input sockets are available before reconnecting
+    from . import input_outputs
+    input_outputs.check_external_inputs(yp)
+
     # Get color and alpha channel
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
 
@@ -739,6 +743,17 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             if max_height and io_max_height_name in get_essential_node(tree, TREE_END): create_link(tree, max_height, get_essential_node(tree, TREE_END)[io_max_height_name])
             if io_midlevel_name in get_essential_node(tree, TREE_END): 
                 create_link(tree, get_essential_node(tree, HALF_VALUE)[0], get_essential_node(tree, TREE_END)[io_midlevel_name])
+
+    # External layer/mask inputs
+    for layer in yp.layers:
+        if not layer.enable: continue
+        node = nodes.get(layer.group_node)
+        if not node: continue
+
+        for inp in node.inputs:
+            if not is_external_input_name(inp.name): continue
+            root_outp = get_essential_node(tree, TREE_START).get(inp.name)
+            if root_outp: create_link(tree, root_outp, inp)
 
     # Bake target image nodes
     for bt in yp.bake_targets:
@@ -1203,7 +1218,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Mask start
         mask_vector = None
         mask_uv_name = mask.uv_name if not mask.use_baked or mask.baked_uv_name == '' else mask.baked_uv_name
-        if mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO', 'MODIFIER'}:
+        if mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO', 'MODIFIER', 'EXTERNAL'}:
             if mask.use_baked or mask.texcoord_type == 'UV':
                 mask_vector = get_essential_node(tree, TREE_START).get(mask_uv_name + io_suffix['UV'])
             elif mask.texcoord_type == 'Decal':
@@ -1375,10 +1390,32 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         rgb = None
         alpha = None
 
+        # External color channels use a Color + Alpha bundle
+        if (is_external_bundle_supported() and layer.type == 'EXTERNAL' and not layer.use_baked and
+                root_ch.type == 'RGB' and root_ch.special_type != 'VDISP'):
+            external_bundle = nodes.get(ch.external_bundle)
+            if not external_bundle:
+                from . import input_outputs
+                input_outputs.check_external_bundle_nodes(layer, tree)
+                external_bundle = nodes.get(ch.external_bundle)
+            if external_bundle:
+                bundle_input = get_essential_node(tree, TREE_START).get(ch.socket_input_name)
+                if bundle_input: create_link(tree, bundle_input, external_bundle.inputs[0])
+                rgb = external_bundle.outputs.get(EXTERNAL_BUNDLE_COLOR)
+                alpha = external_bundle.outputs.get(EXTERNAL_BUNDLE_ALPHA)
+
         # Use alpha of color channel if color channel is enabled
-        if ch == alpha_ch and get_channel_enabled(color_ch, layer) and not color_ch.unpair_alpha and layer.type not in {'GROUP', 'PREV_LAYERS'}:
+        if ch == alpha_ch and get_channel_enabled(color_ch, layer) and not color_ch.unpair_alpha and (layer.type not in {'GROUP', 'PREV_LAYERS', 'EXTERNAL'} or layer.use_baked):
             if ch_output_names[root_color_ch.name] != None:
                 rgb = alpha_connections[ch_output_names[root_color_ch.name]]
+                if (layer.type == 'EXTERNAL' and not layer.use_baked and
+                        root_color_ch.type == 'RGB' and root_color_ch.special_type != 'VDISP'):
+                    color_bundle = nodes.get(color_ch.external_bundle)
+                    if color_bundle:
+                        alpha_outp = color_bundle.outputs.get(EXTERNAL_BUNDLE_ALPHA)
+                    else:
+                        alpha_outp = source.outputs.get(get_layer_external_alpha_input_name(layer, root_color_ch))
+                    if alpha_outp: rgb = alpha_outp
                 alpha = get_essential_node(tree, ONE_VALUE)[0]
 
         if rgb == None:
@@ -1388,6 +1425,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else:
                 rgb = get_essential_node(tree, ONE_VALUE)[0]
                 alpha = get_essential_node(tree, ONE_VALUE)[0]
+
+        # Legacy external alpha socket (Blender without bundle support)
+        if (not ch.external_bundle and layer.type == 'EXTERNAL' and
+                root_ch.type == 'RGB' and root_ch.special_type != 'VDISP'):
+            alpha_outp = source.outputs.get(get_layer_external_alpha_input_name(layer, root_ch))
+            if alpha_outp: alpha = alpha_outp
 
         # Use alpha channel output as alpha of all other channels if color channel is also enabled
         if alpha_ch_rgb and get_channel_enabled(color_ch, layer):

@@ -2677,6 +2677,8 @@ def update_channel_name(self, context):
     if yp.halt_reconnect or yp.halt_update:
         return
 
+    old_channel_name = self.original_name
+
     # Make sure there's no duplicate name
     if any([ch for ch in yp.channels if ch != self and self.name == ch.name]):
         self.halt_update = True
@@ -2695,6 +2697,9 @@ def update_channel_name(self, context):
 
     # Update channel's original name
     self.original_name = self.name
+
+    # Update external inputs using this channel
+    update_external_inputs_for_channel_rename(yp, self, old_channel_name)
 
     get_tree_input_by_index(group_tree, input_index).name = self.name
     get_tree_output_by_index(group_tree, output_index).name = self.name

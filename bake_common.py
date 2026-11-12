@@ -147,13 +147,13 @@ def is_join_objects_problematic(yp, mat=None):
 
         for mask in layer.masks:
             if not mask.enable: continue
-            if mask.type in {'VCOL', 'HEMI', 'COLOR_ID'}: 
+            if mask.type in {'VCOL', 'HEMI', 'COLOR_ID', 'EXTERNAL'}:
                 continue
             if mask.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS or mask.type in {'OBJECT_INDEX'}:
                 print('INFO: Merged bake is not happening because there\'s object index mask')
                 return True
 
-        if layer.type in {'VCOL', 'COLOR', 'BACKGROUND', 'HEMI', 'GROUP'}: 
+        if layer.type in {'VCOL', 'COLOR', 'BACKGROUND', 'HEMI', 'GROUP', 'EXTERNAL'}:
             continue
         if layer.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS:
             print('INFO: Merged bake is not happening because there\'s problematic texcoord used')

@@ -10,6 +10,14 @@ def get_yp():
 
     return yp
 
+def get_yp_node():
+    nodes = bpy.data.materials['Material'].node_tree.nodes
+    for node in nodes:
+        if node.type == 'GROUP' and node.node_tree.yp.is_ypaint_node:
+            return node
+
+    return None
+
 def get_active_layer():
     yp = get_yp()
     return yp.layers[yp.active_layer_index]
@@ -125,3 +133,31 @@ class TestDuplicateLayer(TestNewLayer):
 
         yp = get_yp()
         self.assertTrue(len(yp.layers) == 2)
+
+class TestExternalLayer(TestPrincipled):
+    def test_01_new_external_layer(self):
+        bpy.ops.wm.y_new_layer(name='External', type='EXTERNAL', uv_map='UVMap')
+
+        yp = get_yp()
+        self.assertTrue(len(yp.layers) == 1)
+        self.assertTrue(yp.layers[0].type == 'EXTERNAL')
+
+        node = get_yp_node()
+        self.assertTrue(any(inp.name.startswith('External ') for inp in node.inputs))
+
+        if hasattr(bpy.types, 'NodeSocketBundle'):
+            self.assertTrue(any(inp.name.startswith('External ') and inp.type == 'BUNDLE' for inp in node.inputs))
+        else:
+            self.assertTrue(any(inp.name.startswith('External ') and inp.name.endswith(' Alpha') for inp in node.inputs))
+
+class TestExternalMask(TestExternalLayer):
+    def test_02_new_external_mask(self):
+        bpy.ops.wm.y_new_layer_mask(name='External Mask', type='EXTERNAL', uv_map='UVMap')
+
+        yp = get_yp()
+        layer = yp.layers[0]
+        self.assertTrue(len(layer.masks) == 1)
+        self.assertTrue(layer.masks[0].type == 'EXTERNAL')
+
+        node = get_yp_node()
+        self.assertTrue(any(inp.name.startswith('External Mask ') for inp in node.inputs))

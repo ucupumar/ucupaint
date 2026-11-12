@@ -61,6 +61,9 @@ def get_new_mask_name(obj, layer, mask_type, modifier_type='', ignore_images=Fal
     elif mask_type == 'MODIFIER':
         name = 'Mask ' + modifier_type.title()
         return get_unique_name(name, items, surname)
+    elif mask_type == 'EXTERNAL':
+        name = 'Input'
+        return get_unique_name(name, items, surname)
     else:
         name = 'Mask ' + mask_type_labels[mask_type]
         return get_unique_name(name, items, surname)
@@ -117,6 +120,10 @@ def add_new_mask(
     mask.type = mask_type
     mask.texcoord_type = texcoord_type
     mask.socket_input_name = socket_input_name
+
+    if mask_type == 'EXTERNAL':
+        ensure_external_input_id(mask, layer.masks)
+        mask.socket_input_name = get_mask_external_input_name(layer, mask)
 
     # Uniform Scale
     if is_bl_newer_than(2, 81) and is_mask_using_vector(mask):
@@ -204,6 +211,7 @@ def add_new_mask(
 
     # Check layer io
     input_outputs.check_all_layer_channel_io_and_nodes(layer, tree)
+    input_outputs.check_external_inputs(yp)
 
     # Check mask linear
     subtree.check_mask_image_linear_node(mask)
