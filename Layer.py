@@ -4403,7 +4403,6 @@ class YSetLayerChannelInput(bpy.types.Operator):
     bl_options = {'UNDO'}
 
     socket_name : StringProperty(default='')
-    set_normal_input : BoolProperty(default=False)
 
     @classmethod
     def poll(cls, context):
@@ -4418,20 +4417,12 @@ class YSetLayerChannelInput(bpy.types.Operator):
         layer = context.layer
 
         if self.socket_name == '':
-            if self.set_normal_input:
-                ch.override_1 = True
-                ch.override_1_type = 'DEFAULT'
-            else:
-                ch.override = True
-                ch.override_type = 'DEFAULT'
+            ch.override = True
+            ch.override_type = 'DEFAULT'
             if not ch.enable: ch.enable = True
         else:
-            if self.set_normal_input:
-                ch.override_1 = False
-                ch.socket_input_1_name = self.socket_name
-            else:
-                ch.override = False
-                ch.socket_input_name = self.socket_name
+            ch.override = False
+            ch.socket_input_name = self.socket_name
 
         # Update list items
         ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
@@ -5162,32 +5153,6 @@ class YPasteLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def update_layer_channel_override_1(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    ch_index = int(m.group(2))
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[ch_index]
-    ch = self
-
-    check_override_1_layer_channel_nodes(root_ch, layer, ch)
-
-    # Disable active edit if override is off
-    if not ch.override_1:
-        ch.halt_update = True
-        ch.active_edit_1 = False
-        ch.halt_update = False
-
-    check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
-    check_uv_nodes(yp)
-    reconnect_layer_nodes(layer)
-    rearrange_layer_nodes(layer)
-
-    reconnect_yp_nodes(self.id_data)
-    rearrange_yp_nodes(self.id_data)
-
 def update_layer_channel_override(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -5279,47 +5244,12 @@ def update_channel_enable(self, context):
     # Disable active edit on overrides
     if not ch.enable:
         ch.active_edit = False
-        ch.active_edit_1 = False
 
     # Update list items
     ListItem.refresh_list_items(yp)
 
-    print('INFO: Channel '+ root_ch.name + ' of ' + layer.name + 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Channel '+ root_ch.name + ' of '+layer.name+' is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
-
-def update_normal_map_type(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[int(m.group(2))]
-    tree = get_tree(layer)
-
-    check_all_layer_channel_io_and_nodes(layer, tree, self)
-    check_start_end_root_ch_nodes(self.id_data)
-    check_uv_nodes(yp)
-
-    check_layer_tree_ios(layer, tree)
-
-    # Check layer modifiers since the group can change
-    modifier_common.check_layer_modifier_tree(layer)
-
-    if is_layer_preview_mode_enabled(yp):
-        # Set correct active edit
-        if self.normal_map_type == 'BUMP_MAP' and self.active_edit_1:
-            self.active_edit = True
-        elif self.normal_map_type == 'NORMAL_MAP' and self.active_edit:
-            self.active_edit_1 = True
-    else:
-        #if not yp.halt_reconnect:
-        reconnect_layer_nodes(layer)
-        rearrange_layer_nodes(layer)
-
-        reconnect_yp_nodes(self.id_data)
-        rearrange_yp_nodes(self.id_data)
-
-    # Update list items
-    ListItem.refresh_list_items(yp)
 
 def update_blend_type(self, context):
     T = time.time()
@@ -5365,6 +5295,23 @@ def update_normal_space(self, context):
     #normal_proc = tree.nodes.get(self.normal_proc)
     #if normal_proc and hasattr(normal_proc, 'space'):
     #    normal_proc.space = self.normal_space
+
+def update_normal_convention(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    check_layer_channel_normal_convention(self, reconnect=True)
+
+def update_normal_map_base(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    tree = get_tree(layer)
+
+    normal_proc = tree.nodes.get(self.normal_proc)
+    if normal_proc and hasattr(normal_proc, 'base'):
+        normal_proc.base = self.normal_map_base
 
 def update_flip_backface_normal(self, context):
     yp = self.id_data.yp
@@ -5798,16 +5745,6 @@ def update_layer_channel_vdisp_flip_yz(self, context):
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
-def update_image_flip_y(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    layer = check_entity_image_flip_y(self)
-
-    if layer:
-        reconnect_layer_nodes(layer)
-        rearrange_layer_nodes(layer)
-
 def update_channel_active_edit(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -5821,29 +5758,16 @@ def update_channel_active_edit(self, context):
 
     # Disable other active edits
     yp.halt_update = True
-    if (
-        (self.active_edit and self.override and self.override_type != 'DEFAULT') or
-        (self.active_edit_1 and self.override_1 and self.override_1_type != 'DEFAULT')
-        ):
+    if self.active_edit and self.override and self.override_type != 'DEFAULT':
 
         for c in layer.channels:
             if c == self: continue
             c.active_edit = False
-            c.active_edit_1 = False
-            c.prev_active_edit_idx = 0
         for m in layer.masks:
             m.active_edit = False
 
     else:
         self.active_edit = False
-
-    # Check previous active edit index
-    if ch.prev_active_edit_idx == 0 and ch.active_edit_1:
-        ch.active_edit = False
-        ch.prev_active_edit_idx = 1
-    elif ch.prev_active_edit_idx == 1 and ch.active_edit:
-        ch.active_edit_1 = False
-        ch.prev_active_edit_idx = 0
 
     yp.halt_update = False
 
@@ -5908,8 +5832,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
         name = 'Normal Map Type',
         items = layer_common.get_normal_map_type_items,
         #default = 'BUMP_MAP',
-        update = update_normal_map_type
-    )
+    ) # Deprecated
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -5939,6 +5862,28 @@ class YLayerChannel(bpy.types.PropertyGroup):
         items = normal_space_items,
         default = 'TANGENT',
         update = update_normal_space
+    )
+
+    normal_convention : EnumProperty(
+        name = 'Normal Convention',
+        description = 'Convention of the normal map',
+        items = (
+            ('OPENGL', 'OpenGL', 'OpenGL normal convention, with Y axis in the green channel pointing up.'),
+            ('DIRECTX', 'DirectX', 'DirectX normal convention, with Y axis in the green channel pointing down.'),
+        ),
+        default = 'OPENGL',
+        update = update_normal_convention
+    )
+
+    normal_map_base : EnumProperty(
+        name = 'Normal Map Base',
+        description = 'Base of the normal map',
+        items = (
+            ('ORIGINAL', 'Original', 'Apply normal map relative to the smooth undisplaced surface, for normal maps that match the displacement map.'),
+            ('DISPLACED', 'Displaced', 'Apply normal map relative to the displaced surface, for normal maps that are to be applied in addition to the displacement map.'),
+        ),
+        default = 'DISPLACED',
+        update = update_normal_map_base
     )
 
     intensity_value : FloatProperty(
@@ -6005,14 +5950,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
         name = 'Enable Override (Normal Map Channel)',
         description = 'Use override value rather than layer value for normal map of this channel',
         default = False,
-        update = update_layer_channel_override_1
-    )
+    ) # Deprecated
 
     override_1_type : EnumProperty(
         items = channel_override_1_type_items,
         default = 'DEFAULT',
-        update = update_layer_channel_override_1
-    )
+    ) # Deprecated
 
     override_1_color : FloatVectorProperty(
         name = 'Override Color',
@@ -6156,8 +6099,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
         name = 'Image Flip G',
         description = "Image Flip G (Use this if you're using normal map created for DirectX application)",
         default = False,
-        update = update_image_flip_y
-    )
+    ) # Deprecated
 
     # For some occasion, modifiers are stored in a tree
     mod_group : StringProperty(default='')
@@ -6420,13 +6362,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
         description = 'Active custom normal data for Blender\'s paint mode and edit mode, or '+get_addon_title()+'\'s Custom Data preview mode',
         default = False,
         update = update_channel_active_edit
-    )
+    ) # Deprecated
 
     prev_active_edit_idx : IntProperty(
         name = 'Previous Active Edit Index',
         description = 'To store previous active edit index',
         default = 0
-    )
+    ) # Deprecated
 
     # For UI
     expand_bump_settings : BoolProperty(default=False)
@@ -6642,8 +6584,7 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
         name = 'Image Flip G',
         description = "Image Flip G (Use this if you're using normal map created for DirectX application) ",
         default = False,
-        update = update_image_flip_y
-    )
+    ) # Deprecated
 
     divide_rgb_by_alpha : BoolProperty(
         name = 'Divide RGB by Alpha',

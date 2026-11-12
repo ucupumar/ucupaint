@@ -1721,6 +1721,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'source')
             remove_node(ttree, ch, 'blend')
             remove_node(ttree, ch, 'intensity')
+            remove_node(ttree, ch, 'layer_intensity')
             remove_node(ttree, ch, 'extra_alpha')
 
             remove_node(ttree, ch, 'disp_blend')
@@ -1736,6 +1737,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
             remove_node(ttree, ch, 'normal_process')
             remove_node(ttree, ch, 'normal_flip')
+            remove_node(ttree, ch, 'normal_overlay')
             remove_node(ttree, ch, 'mod_n')
             remove_node(ttree, ch, 'mod_s')
             remove_node(ttree, ch, 'mod_e')
@@ -2463,13 +2465,6 @@ class YFixMissingData(bpy.types.Operator):
                         ltree = get_tree(layer)
                         remove_node(ltree, ch, 'source')
                         ch.override_type = 'DEFAULT'
-
-                src = get_channel_source_1(ch, layer)
-                if ch.override_1 and ch.override_1_type != 'DEFAULT': 
-                    if not src or (ch.override_1_type == 'IMAGE' and not src.image):
-                        ltree = get_tree(layer)
-                        remove_node(ltree, ch, 'source_1')
-                        ch.override_1_type = 'DEFAULT'
 
         if yp.active_layer_index > len(yp.layers):
             yp.active_layer_index = len(yp.layers)-1

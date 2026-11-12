@@ -15,32 +15,33 @@ def check_layer_divider_alpha(layer, tree=None):
     else:
         remove_node(tree, layer, 'divider_alpha')
 
-def check_entity_image_flip_y(entity):
-    yp = entity.id_data.yp
+def check_layer_channel_normal_convention(ch, layer=None, root_ch=None, tree=None, reconnect=False):
+    yp = ch.id_data.yp
+    if not layer or not root_ch:
+        m1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', ch.path_from_id())
+        if m1: 
+            layer = yp.layers[int(m1.group(1))]
+            root_ch = yp.channels[int(m1.group(2))]
 
-    m1 = re.match(r'yp\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity.path_from_id())
+    if not layer or not root_ch: return
+    if not tree: tree = get_tree(layer)
 
-    if m1:
-        layer = entity
-        tree = get_source_tree(layer)
-        flip_y_needed = layer.image_flip_y and layer.type == 'IMAGE'
+    # Check for flip_y node
+    flip_y = tree.nodes.get(ch.flip_y)
 
-    elif m2:
-        layer = yp.layers[int(m2.group(1))]
-        ch = entity
-        tree = get_tree(layer)
-        flip_y_needed = ch.image_flip_y and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type == 'IMAGE'
+    if not flip_y and is_bl_newer_than(5, 1):
+        normal_proc = tree.nodes.get(ch.normal_proc)
+        if normal_proc and normal_proc.type == 'NORMAL_MAP':
+            normal_proc.convention = ch.normal_convention
     else:
-        return None
+        if get_channel_enabled(ch, layer, root_ch) and ch.normal_convention == 'DIRECTX':
+            flip_y = check_new_node(tree, ch, 'flip_y', 'ShaderNodeGroup', 'Flip Y')
+            flip_y.node_tree = lib.get_node_tree_lib(lib.FLIP_Y)
+        else: remove_node(tree, ch, 'flip_y')
 
-    if flip_y_needed:
-        flip_y = check_new_node(tree, entity, 'flip_y', 'ShaderNodeGroup', 'Flip Y')
-        flip_y.node_tree = lib.get_node_tree_lib(lib.FLIP_Y)
-    else:
-        remove_node(tree, entity, 'flip_y')
-
-    return layer
+        if reconnect:
+            reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
 
 def move_legacy_mod_groups(layer, from_tree, to_tree):
     props = ['mod_group', 'mod_group_1']
@@ -1782,121 +1783,38 @@ def remove_unused_deprecated_height_related_nodes(tree, height_ch):
 
 def set_height_blend_node(tree, layer, root_ch, ch, prop_name='height_blend', blend_type='MIX', need_reconnect=False):
 
-    if not root_ch.enable_smooth_bump:
-        # Has parent
-        if (layer.parent_idx != -1 or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX' and not ch.use_height_as_normal: #in {'MIX', 'COMPARE'}:
-            #if blend_type == 'COMPARE':
-            #    lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE
-            #else: 
-            lib_name = lib.STRAIGHT_OVER
+    normal_ch = get_normal_channel(layer)
 
-            height_blend, need_reconnect = replace_new_node(
-                tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
-            )
+    # Has parent
+    if (layer.parent_idx != -1 or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX' and (not ch.use_height_as_normal or not normal_ch): #in {'MIX', 'COMPARE'}:
+        #if blend_type == 'COMPARE':
+        #    lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE
+        #else: 
+        lib_name = lib.STRAIGHT_OVER
 
-            #if ch.write_height:
-            #    height_blend.inputs['Divide'].default_value = 1.0
-            #else: height_blend.inputs['Divide'].default_value = 0.0
-        else:
-            if blend_type == 'COMPARE':
-                lib_name = lib.HEIGHT_COMPARE
+        height_blend, need_reconnect = replace_new_node(
+            tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
+            lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
+        )
 
-                height_blend, need_reconnect = replace_new_node(
-                    tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                    lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
-                )
-            else:
-                height_blend, need_reconnect = replace_new_mix_node(
-                    tree, ch, prop_name, 'Height Blend', 
-                    return_status=True, dirty=need_reconnect
-                )
-
-                height_blend.blend_type = blend_type
+        #if ch.write_height:
+        #    height_blend.inputs['Divide'].default_value = 1.0
+        #else: height_blend.inputs['Divide'].default_value = 0.0
     else:
-
-        if blend_type == 'MIX':
-
-            # Has parent
-            if layer.parent_idx != -1 or (is_normal_height_input_connected(root_ch) and root_ch.enable_smooth_bump):
-                if root_ch.enable_smooth_bump:
-                    lib_name = lib.STRAIGHT_OVER_HEIGHT_MIX_SMOOTH
-                else: lib_name = lib.STRAIGHT_OVER_HEIGHT_MIX
-
-                height_blend, need_reconnect = replace_new_node(
-                    tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                    lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
-                )
-
-                if ch.write_height:
-                    height_blend.inputs['Divide'].default_value = 1.0
-                else: height_blend.inputs['Divide'].default_value = 0.0
-
-            # No parent
-            else:
-                if root_ch.enable_smooth_bump:
-                    height_blend, need_reconnect = replace_new_node(
-                        tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                        lib.HEIGHT_MIX_SMOOTH, return_status=True, hard_replace=True, dirty=need_reconnect
-                    )
-                else:
-                    height_blend, need_reconnect = replace_new_mix_node(
-                        tree, ch, prop_name, 'Height Blend', 
-                        return_status=True, dirty=need_reconnect
-                    )
-
-                    height_blend.blend_type = 'MIX'
-
-        elif blend_type == 'ADD':
-
-            # Has parent
-            if layer.parent_idx != -1 or (is_normal_height_input_connected(root_ch) and root_ch.enable_smooth_bump):
-                if root_ch.enable_smooth_bump:
-                    lib_name = lib.STRAIGHT_OVER_HEIGHT_ADD_SMOOTH
-                else: lib_name = lib.STRAIGHT_OVER_HEIGHT_ADD
-
-                height_blend, need_reconnect = replace_new_node(
-                    tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                    lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
-                )
-
-                if ch.write_height:
-                    height_blend.inputs['Divide'].default_value = 1.0
-                else: height_blend.inputs['Divide'].default_value = 0.0
-
-            # No parent
-            else:
-                if root_ch.enable_smooth_bump:
-                    height_blend, need_reconnect = replace_new_node(
-                        tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
-                        lib.HEIGHT_ADD_SMOOTH, return_status=True, hard_replace=True, dirty=need_reconnect
-                    )
-                else:
-                    height_blend, need_reconnect = replace_new_mix_node(
-                        tree, ch, prop_name, 'Height Blend', 
-                        return_status=True, dirty=need_reconnect
-                    )
-
-                    height_blend.blend_type = 'ADD'
-
-        else:
-
-            # Has parent
-            if layer.parent_idx != -1 or (is_normal_height_input_connected(root_ch) and root_ch.enable_smooth_bump):
-                if root_ch.enable_smooth_bump:
-                    lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE_SMOOTH
-                else: lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE
-
-            # No parent
-            else:
-                if root_ch.enable_smooth_bump:
-                    lib_name = lib.HEIGHT_COMPARE_SMOOTH
-                else: lib_name = lib.HEIGHT_COMPARE
+        if blend_type == 'COMPARE':
+            lib_name = lib.HEIGHT_COMPARE
 
             height_blend, need_reconnect = replace_new_node(
                 tree, ch, prop_name, 'ShaderNodeGroup', 'Height Blend', 
                 lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
             )
+        else:
+            height_blend, need_reconnect = replace_new_mix_node(
+                tree, ch, prop_name, 'Height Blend', 
+                return_status=True, dirty=need_reconnect
+            )
+
+            height_blend.blend_type = blend_type
 
     return height_blend, need_reconnect
 
@@ -2103,57 +2021,6 @@ def update_preview_mix(blend_type, preview):
     mix = preview.node_tree.nodes.get('Mix')
     if mix and mix.blend_type != blend_type:
         mix.blend_type = blend_type
-
-def check_override_1_layer_channel_nodes(root_ch, layer, ch):
-
-    yp = layer.id_data.yp
-    layer_tree = get_tree(layer)
-
-    # Current source
-    source = layer_tree.nodes.get(ch.source_1)
-
-    prev_type = ''
-
-    # Source 1 will only use default value or image for now
-    if source:
-        if source.bl_idname == 'ShaderNodeRGB':
-            prev_type = 'DEFAULT'
-        else: prev_type = 'IMAGE'
-
-        if prev_type != ch.override_1_type or not ch.override_1:
-
-            # Save source to cache if it's not default
-            if prev_type != 'DEFAULT':
-
-                ch.cache_1_image = source.name
-                # Remove uv input link
-                if any(source.inputs) and any(source.inputs[0].links):
-                    layer_tree.links.remove(source.inputs[0].links[0])
-                source.label = ''
-                ch.source_1 = ''
-
-    # Try to get channel source
-    if ch.override_1 and ch.override_1_type != 'DEFAULT':
-        source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
-
-        cache = layer_tree.nodes.get(ch.cache_1_image)
-        if cache:
-            # Delete non cached source
-            if prev_type == 'DEFAULT':
-                remove_node(layer_tree, ch, 'source_1')
-
-            ch.source_1 = cache.name
-            ch.cache_1_image = ''
-
-            cache.label = source_label
-        else:
-            source = replace_new_node(layer_tree, ch, 'source_1', 'ShaderNodeTexImage', source_label)
-
-    else:
-        remove_node(layer_tree, ch, 'source_1')
-
-    # Update linear stuff
-    check_layer_channel_linear_node(ch, layer, root_ch, reconnect=True)
 
 def check_override_layer_channel_nodes(root_ch, layer, ch):
 
@@ -2372,7 +2239,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     )
 
             # Check if height converted to normal
-            height_as_normal = ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal
+            height_as_normal = ch == normal_ch and height_ch and height_ch.use_height_as_normal and get_channel_enabled(height_ch, layer, root_height_ch)
 
             # Normal process
             if height_as_normal:
@@ -2392,6 +2259,10 @@ def check_blend_type_nodes(root_ch, layer, ch):
                 normal_proc, need_reconnect = replace_new_node(tree, ch, 'normal_proc', 'ShaderNodeNormalMap', label='Normal Process', return_status=True)
                 normal_proc.uv_map = layer.uv_name
                 normal_proc.space = ch.normal_space
+                if hasattr(normal_proc, 'convention'):
+                    normal_proc.convention = ch.normal_convention
+                if hasattr(normal_proc, 'base'):
+                    normal_proc.base = ch.normal_map_base
             else:
                 if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
 

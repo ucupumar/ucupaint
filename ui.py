@@ -265,7 +265,7 @@ class NODE_MT_copy_image_path_menu(bpy.types.Menu):
             op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Containing Folder Path")
             op.clipboard_text = folder_path
 
-def draw_image_props(context, source, layout, entity=None, show_flip_y=False, show_datablock=True, show_source_input=False):
+def draw_image_props(context, source, layout, entity=None, show_datablock=True, show_source_input=False):
 
     image = source.image
 
@@ -413,11 +413,6 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
     #scol.prop(source, 'projection', text='')
     #if source.projection == 'BOX':
     #    scol.prop(entity, 'projection_blend', text='')
-
-    if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
-        row = col.row(align=True)
-        row.label(text='Flip G:')
-        row.prop(entity, 'image_flip_y', text='')
 
 def draw_object_index_props(entity, layout):
     col = layout.column()
@@ -1081,9 +1076,7 @@ def draw_preview_mode_popover_settings(context, layout, node, show_types=True):
     layout.label(text='Preview Mode Settings')
 
     try: root_ch = yp.channels[yp.preview_mode_channel_index]
-    except:
-        layout.label(text='No channel to preview', icon='ERROR')
-        return
+    except: root_ch = None
 
     if show_types:
         row = split_layout(layout, 0.4)
@@ -1121,7 +1114,7 @@ def draw_preview_mode_popover_settings(context, layout, node, show_types=True):
     ccol.template_list("NODE_UL_YPaint_simple_channels", "", yp,
             "channels", yp, "preview_mode_channel_index", rows=len(yp.channels), maxrows=5)  
 
-    if root_ch.special_type == 'NORMAL':
+    if root_ch and root_ch.special_type == 'NORMAL':
         ccol = col.column(align=True)
         ccol.label(text='Normal Space')
         ccol.prop(yp, 'preview_mode_normal_space', text='')
@@ -1130,7 +1123,7 @@ def draw_preview_mode_popover_settings(context, layout, node, show_types=True):
     if (yp.preview_mode_type == 'CHANNEL' or yp.use_baked) and alpha_ch != None:
         row = col.row()
             
-        row.active = root_ch != alpha_ch
+        row.active = root_ch and root_ch != alpha_ch
         row.prop(yp, 'preview_mode_use_alpha', text='Use Alpha')
 
 def draw_preview_mode_settings(context, layout, node):
@@ -1510,11 +1503,6 @@ def draw_stats_ui(context, layout, node, show_header=False):
                             vcols.append(vcol_name)
                     elif ch.override_type not in {'DEFAULT'}:
                         num_gen_texs += 1
-                if ch.override_1:
-                    if ch.override_1_type == 'IMAGE':
-                        src = layer_tree.nodes.get(ch.source_1)
-                        if src.image and src.image not in images:
-                            images.append(src.image)
 
                 for mod in ch.modifiers:
                     if not mod.enable: continue
@@ -2509,7 +2497,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         ccol.active = not layer.use_baked
 
         if image:
-            draw_image_props(context, source, ccol, layer, show_flip_y=True, show_datablock=False)
+            draw_image_props(context, source, ccol, layer, show_datablock=False)
 
             # NOTE: Divide rgb by alpha is mostly useless for image layer, 
             # so it's hidden under experimental feature unless the user ever enabled it before
@@ -2764,12 +2752,12 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
 
             layout.separator()
 
-def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False):
+def get_layer_channel_input_label(layer, ch, source=None):
     yp = layer.id_data.yp
 
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
-    override = ch.override if not secondary_input else ch.override_1
-    override_type = ch.override_type if not secondary_input else ch.override_1_type
+    override = ch.override
+    override_type = ch.override_type
 
     if override:
         if not source: source = get_channel_source(ch, layer)
@@ -2791,7 +2779,7 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
             if not color_ch.override and color_ch.socket_input_name == 'Alpha':
                 label = 'Solid Value (1.0)'
             else: label += ' Alpha'
-        else: label += ' ' + get_channel_input_socket_name(layer, ch, secondary_input=secondary_input)
+        else: label += ' ' + get_channel_input_socket_name(layer, ch)
 
     return label
 
@@ -2904,6 +2892,10 @@ def draw_layer_channels(context, node, layout, layer, layer_tree, image, specifi
     bump_ch_found = True if get_transition_bump_channel(layer) else False
     showed_bump_ch_found = True if get_showed_transition_bump_channel(layer) else False
 
+    # Check if height channel is converted to normal
+    height_root_ch = get_root_height_channel(yp)
+    height_as_normal_enabled = height_ch and height_ch.use_height_as_normal and get_channel_enabled(height_ch, layer, height_root_ch)
+
     ch_count = 0
     extra_separator = False
     for i, ch in enumerate(layer.channels):
@@ -2917,7 +2909,7 @@ def draw_layer_channels(context, node, layout, layer, layer_tree, image, specifi
             continue
 
         # Hide normal channel if 'Use height as normal' is enabled
-        if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+        if ch == normal_ch and height_as_normal_enabled:
             continue
 
         root_ch = yp.channels[i]
@@ -2948,7 +2940,7 @@ def draw_layer_channels(context, node, layout, layer, layer_tree, image, specifi
 
         label = ''
         alt_ch_for_icon = None
-        if ch == height_ch and height_ch.use_height_as_normal:
+        if ch == height_ch and height_as_normal_enabled:
             root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
             alt_ch_for_icon = root_normal_ch
             label = root_normal_ch.name+' from '+root_height_ch.name
@@ -2988,7 +2980,7 @@ def draw_layer_channels(context, node, layout, layer, layer_tree, image, specifi
 
                 ssplit = split_layout(rrow, 0.4, align=True)
                 
-                if ch == height_ch and height_ch.use_height_as_normal:
+                if ch == height_ch and height_as_normal_enabled:
                     label = normal_blend_labels[normal_ch.normal_blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(normal_ch, 'normal_blend_type', text='')
                 elif root_ch.special_type == 'NORMAL':
@@ -3112,7 +3104,7 @@ def draw_layer_channels(context, node, layout, layer, layer_tree, image, specifi
 
             rrow = split.row(align=True)
 
-            if height_ch == ch and height_ch.use_height_as_normal:
+            if height_ch == ch and height_as_normal_enabled:
                 rrow.prop(normal_ch, 'normal_blend_type', text='')
             elif root_ch.special_type == 'NORMAL':
                 rrow.prop(ch, 'normal_blend_type', text='')
@@ -3188,16 +3180,18 @@ def draw_layer_channels(context, node, layout, layer, layer_tree, image, specifi
                     draw_input_prop(row, ch, 'bump_smooth_multiplier', layer=layer)
 
             # Write Height
-            row = mcol.row(align=True)
-            row.label(text='', icon='BLANK1')
-            row.label(text='Use as Normal Only:')
-            row.prop(ch, 'use_height_as_normal', text='')
-
-            if ch.use_height_as_normal:
+            if normal_ch or ch.use_height_as_normal:
                 row = mcol.row(align=True)
+                row.active = normal_ch != None
                 row.label(text='', icon='BLANK1')
-                row.label(text='Height Blend:')
-                row.prop(ch, 'height_blend_type', text='')
+                row.label(text='Use as Normal Only:')
+                row.prop(ch, 'use_height_as_normal', text='')
+
+                if normal_ch and ch.use_height_as_normal:
+                    row = mcol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    row.label(text='Height Blend:')
+                    row.prop(ch, 'height_blend_type', text='')
 
             if ch.show_transition_bump or ch.enable_transition_bump:
 
@@ -3306,30 +3300,38 @@ def draw_layer_channels(context, node, layout, layer, layer_tree, image, specifi
 
                     #row.label(text='', icon='BLANK1')
 
-        if root_ch.special_type == 'NORMAL' and layer.type not in {'GROUP', 'PREV_LAYERS'} and layer.type not in  {'INPUT_BUNDLE'}:
-
-            #height_as_normal_disabled = ch == normal_ch and (height_ch == None or not height_ch.enable or not height_ch.use_height_as_normal)
-
-            # Normal Space
-            row = mcol.row(align=True)
-            row.label(text='', icon='BLANK1')
-            #row.active = height_as_normal_disabled
-            label = 'Normal Space:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Space:'
-            row.label(text=label)
-            #if ch.normal_map_type == 'NORMAL_MAP':
-            row = row.row(align=True)
-            row.prop(ch, 'normal_space', text='')
+        if root_ch.special_type == 'NORMAL' and layer.type not in {'GROUP', 'PREV_LAYERS'} and layer.type not in {'INPUT_BUNDLE'}:
 
             # Normal Strength
             row = mcol.row(align=True)
             row.label(text='', icon='BLANK1')
-            #row.active = height_as_normal_disabled
             label = 'Strength:'
             row.label(text=label)
-            if ch.normal_map_type == 'NORMAL_MAP':
-                row = row.row(align=True)
-                row.scale_x = 1.4
+            row = row.row(align=True)
+            row.scale_x = 1.4
             draw_input_prop(row, ch, 'normal_strength', layer=layer)
+
+            # Normal Space
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            label = 'Space:'
+            row.label(text=label)
+            rrow = row.row(align=True)
+            rrow.scale_x = 1.4
+            rrow.prop(ch, 'normal_space', text='')
+
+            show_normal_base = ch.normal_space == 'TANGENT' and is_bl_newer_than(5, 2) and height_root_ch and not height_root_ch.use_height_as_bump
+
+            # Normal convention
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            row.label(text='Convention:')
+            rrow = row.row(align=True)
+            if not show_normal_base:
+                rrow.scale_x = 1.4
+            rrow.prop(ch, 'normal_convention', text='')
+            if show_normal_base:
+                rrow.prop(ch, 'normal_map_base', text='')
 
         if root_ch.special_type == 'VDISP' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
@@ -4538,10 +4540,6 @@ def draw_layers_ui(context, layout, node):
                         override_image = source.image
                     elif c.override_type == 'VCOL':
                         override_vcol = get_vcol_from_source(obj, source)
-                elif c.override_1 and c.override_1_type == 'IMAGE' and c.active_edit_1:
-                    source = get_channel_source_1(c, layer)
-                    if source and source.image:
-                        override_image = source.image
 
             # Check for active mask
             for i, m in enumerate(layer.masks):
@@ -5785,14 +5783,12 @@ def layer_listing(layout, layer, show_expand=False):
         for i, c in enumerate(layer.channels):
             root_ch = yp.channels[i]
             #if not c.enable: continue
-            if (c.override and c.override_type != 'DEFAULT') or (c.override_1 and c.override_1_type != 'DEFAULT'):
+            if c.override and c.override_type != 'DEFAULT':
                 if c.enable or (c == alpha_ch and color_ch.enable): 
                     selectable_overrides.append(c)
                 all_overrides.append(c)
-                if c.active_edit or c.active_edit_1:
+                if c.active_edit:
                     active_override = c
-                if c.active_edit_1:
-                    override_idx = 1
 
     # Try to get image masks
     all_masks = []
@@ -5844,8 +5840,6 @@ def layer_listing(layout, layer, show_expand=False):
     else:
         if active_override:
             ae_prop = 'active_edit'
-            if override_idx == 1 and hasattr(active_override, 'active_edit_1'):
-                ae_prop = 'active_edit_1'
             row.active = False
             if image: 
                 if ypup.use_image_preview and image.preview:
@@ -5940,28 +5934,6 @@ def layer_listing(layout, layer, show_expand=False):
                 else:
                     icon_name = get_ch_type_icon_prefix(layer, c) + 'texture'
                     row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(icon_name))
-
-        if c.override_1 and c.override_1_type != 'DEFAULT' and c.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-            row = master.row(align=True)
-            row.active = c.active_edit_1
-            if c.active_edit_1:
-                src = get_channel_source_1(c, layer)
-                override_ch = c
-                if src and c.override_1_type == 'IMAGE':
-                    active_override_image = src.image
-                    if ypup.use_image_preview and src.image.preview: 
-                        #if not src.image.preview: src.image.preview_ensure()
-                        row.label(text='', icon_value=src.image.preview.icon_id)
-                    else: 
-                        row.label(text='', icon_value=lib.get_icon('vector_image'))
-            else:
-                if c.override_1_type == 'IMAGE':
-                    src = get_channel_source_1(c, layer)
-                    if src: 
-                        if ypup.use_image_preview and src.image.preview: 
-                            #if not src.image.preview: src.image.preview_ensure()
-                            row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=src.image.preview.icon_id)
-                        else: row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=lib.get_icon('vector_image'))
 
     # Mask icons
     active_mask_image = None
@@ -7425,7 +7397,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
             op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
             op.socket_name = get_channel_input_socket_name(layer, ch)
-            op.set_normal_input = False
         else:
             if layer.type in {'GROUP', 'PREV_LAYERS'}:
                 label = 'Group ' if layer.type == 'GROUP' else 'Previous '
@@ -7433,7 +7404,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
                 icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
                 op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
                 op.socket_name = ch.socket_input_name
-                op.set_normal_input = False
             else:
                 source = get_layer_source(layer)
                 for outp in get_available_source_outputs(source, layer.type):
@@ -7450,7 +7420,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
                     op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
                     op.socket_name = outp.name
-                    op.set_normal_input = False
 
         col.separator()
 
@@ -7463,7 +7432,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if ch.override and ch.override_type == 'DEFAULT' else 'RADIOBUT_OFF'
         op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
         op.socket_name = ''
-        op.set_normal_input = False
 
         # Custom Data
         label = 'Custom '

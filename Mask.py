@@ -1095,7 +1095,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
-            if image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
+            if image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty and image.users <= 1:
                 image.colorspace_settings.name = get_noncolor_name()
 
             # Add new mask
@@ -1350,7 +1350,7 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
             image = bpy.data.images.get(self.image_name)
             name = image.name
 
-            if self.socket_input_name == 'Color' and image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
+            if self.socket_input_name == 'Color' and image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty and image.users <= 1:
                 image.colorspace_settings.name = get_noncolor_name()
         elif self.type == 'VCOL':
             name = self.vcol_name
@@ -1750,7 +1750,6 @@ def update_mask_active_edit(self, context):
         yp.halt_update = True
         for c in layer.channels:
             c.active_edit = False
-            c.active_edit_1 = False
 
         for m in layer.masks:
             if m == self: continue

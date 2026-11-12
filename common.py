@@ -3744,12 +3744,6 @@ def is_active_uv_map_mismatch_active_entity(obj, layer):
             use_baked = False
             break
 
-        if ch.active_edit_1:
-            entity = layer
-            entity_type = ch.override_1_type
-            use_baked = False
-            break
-
     if not entity:
         entity = layer
         entity_type = entity.type
@@ -3947,7 +3941,7 @@ def refresh_temp_uv(obj, entity):
     remove_temp_uv(obj, entity)
 
     # No need to use temp uv if override is not using image
-    if m3 and ((entity.active_edit and entity.override_type != 'IMAGE') or (entity.active_edit_1 and entity.override_1_type != 'IMAGE')):
+    if m3 and entity.active_edit and entity.override_type != 'IMAGE':
         return False
 
     # No need to use temp uv if layer/mask is not using image
@@ -3979,9 +3973,7 @@ def refresh_temp_uv(obj, entity):
         mapping = get_mask_mapping(entity, get_baked=entity.use_baked)
         #print('Mask!')
     elif m3: 
-        if entity.active_edit_1:
-            source = layer_tree.nodes.get(entity.source_1)
-        else: source = layer_tree.nodes.get(entity.source)
+        source = layer_tree.nodes.get(entity.source)
         mapping = get_layer_mapping(layer)
         entity = layer
         #print('Channel!')
@@ -5478,12 +5470,6 @@ def set_active_image_for_editor_and_painting(yp):
 
                         image = source.image
 
-                    if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.override_1_type == 'IMAGE':
-                        source = tree.nodes.get(ch.source_1)
-                        source.select = True
-                        layer_tree.nodes.active = source
-                        image = source.image
-
                 if not image:
                     source = get_layer_source(layer, tree)
                     baked_source = get_layer_source(layer, get_baked=True)
@@ -5594,17 +5580,6 @@ def get_active_image_and_stuffs(obj, yp):
             elif ch.override_type == 'VCOL' and obj and obj.type == 'MESH':
                 vcol = vcols.get(get_source_vcol_name(source)) if vcols else None
 
-        if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT':
-            source = tree.nodes.get(ch.source_1)
-            entity = ch
-
-            if ch.override_1_type == 'IMAGE':
-                uv_name = layer.uv_name
-                source_1 = get_channel_source_1(ch)
-                image = source_1.image
-                src_of_img = ch
-                mapping = get_layer_mapping(layer)
-
     if not entity: 
         entity = layer
 
@@ -5644,9 +5619,6 @@ def is_uv_input_needed(layer, uv_name):
             return True
 
         if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-            return True
-
-        if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
             if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
                 return True
 
@@ -5666,93 +5638,47 @@ def is_uv_input_needed(layer, uv_name):
 
     return False
 
-def is_entity_need_tangent_input(entity, uv_name):
-    yp = entity.id_data.yp
+def is_tangent_input_needed(layer, uv_name):
+    yp = layer.id_data.yp
 
-    m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', entity.path_from_id())
-    if m: 
-        layer = yp.layers[int(m.group(1))]
-        entity_enabled = get_mask_enabled(entity)
-        is_mask = True
-    else: 
-        layer = entity
-        entity_enabled = get_layer_enabled(entity)
-        is_mask = False
+    normal_root_ch = get_root_normal_channel(yp)
+    if not normal_root_ch: return False
+    height_root_ch = get_root_height_channel(yp)
 
-    if entity_enabled and (entity.use_baked or entity.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}):
+    if get_layer_enabled(layer) and (layer.use_baked or layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}):
 
-        height_root_ch = get_root_height_channel(yp)
         height_ch = get_height_channel(layer)
-        normal_root_ch = get_root_normal_channel(yp)
         normal_ch = get_normal_channel(layer)
 
-        height_channel_enabled = get_channel_enabled(height_ch, layer, height_root_ch) if height_root_ch and height_ch else False
-        normal_channel_enabled = get_channel_enabled(normal_ch, layer, normal_root_ch) if normal_root_ch and normal_ch else False
+        tangent_uv = normal_root_ch.main_uv if normal_root_ch.main_uv != '' else layer.uv_name
 
-        # Previous normal is calculated using normal process
-        if height_root_ch and height_root_ch.enable_smooth_bump and check_need_prev_normal(layer):
-            return True
+        if tangent_uv == uv_name:
 
-        #if normal_root_ch and normal_ch and get_channel_enabled(normal_ch, layer, normal_root_ch):
+            if layer.type == 'GROUP':
 
-        if entity.type == 'GROUP':
-
-            if normal_root_ch and is_layer_using_normal_map(entity, normal_root_ch):
-                return True
-
-            if normal_ch and height_ch and height_ch.use_height_as_normal and has_channel_children(entity, normal_root_ch):
-                return True
-
-        elif normal_root_ch and uv_name == normal_root_ch.main_uv:
-
-            if normal_channel_enabled and normal_ch.normal_blend_type == 'OVERLAY':
-                return True
-
-            if height_channel_enabled and height_ch.use_height_as_normal and normal_ch.normal_blend_type == 'OVERLAY':
-                return True
-
-            if height_channel_enabled and height_root_ch.enable_smooth_bump:
-                if height_ch.enable_transition_bump:
+                if is_layer_using_normal_map(layer, normal_root_ch) and normal_ch.normal_blend_type == 'OVERLAY':
                     return True
 
-                # Main UV Tangent is needed if smooth bump is on and entity is using non-uv texcoord or have different UV
-                if (entity.texcoord_type != 'UV' or entity.uv_name != uv_name) and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                if normal_ch and height_ch and height_ch.use_height_as_normal and has_channel_children(layer, normal_root_ch) and has_channel_children(layer, height_root_ch):
                     return True
 
-                # Fake neighbor need tangent
-                if entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT', 'AO'} and not entity.use_baked:
+            else:
+
+                height_channel_enabled = get_channel_enabled(height_ch, layer, height_root_ch) if height_root_ch and height_ch else False
+                normal_channel_enabled = get_channel_enabled(normal_ch, layer, normal_root_ch) if normal_root_ch and normal_ch else False
+
+                if normal_channel_enabled and normal_ch and normal_ch.normal_blend_type == 'OVERLAY':
                     return True
 
-        elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
-
-            # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
-            #if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-            if height_channel_enabled and height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name:
-                return True
-
-    return False
-
-def is_tangent_input_needed(layer, uv_name):
-
-    if is_entity_need_tangent_input(layer, uv_name):
-        return True
-
-    for mask in layer.masks:
-        if is_entity_need_tangent_input(mask, uv_name):
-            return True
+                if height_channel_enabled and height_ch and height_ch.use_height_as_normal and normal_ch and normal_ch.normal_blend_type == 'OVERLAY':
+                    return True
 
     return False
 
 def is_tangent_process_needed(yp, uv_name):
 
-    height_root_ch = get_root_height_channel(yp)
     normal_root_ch = get_root_normal_channel(yp)
-    if height_root_ch or normal_root_ch:
-
-        if height_root_ch and height_root_ch.main_uv == uv_name and (
-                (is_normal_height_input_connected(height_root_ch) and height_root_ch.enable_smooth_bump)
-            ):
-            return True
+    if normal_root_ch:
 
         for layer in yp.layers:
             if is_tangent_input_needed(layer, uv_name):
@@ -5770,15 +5696,12 @@ def is_height_process_needed(layer):
 
     if layer.type in {'INPUT_BUNDLE'}: return False
 
-    if is_layer_preview_mode_enabled(yp) and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+    if is_layer_preview_mode_enabled(yp): return True
 
     if layer.type in {'GROUP', 'PREV_LAYERS'}: 
-        if is_layer_using_bump_map(layer, height_root_ch):
-            return True
-    elif height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
-        return True
+        return is_layer_using_bump_map(layer, height_root_ch)
 
-    return False
+    return True
 
 def is_vdisp_process_needed(layer):
     yp = layer.id_data.yp
@@ -5788,32 +5711,10 @@ def is_vdisp_process_needed(layer):
     vdisp_ch = get_vdisp_channel(layer)
     if not vdisp_ch or not vdisp_ch.enable: return False
 
-    #if is_layer_preview_mode_enabled(yp) and vdisp_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
-
     if layer.type in {'GROUP', 'PREV_LAYERS'}: 
         return is_layer_using_vdisp_map(layer, vdisp_root_ch)
-    #elif vdisp_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or vdisp_ch.enable_transition_bump:
-    #    return True
 
     return True
-
-def is_normal_process_needed(layer):
-    yp = layer.id_data.yp
-    height_root_ch = get_root_height_channel(yp)
-    if not height_root_ch: return False
-
-    height_ch = get_height_channel(layer)
-    if not height_ch or not height_ch.enable: return False
-
-    if is_layer_preview_mode_enabled(yp) and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
-
-    if layer.type in {'GROUP', 'PREV_LAYERS'}: 
-        if is_layer_using_bump_map(layer, height_root_ch) and not height_ch.write_height:
-            return True
-    elif height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not height_ch.write_height:
-        return True
-
-    return False
 
 ''' Check if layer is practically enabled or not '''
 def get_layer_enabled(layer):
@@ -6033,15 +5934,15 @@ def is_layer_using_vdisp_map(layer, root_ch=None):
 
     return False
 
-def is_layer_using_normal_map(layer, root_ch=None):
+def is_layer_using_normal_map(layer, root_normal_ch=None):
     yp = layer.id_data.yp
-    if not root_ch: root_ch = get_root_height_channel(yp)
-    if not root_ch: return False
+    if not root_normal_ch: root_normal_ch = get_root_normal_channel(yp)
+    if not root_normal_ch: return False
 
-    channel_idx = get_channel_index(root_ch)
+    channel_idx = get_channel_index(root_normal_ch)
     try: ch = layer.channels[channel_idx]
     except: return False
-    if get_channel_enabled(ch, layer, root_ch):
+    if get_channel_enabled(ch, layer, root_normal_ch):
         if layer.type in {'GROUP', 'PREV_LAYERS'}:
             if layer.type == 'GROUP':
                 other_layers = get_list_of_direct_children(layer)
@@ -6050,7 +5951,7 @@ def is_layer_using_normal_map(layer, root_ch=None):
             for ol in other_layers:
                 if is_layer_using_normal_map(ol) or (not ch.write_height and is_layer_using_bump_map(ol)):
                     return True
-        elif not ch.write_height or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+        else:
             return True
 
     return False
@@ -6245,11 +6146,6 @@ def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=Fals
                 if source and source.image and source.image not in images:
                     images.append(source.image)
 
-            if ch.override_1 and ch.override_1_type == 'IMAGE':
-                source = get_channel_source_1(ch, lay)
-                if source and source.image and source.image not in images:
-                    images.append(source.image)
-
         baked_source = get_layer_source(lay, get_baked=True)
         if baked_source and baked_source.image and baked_source.image not in images:
             images.append(baked_source.image)
@@ -6340,10 +6236,6 @@ def get_yp_entites_using_same_image(yp, image):
         for ch in layer.channels:
             if ch.override and ch.override_type == 'IMAGE':
                 source = get_channel_source(ch, layer)
-                if source and source.image == image:
-                    entities.append(ch)
-            elif ch.override_1 and ch.override_1_type == 'IMAGE':
-                source = get_channel_source_1(ch, layer)
                 if source and source.image == image:
                     entities.append(ch)
 
@@ -6784,26 +6676,6 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP', 'PREV_LAYERS'}
         ):
             return 1.0 / GAMMA
-
-    return 1.0
-
-def get_layer_channel_normal_gamma_value(ch, layer=None, root_ch=None, layer_tree=None, channel_enabled=None):
-    yp = ch.id_data.yp
-    if not layer or not root_ch: layer, root_ch = get_layer_and_root_ch_from_layer_ch(ch)
-
-    if channel_enabled == None: channel_enabled = get_channel_enabled(ch, layer, root_ch)
-    if not channel_enabled: return 1.0
-
-    image = None
-    source = None
-    if layer_tree == None: layer_tree = get_tree(layer)
-    if ch.override_1 and ch.override_1_type == 'IMAGE':
-        source = layer_tree.nodes.get(ch.source_1)
-        if source: image = source.image
-
-    # Convert srgb normal map override to linear
-    if ch.override_1 and image and is_image_source_srgb(image, source):
-        return 1.0 / GAMMA
 
     return 1.0
 
@@ -8566,10 +8438,10 @@ def is_modifier_used_by_alpha_channel(mod):
 
     return False
 
-def get_channel_input_socket_name(layer, ch, source=None, secondary_input=False):
+def get_channel_input_socket_name(layer, ch, source=None):
     if not source: source = get_layer_source(layer)
 
-    socket_input_name = ch.socket_input_name if not secondary_input else ch.socket_input_1_name
+    socket_input_name = ch.socket_input_name
 
     if source:
         # Check if channel prop is in output name
@@ -8585,10 +8457,10 @@ def get_channel_input_socket_name(layer, ch, source=None, secondary_input=False)
 
     return 'Error'
 
-def get_channel_input_socket(layer, ch, source=None, secondary_input=False):
+def get_channel_input_socket(layer, ch, source=None):
     if not source: source = get_layer_source(layer)
 
-    socket_name = get_channel_input_socket_name(layer, ch, source, secondary_input)
+    socket_name = get_channel_input_socket_name(layer, ch, source)
     return source.outputs.get(socket_name)
 
 def get_mask_input_socket_name(mask, source=None):

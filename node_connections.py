@@ -501,8 +501,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             # UV inputs
             uv_names = []
 
-            if root_height_ch and root_height_ch.main_uv != '':
-                uv_names.append(root_height_ch.main_uv)
+            if root_normal_ch and root_normal_ch.main_uv != '':
+                uv_names.append(root_normal_ch.main_uv)
 
             if layer.texcoord_type == 'UV' and layer.uv_name not in uv_names:
                 uv_names.append(layer.uv_name)
@@ -955,21 +955,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     mapping = nodes.get(layer.mapping)
     linear = nodes.get(layer.linear)
     divider_alpha = nodes.get(layer.divider_alpha)
-    flip_y = nodes.get(layer.flip_y)
     decal_process = nodes.get(layer.decal_process)
 
-    # Get tangent and bitangent
-    layer_tangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['TANGENT'])
-    layer_bitangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['BITANGENT'])
-
+    # Root normal and height channels
     normal_root_ch = get_root_normal_channel(yp)
     height_root_ch = get_root_height_channel(yp)
-    if height_root_ch and height_root_ch.main_uv != '':
-        tangent = get_essential_node(tree, TREE_START).get(height_root_ch.main_uv + io_suffix['TANGENT'])
-        bitangent = get_essential_node(tree, TREE_START).get(height_root_ch.main_uv + io_suffix['BITANGENT'])
+
+    # Get tangent and bitangent
+    if normal_root_ch and normal_root_ch.main_uv != '':
+        tangent = get_essential_node(tree, TREE_START).get(normal_root_ch.main_uv + io_suffix['TANGENT'])
+        bitangent = get_essential_node(tree, TREE_START).get(normal_root_ch.main_uv + io_suffix['BITANGENT'])
     else:
-        tangent = layer_tangent
-        bitangent = layer_bitangent
+        tangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['TANGENT'])
+        bitangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['BITANGENT'])
 
     # Fake lighting stuff
     bump_process = nodes.get(layer.bump_process)
@@ -982,9 +980,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if prev_height and 'Height' in bump_process.inputs: create_link(tree, prev_height, bump_process.inputs['Height'])
         if prev_max_height and 'Max Height' in bump_process.inputs: create_link(tree, prev_max_height, bump_process.inputs['Max Height'])
 
-        if prev_normal and 'Normal' in bump_process.inputs: create_link(tree, prev_normal, bump_process.inputs['Normal'])
         if tangent and 'Tangent' in bump_process.inputs: create_link(tree, tangent, bump_process.inputs['Tangent'])
         if bitangent and 'Bitangent' in bump_process.inputs: create_link(tree, bitangent, bump_process.inputs['Bitangent'])
+
+        if 'Normal' in bump_process.inputs: 
+            if prev_normal:
+                create_link(tree, prev_normal, bump_process.inputs['Normal'])
+            else:
+                create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], bump_process.inputs['Normal'])
 
     # Edge Detect related
     if layer.type == 'EDGE_DETECT':
@@ -1120,7 +1123,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb_connections[name] = create_link(tree, rgb_connections[name], divider_alpha.inputs[mixcol0])[mixout]
                 create_link(tree, alpha_connections[name], divider_alpha.inputs[mixcol1])
             if linear: rgb_connections[name] = create_link(tree, rgb_connections[name], linear.inputs[0])[0]
-            if flip_y: rgb_connections[name] = create_link(tree, rgb_connections[name], flip_y.inputs[0])[0]
 
         mod_group = None
         if i < len(layer.mod_groups):
@@ -1487,9 +1489,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if ch_tb_fac: create_link(tree, ch_tb_fac, intensity_multiplier.inputs['Factor'])
 
         ch_linear = nodes.get(ch.linear)
-        if ch_linear:
-            create_link(tree, rgb, ch_linear.inputs[0])
-            rgb = ch_linear.outputs[0]
+        if ch_linear: rgb = create_link(tree, rgb, ch_linear.inputs[0])[0]
+
+        ch_flip_y = nodes.get(ch.flip_y)
+        if ch_flip_y: rgb = create_link(tree, rgb, ch_flip_y.inputs[0])[0]
 
         # NOTE: Swizzle currently only works with non custom layer channel source
         if ch.swizzle_input_mode != 'RGB' and not ch.override:
@@ -1565,9 +1568,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if layer_intensity and layer_intensity_value:
             if ch_intensity:
                 # NOTE: Layer group with height as normal enabled will use height channel intensity rather than it's own
-                if layer.type == 'GROUP' and ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+                if layer.type == 'GROUP' and ch == normal_ch and height_ch and height_ch.use_height_as_normal and get_channel_enabled(height_ch, layer, height_root_ch):
                     height_ch_intensity = get_essential_node(tree, TREE_START).get(get_entity_input_name(height_ch, 'intensity_value'))
-                    ch_intensity = create_link(tree, height_ch_intensity, layer_intensity.inputs[0])[0]
+                    if height_ch_intensity:
+                        ch_intensity = create_link(tree, height_ch_intensity, layer_intensity.inputs[0])[0]
                 else:
                     ch_intensity = create_link(tree, ch_intensity, layer_intensity.inputs[0])[0]
             create_link(tree, layer_intensity_value, layer_intensity.inputs[1])
@@ -1591,7 +1595,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if normal_proc:
                 ch_normal_strength = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'normal_strength'))
-                if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+                if ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal:
                     # Height channel as bump
                     if height_ch_rgb and 'Height' in normal_proc.inputs:
                         create_link(tree, height_ch_rgb, normal_proc.inputs['Height'])
@@ -1616,10 +1620,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         create_link(tree, rgb_original, normal_overlay.inputs[2])
                         create_link(tree, alpha, normal_overlay.inputs[3])
 
-                        if layer_tangent and 'Tangent' in normal_overlay.inputs:
-                            create_link(tree, layer_tangent, normal_overlay.inputs['Tangent'])
-                        if layer_bitangent and 'Bitangent' in normal_overlay.inputs:
-                            create_link(tree, layer_bitangent, normal_overlay.inputs['Bitangent'])
+                        if tangent and 'Tangent' in normal_overlay.inputs:
+                            create_link(tree, tangent, normal_overlay.inputs['Tangent'])
+                        if bitangent and 'Bitangent' in normal_overlay.inputs:
+                            create_link(tree, bitangent, normal_overlay.inputs['Bitangent'])
 
                         rgb = normal_overlay.outputs[0]
                         alpha = normal_overlay.outputs[1]
@@ -2035,10 +2039,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         active_found = True
                         break
 
-                    if ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.active_edit_1:
-                        active_found = True
-                        break
-                
                 if not active_found and alpha_preview:
                     create_link(tree, source.outputs[0], alpha_preview)
 

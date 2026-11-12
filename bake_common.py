@@ -5572,6 +5572,17 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         set_entity_prop_value(ent, 'edge_detect_radius', bprops.bevel_radius)
                         ent.edge_detect_method = bprops.edge_detect_method
 
+                    # Update normal_proc uv
+                    m = re.match(r'^yp\.layers\[(\d+)\]$', ent.path_from_id())
+                    if m:
+                        normal_ch = get_normal_channel(ent)
+                        if normal_ch:
+                            etree = get_tree(ent)
+                            if etree:
+                                normal_proc = etree.nodes.get(normal_ch.normal_proc)
+                                if normal_proc and normal_proc.type == 'NORMAL_MAP':
+                                    normal_proc.uv_map = bprops.uv_map
+
                 if bprops.target_type == 'LAYER':
                     layer_ids = [i for i, l in enumerate(yp.layers) if l in entities]
                     if entities and yp.active_layer_index not in layer_ids:
