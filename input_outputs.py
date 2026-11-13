@@ -670,9 +670,14 @@ def ensure_external_alpha_default(layer, node=None):
             if root_ch.type != 'RGB' or root_ch.special_type == 'VDISP': continue
 
             field_name = get_external_bundle_field_name(root_ch, alpha=True)
-            if field_name in defaulted: continue
+            if field_name in defaulted:
+                if source.inputs.get(field_name): continue
+                defaulted.discard(field_name)
 
             alpha_input = source.inputs.get(field_name)
+            if not alpha_input:
+                source.bundle_items.new('FLOAT', field_name)
+                alpha_input = source.inputs.get(field_name)
             if not alpha_input: continue
 
             if len(alpha_input.links) == 0 and alpha_input.default_value == 0.0:

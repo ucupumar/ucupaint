@@ -4055,8 +4055,21 @@ def ypaint_external_alpha_default_update(scene, depsgraph=None):
     if not any(layer.type == 'EXTERNAL' for layer in yp.layers): return
 
     for layer in yp.layers:
-        if layer.type == 'EXTERNAL':
-            ensure_external_alpha_default(layer, node=group_node)
+        if layer.type != 'EXTERNAL': continue
+
+        bundle_input = group_node.inputs.get(get_layer_external_bundle_input_name(layer))
+        source_name = ''
+        if bundle_input and len(bundle_input.links) > 0:
+            source_name = bundle_input.links[0].from_node.name
+
+        source_changed = layer.get('yp_external_bundle_source', '') != source_name
+        if source_changed:
+            layer['yp_external_bundle_source'] = source_name
+
+        ensure_external_alpha_default(layer, node=group_node)
+
+        if source_changed:
+            reconnect_layer_nodes(layer)
 
 @persistent
 def ypaint_hacks_and_scene_updates(scene):

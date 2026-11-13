@@ -1409,8 +1409,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb = external_bundle.outputs.get(get_external_bundle_field_name(root_ch))
                 if root_ch.special_type != 'VDISP':
                     alpha = external_bundle.outputs.get(get_external_bundle_field_name(root_ch, alpha=True))
-                    if not is_external_bundle_field_connected(layer, root_ch, alpha=True):
-                        alpha = get_essential_node(tree, ONE_VALUE)[0]
                 else:
                     alpha = get_essential_node(tree, ONE_VALUE)[0]
             else:
@@ -1424,10 +1422,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if (layer.type == 'EXTERNAL' and not layer.use_baked and
                         root_color_ch.type == 'RGB' and root_color_ch.special_type != 'VDISP'):
                     if external_bundle:
-                        if is_external_bundle_field_connected(layer, root_color_ch, alpha=True):
-                            alpha_outp = external_bundle.outputs.get(get_external_bundle_field_name(root_color_ch, alpha=True))
-                        else:
-                            alpha_outp = get_essential_node(tree, ONE_VALUE)[0]
+                        alpha_outp = external_bundle.outputs.get(get_external_bundle_field_name(root_color_ch, alpha=True))
                     else:
                         alpha_outp = source.outputs.get(get_layer_external_alpha_input_name(layer, root_color_ch))
                     if alpha_outp: rgb = alpha_outp
