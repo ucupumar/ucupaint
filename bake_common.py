@@ -3042,6 +3042,15 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # Get default color
     color = get_bake_target_default_color(node, bt, use_noncolor)
 
+    # Need to convert base colorspace
+    if use_hdr and use_noncolor:
+        color = (
+            linear_to_srgb_per_element(color[0]),
+            linear_to_srgb_per_element(color[1]),
+            linear_to_srgb_per_element(color[2]),
+            color[3]
+        )
+
     # Check if udim image is needed based on number of tiles
     tilenums = [1001]
     if btprops.use_udim and not is_vcol_baking:
