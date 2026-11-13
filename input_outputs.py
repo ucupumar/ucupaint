@@ -649,8 +649,8 @@ def update_external_bundle_items(bundle, field_specs):
         if cur_idx != -1 and cur_idx != target_idx:
             bundle.bundle_items.move(cur_idx, target_idx)
 
-def ensure_external_alpha_default(layer):
-    node = get_active_ypaint_node()
+def ensure_external_alpha_default(layer, node=None):
+    if not node: node = get_active_ypaint_node()
     if not node or node.node_tree != layer.id_data: return
     yp = layer.id_data.yp
 
@@ -661,15 +661,28 @@ def ensure_external_alpha_default(layer):
         source = link.from_node
         if source.bl_idname != 'NodeCombineBundle': continue
 
+        defaulted = set(filter(None, str(source.get('yp_alpha_defaulted_fields', '')).split('|')))
+        changed = False
+
         for i, ch in enumerate(layer.channels):
             if not ch.enable or i >= len(yp.channels): continue
             root_ch = yp.channels[i]
             if root_ch.type != 'RGB' or root_ch.special_type == 'VDISP': continue
 
-            alpha_input = source.inputs.get(get_external_bundle_field_name(root_ch, alpha=True))
+            field_name = get_external_bundle_field_name(root_ch, alpha=True)
+            if field_name in defaulted: continue
+
+            alpha_input = source.inputs.get(field_name)
             if not alpha_input: continue
+
             if len(alpha_input.links) == 0 and alpha_input.default_value == 0.0:
                 alpha_input.default_value = 1.0
+
+            defaulted.add(field_name)
+            changed = True
+
+        if changed:
+            source['yp_alpha_defaulted_fields'] = '|'.join(sorted(defaulted))
 
 def check_external_bundle_nodes(layer, tree):
     yp = layer.id_data.yp

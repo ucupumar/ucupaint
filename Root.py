@@ -4047,6 +4047,18 @@ class YPaintObjectProps(bpy.types.PropertyGroup):
 #    parallax_curvature_span : FloatProperty(default=1.0)
 
 @persistent
+def ypaint_external_alpha_default_update(scene, depsgraph=None):
+    group_node = get_active_ypaint_node()
+    if not group_node: return
+
+    yp = group_node.node_tree.yp
+    if not any(layer.type == 'EXTERNAL' for layer in yp.layers): return
+
+    for layer in yp.layers:
+        if layer.type == 'EXTERNAL':
+            ensure_external_alpha_default(layer, node=group_node)
+
+@persistent
 def ypaint_hacks_and_scene_updates(scene):
     # Get active yp node
     group_node = get_active_ypaint_node()
@@ -4388,6 +4400,7 @@ def register():
         # Paint slot hack is no longer necessary with Blender 5.1
         if not is_bl_newer_than(5, 1):
             bpy.app.handlers.depsgraph_update_post.append(ypaint_mismatch_paint_slot_hack)
+        bpy.app.handlers.depsgraph_update_post.append(ypaint_external_alpha_default_update)
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_object_changes_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
@@ -4409,6 +4422,7 @@ def unregister():
     if is_bl_newer_than(2, 80):
         if not is_bl_newer_than(5, 1):
             bpy.app.handlers.depsgraph_update_post.remove(ypaint_mismatch_paint_slot_hack)
+        bpy.app.handlers.depsgraph_update_post.remove(ypaint_external_alpha_default_update)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
         bpy.app.handlers.scene_update_pre.remove(ypaint_object_changes_update)
