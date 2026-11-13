@@ -2312,7 +2312,7 @@ def draw_external_input_info(layout, layer, root_ch=None, mask=None, alpha=False
 
     row = layout.row(align=True)
     if bundle:
-        row.label(text='External Bundle (Color + Alpha):')
+        row.label(text='External Bundle:')
     elif alpha:
         row.label(text='External Alpha Socket:')
     else:
@@ -2526,23 +2526,22 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         row = rcol.row(align=True)
         row.label(text='', icon='BLANK1')
         rrow = row.column()
-        for i, ch in enumerate(layer.channels):
-            root_ch = yp.channels[i]
 
-            if not ch.enable:
-                if root_ch.type == 'RGB' and root_ch.special_type != 'VDISP' and is_external_bundle_supported():
-                    check_name = get_layer_external_bundle_input_name(layer, root_ch)
-                else:
-                    check_name = get_layer_external_input_name(layer, root_ch)
-                if not is_external_input_connected(yp, check_name): continue
+        if is_external_bundle_supported():
+            draw_external_input_info(rrow, layer, bundle=True)
 
-            if root_ch.type == 'RGB' and root_ch.special_type != 'VDISP' and is_external_bundle_supported():
-                draw_external_input_info(rrow, layer, root_ch=root_ch, bundle=True)
-                continue
+            enabled_names = [yp.channels[i].name for i, ch in enumerate(layer.channels) if ch.enable]
+            if len(enabled_names) > 0:
+                brow = rrow.row(align=True)
+                brow.label(text='Channels: ' + ', '.join(enabled_names))
+        else:
+            for i, ch in enumerate(layer.channels):
+                if not ch.enable: continue
+                root_ch = yp.channels[i]
 
-            draw_external_input_info(rrow, layer, root_ch=root_ch)
-            if root_ch.type == 'RGB' and root_ch.special_type != 'VDISP':
-                draw_external_input_info(rrow, layer, root_ch=root_ch, alpha=True)
+                draw_external_input_info(rrow, layer, root_ch=root_ch)
+                if root_ch.type == 'RGB' and root_ch.special_type != 'VDISP':
+                    draw_external_input_info(rrow, layer, root_ch=root_ch, alpha=True)
 
         brow = rrow.row(align=True)
         brow.context_pointer_set('entity', layer)
@@ -2784,7 +2783,10 @@ def get_layer_channel_input_label(layer, ch, source=None):
         label += root_ch.name
     elif layer.type == 'EXTERNAL':
         root_ch = yp.channels[get_layer_channel_index(layer, ch)]
-        label = 'External ' + root_ch.name
+        if is_external_bundle_supported():
+            label = 'External Bundle (' + root_ch.name + ')'
+        else:
+            label = 'External ' + root_ch.name
     else:
         label = 'Layer'
 
@@ -7347,7 +7349,10 @@ class YLayerChannelInputMenu(bpy.types.Menu):
             icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
 
             if layer.type == 'EXTERNAL':
-                label = 'External ' + root_ch.name
+                if is_external_bundle_supported():
+                    label = 'External Bundle (Alpha)'
+                else:
+                    label = 'External ' + root_ch.name
             elif color_ch.socket_input_name == 'Alpha' and not color_ch.override and layer.type != 'GROUP':
                 label = ' Solid Value (1.0)'
             else:
@@ -7362,7 +7367,10 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
             op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
             if layer.type == 'EXTERNAL':
-                op.socket_name = get_layer_external_input_name(layer, root_ch)
+                if is_external_bundle_supported():
+                    op.socket_name = get_layer_external_bundle_input_name(layer)
+                else:
+                    op.socket_name = get_layer_external_input_name(layer, root_ch)
             else:
                 op.socket_name = get_channel_input_socket_name(layer, ch)
         else:
@@ -7371,13 +7379,14 @@ class YLayerChannelInputMenu(bpy.types.Menu):
                 elif layer.type == 'PREV_LAYERS': label = 'Previous '
                 else: label = 'External '
                 label += root_ch.name
+                if layer.type == 'EXTERNAL' and is_external_bundle_supported():
+                    label = 'External Bundle (' + root_ch.name + ')'
                 icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
                 op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
 
                 if layer.type == 'EXTERNAL':
-                    if (root_ch.type == 'RGB' and root_ch.special_type != 'VDISP' and
-                            is_external_bundle_supported()):
-                        op.socket_name = get_layer_external_bundle_input_name(layer, root_ch)
+                    if is_external_bundle_supported():
+                        op.socket_name = get_layer_external_bundle_input_name(layer)
                     else:
                         op.socket_name = get_layer_external_input_name(layer, root_ch)
                 else:

@@ -146,7 +146,9 @@ class TestExternalLayer(TestPrincipled):
         self.assertTrue(any(inp.name.startswith('External ') for inp in node.inputs))
 
         if hasattr(bpy.types, 'NodeSocketBundle'):
-            self.assertTrue(any(inp.name.startswith('External ') and inp.type == 'BUNDLE' for inp in node.inputs))
+            bundle_inputs = [inp for inp in node.inputs if inp.type == 'BUNDLE' and inp.name.startswith('External ')]
+            self.assertEqual(len(bundle_inputs), 1)
+            self.assertTrue(yp.layers[0].external_bundle != '')
         else:
             self.assertTrue(any(inp.name.startswith('External ') and inp.name.endswith(' Alpha') for inp in node.inputs))
 

@@ -660,8 +660,6 @@ io_names = {
 
 EXTERNAL_INPUT_PREFIX = 'External '
 EXTERNAL_MASK_PREFIX = 'External Mask '
-EXTERNAL_BUNDLE_COLOR = 'Color'
-EXTERNAL_BUNDLE_ALPHA = 'Alpha'
 
 def is_external_bundle_supported():
     return hasattr(bpy.types, 'NodeSocketBundle') and hasattr(bpy.types, 'NodeSeparateBundle')
@@ -672,6 +670,23 @@ def is_external_input_connected(yp, name):
     inp = node.inputs.get(name)
     return inp != None and len(inp.links) > 0
 
+def is_external_bundle_field_connected(layer, root_ch, alpha=False):
+    node = get_active_ypaint_node()
+    if not node or node.node_tree != layer.id_data: return True
+
+    bundle_input = node.inputs.get(get_layer_external_bundle_input_name(layer))
+    if not bundle_input or len(bundle_input.links) == 0: return False
+
+    field_name = get_external_bundle_field_name(root_ch, alpha)
+    for link in bundle_input.links:
+        source = link.from_node
+        if source.bl_idname == 'NodeCombineBundle':
+            field = source.inputs.get(field_name)
+            if not field: return False
+            return len(field.links) > 0
+
+    return True
+
 def is_external_input_name(name):
     return name.startswith(EXTERNAL_INPUT_PREFIX) or name.startswith(EXTERNAL_MASK_PREFIX)
 
@@ -681,8 +696,11 @@ def get_layer_external_input_name(layer, root_ch):
 def get_layer_external_alpha_input_name(layer, root_ch):
     return get_layer_external_input_name(layer, root_ch) + io_suffix['ALPHA']
 
-def get_layer_external_bundle_input_name(layer, root_ch):
-    return get_layer_external_input_name(layer, root_ch) + ' Bundle'
+def get_layer_external_bundle_input_name(layer, root_ch=None):
+    return EXTERNAL_INPUT_PREFIX + layer.external_input_id + ' Bundle'
+
+def get_external_bundle_field_name(root_ch, alpha=False):
+    return root_ch.name + (io_suffix['ALPHA'] if alpha else '')
 
 def get_mask_external_input_name(layer, mask):
     return EXTERNAL_MASK_PREFIX + layer.external_input_id + ' ' + mask.external_input_id

@@ -5503,7 +5503,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     invert_backface_normal : BoolProperty(default=False, update=update_flip_backface_normal)
 
     # Node names
-    external_bundle : StringProperty(default='')
     linear : StringProperty(default='')
     linear_1 : StringProperty(default='')
     blend : StringProperty(default='')
@@ -6021,6 +6020,7 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
     )
 
     external_input_id : StringProperty(default='')
+    external_bundle : StringProperty(default='')
 
     intensity_value : FloatProperty(
         name = 'Layer Opacity', 
