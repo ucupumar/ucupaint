@@ -75,7 +75,7 @@ def get_tangent_bake_mat(uv_name='', target_image=None):
         end.location = loc
 
         # Node Connections
-        links.new(tangent.outputs[0], transform.inputs[0])
+        links.new(tangent.outputs[0], transform.inputs['Vector'])
         links.new(transform.outputs[0], emission.inputs[0])
         links.new(emission.outputs[0], end.inputs[0])
 
@@ -161,7 +161,7 @@ def get_bitangent_bake_mat(uv_name='', target_image=None):
         end.location = loc
 
         # Node Connections
-        links.new(tangent.outputs[0], tangent_transform.inputs[0])
+        links.new(tangent.outputs[0], tangent_transform.inputs['Vector'])
         links.new(tangent_transform.outputs[0], bcalc.inputs['Tangent'])
         links.new(bsign.outputs['Fac'], bcalc.inputs['Bitangent Sign'])
         links.new(bcalc.outputs[0], emission.inputs[0])
@@ -250,7 +250,7 @@ def get_bitangent_calc_shader_tree():
         end.location = loc
 
         # Node connection
-        links.new(geom.outputs['Normal'], transform.inputs[0])
+        links.new(geom.outputs['Normal'], transform.inputs['Vector'])
         links.new(transform.outputs[0], cross.inputs[0])
         links.new(start.outputs['Tangent'], cross.inputs[1])
 
@@ -398,7 +398,7 @@ def get_object2tangent_shader_tree():
 
         links.new(start.outputs['Tangent'], dottangent.inputs[1])
         links.new(start.outputs['Bitangent'], dotbitangent.inputs[1])
-        links.new(normal.outputs['Normal'], transform.inputs[0])
+        links.new(normal.outputs['Normal'], transform.inputs['Vector'])
         links.new(transform.outputs[0], dotnormal.inputs[1])
 
         links.new(dottangent.outputs['Value'], finalvec.inputs[0])
@@ -522,7 +522,7 @@ def get_offset_bake_mat(uv_name='', target_image=None, bitangent_image=None, fli
 
         # Node Connections
         links.new(offset.outputs['Vector'], object2tangent.inputs['Vector'])
-        links.new(tangent.outputs['Tangent'], tangent_transform.inputs[0])
+        links.new(tangent.outputs['Tangent'], tangent_transform.inputs['Vector'])
         links.new(tangent_transform.outputs[0], object2tangent.inputs['Tangent'])
         links.new(bitangent_uv.outputs[0], bitangent.inputs['Vector'])
         links.new(bitangent.outputs[0], object2tangent.inputs['Bitangent'])

@@ -503,10 +503,17 @@ class YSaveAllBakedImages(bpy.types.Operator):
         # But this will be anyway a directory path.
     )
 
-    remove_whitespaces : bpy.props.BoolProperty(
-        name = 'Remove Whitespaces',
-        description = 'Remove whitespaces from baked image names',
-        default = False
+    whitespace_conversion : EnumProperty(
+        name = 'Whitespaces Conversion',
+        description = 'Replace whitespaces from saved filenames',
+        items = (
+            ('KEEP', 'Keep Whitespaces', 'Keep the whitespaces'),
+            ('REMOVE', 'Remove Whitespaces', 'Remove all whitespaces'),
+            ('UNDERSCORES', 'Convert to Underscores', 'Convert whitespaces to underscores'),
+            ('DASHES', 'Convert to Dashes', 'Convert whitespaces to dashes'),
+            ('DOTS', 'Convert to Dots', 'Convert whitespaces to dots'),
+        ),
+        default = 'KEEP'
     )
 
     file_format : EnumProperty(
@@ -541,10 +548,12 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
     def draw(self, context):
         split = split_layout(self.layout, 0.4)
-        col = split.column()
-        col.label(text='Image Format:')
-        col = split.column()
-        col.prop(self, 'file_format', text='')
+        split.label(text='Image Format:')
+        split.prop(self, 'file_format', text='')
+
+        split = split_layout(self.layout, 0.4)
+        split.label(text='Whitespaces:')
+        split.prop(self, 'whitespace_conversion', text='')
 
         self.layout.prop(self, 'copy')
 
@@ -552,11 +561,17 @@ class YSaveAllBakedImages(bpy.types.Operator):
         if node and self.file_format != 'OPEN_EXR':
             tree= node.node_tree
             yp = tree.yp
-            height_root_ch = get_root_height_channel(yp)
-            if height_root_ch:
-                baked_vdisp = tree.nodes.get(height_root_ch.baked_vdisp)
-                if baked_vdisp and baked_vdisp.image:
-                    self.layout.prop(self, 'force_exr_vdisp')
+            any_baked_vdisp = False
+            vdisp_root_ch = get_root_vdisp_channel(yp)
+            if vdisp_root_ch:
+                for bt in yp.bake_targets:
+                    if is_bake_target_using_exact_channel(bt, vdisp_root_ch):
+                        baked_node = tree.nodes.get(bt.baked_node)
+                        if baked_node and baked_node.image:
+                            any_baked_vdisp = True
+
+            if any_baked_vdisp:
+                self.layout.prop(self, 'force_exr_vdisp')
 
     def execute(self, context):
 
@@ -566,6 +581,8 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
         settings = tmpscene.render.image_settings
+        ori_scene = bpy.context.window.scene
+        bpy.context.window.scene = tmpscene
 
         # Blender 2.80 has filmic as default color settings, change it to standard
         if is_bl_newer_than(2, 80):
@@ -573,42 +590,19 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         images = []
 
-        height_root_ch = get_root_height_channel(yp)
-
-        # Baked images
+        # Baked vector displacement image
+        vdisp_root_ch = get_root_vdisp_channel(yp)
         baked_vdisp_image = None
-        for ch in yp.channels:
-            if ch.no_layer_using: continue
 
-            baked = tree.nodes.get(ch.baked)
-            if baked and baked.image:
-                images.append(baked.image)
-
-            if ch == height_root_ch:
-
-                baked_disp = tree.nodes.get(ch.baked_disp)
-                if baked_disp and baked_disp.image:
-                    images.append(baked_disp.image)
-
-                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
-                if baked_vdisp and baked_vdisp.image:
-                    images.append(baked_vdisp.image)
-                    baked_vdisp_image = baked_vdisp.image
-
-                if not is_overlay_normal_empty(ch):
-                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image:
-                        images.append(baked_normal_overlay.image)
-
-                baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
-                if baked_normal_no_disp and baked_normal_no_disp.image:
-                    images.append(baked_normal_no_disp.image)
-
-        # Custom bake target images
+        # Bake target images
         for bt in yp.bake_targets:
+            if bt.data_type != 'IMAGE': continue
             baked_node = tree.nodes.get(bt.baked_node)
             if baked_node and baked_node.image not in images:
                 images.append(baked_node.image)
+
+                if vdisp_root_ch and is_bake_target_using_exact_channel(bt, vdisp_root_ch):
+                    baked_vdisp_image = baked_node.image
 
         original_image_names = []
         original_names = []
@@ -625,11 +619,17 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
             images = copied_images
 
+        # Context copy
+        override = bpy.context.copy()
+
         for image in images:
 
             if image == baked_vdisp_image and self.force_exr_vdisp:
                 settings.file_format = 'OPEN_EXR'
             else: settings.file_format = self.file_format
+
+            # Set file format to the image
+            image.file_format = settings.file_format
 
             settings.color_depth = '8' if settings.file_format != 'OPEN_EXR' else '16'
             if image.is_float:
@@ -652,46 +652,29 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 if ext != format_extensions[settings.file_format]:
                     filename = filename.replace(ext, format_extensions[settings.file_format])
 
-            if self.remove_whitespaces:
+            if self.whitespace_conversion == 'REMOVE':
                 filename = filename.replace(' ', '')
+            elif self.whitespace_conversion == 'UNDERSCORES':
+                filename = filename.replace(' ', '_')
+            elif self.whitespace_conversion == 'DASHES':
+                filename = filename.replace(' ', '-')
+            elif self.whitespace_conversion == 'DOTS':
+                filename = filename.replace(' ', '.')
 
             path = os.path.join(self.directory, filename)
 
-            # Need to pack first to save the image
-            if image.is_dirty:
-                pack_image(image)
-
-            # Some images need to set to srgb when saving
-            ori_colorspace = image.colorspace_settings.name
-            if not image.is_float and image.colorspace_settings.name != get_srgb_name():
-                image.colorspace_settings.name = get_srgb_name()
-            
-            # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
-            unpacked_to_disk = False
-            if not is_bl_newer_than(2, 81) and bpy.data.filepath != '' and image.packed_file:
-                unpacked_to_disk = True
-                default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
-
             # Save image
-            image.save_render(path, scene=tmpscene)
+            override['edit_image'] = image
+            if is_bl_newer_than(4):
+                with bpy.context.temp_override(**override):
+                    bpy.ops.image.save_as(save_as_render=True, copy=self.copy, filepath=path, relative_path=True)
+            else: bpy.ops.image.save_as(override, save_as_render=True, copy=self.copy, filepath=path, relative_path=True)
 
             # Set the filepath to the image
             image.filepath = path
             if bpy.data.filepath != '':
                 try: image.filepath = bpy.path.relpath(path)
                 except: pass
-
-            # Set back colorspace settings
-            if image.colorspace_settings.name != ori_colorspace:
-                image.colorspace_settings.name = ori_colorspace
-
-            # Remove temporarily unpacked image
-            if unpacked_to_disk:
-                remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
-
-            # Remove packed flag
-            if is_bl_newer_than(2, 81) and image.packed_file:
-                image.unpack(method='REMOVE')
 
         # Remove copied images
         if self.copy:
@@ -702,6 +685,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
         for i, ori_image_name in enumerate(original_image_names):
             ori_image = bpy.data.images.get(ori_image_name)
             ori_image.name = original_names[i]
+
+        # Back to original scene
+        bpy.context.window.scene = ori_scene
 
         # Delete temporary scene
         remove_datablock(bpy.data.scenes, tmpscene)
@@ -1018,20 +1004,53 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
             self.report({'ERROR'}, 'Unpacking image atlas is not supported yet!')
             return {'CANCELLED'}
 
+        ori_scene = bpy.context.window.scene
+        tmpscene = bpy.data.scenes.new('Temp Save As Scene')
+        settings = tmpscene.render.image_settings
+        bpy.context.window.scene = tmpscene
+
+        # Blender 2.80 has filmic as default color settings, change it to standard
+        if is_bl_newer_than(2, 80):
+            tmpscene.view_settings.view_transform = 'Standard'
+
+        # Copy settings
+        if hasattr(settings, 'file_format'): settings.file_format = self.file_format
+        if hasattr(settings, 'color_mode'): settings.color_mode = self.color_mode
+        if hasattr(settings, 'color_depth'): settings.color_depth = self.color_depth
+        if hasattr(settings, 'tiff_codec'): settings.tiff_codec = self.tiff_codec
+        if hasattr(settings, 'exr_codec'): settings.exr_codec = self.exr_codec
+        if hasattr(settings, 'jpeg2k_codec'): settings.jpeg2k_codec = self.jpeg2k_codec
+        if hasattr(settings, 'compression'): settings.compression = self.compression
+        if hasattr(settings, 'quality'): settings.quality = self.quality
+        if hasattr(settings, 'use_jpeg2k_cinema_48'): settings.use_jpeg2k_cinema_48 = self.use_jpeg2k_cinema_48
+        if hasattr(settings, 'use_jpeg2k_cinema_preset'): settings.use_jpeg2k_cinema_preset = self.use_jpeg2k_cinema_preset
+        if hasattr(settings, 'use_jpeg2k_ycc'): settings.use_jpeg2k_ycc = self.use_jpeg2k_ycc
+        if hasattr(settings, 'use_cineon_log'): settings.use_cineon_log = self.use_cineon_log
+        if hasattr(settings, 'use_zbuffer'): settings.use_zbuffer = self.use_zbuffer
+
         if self.copy:
             image = self.image = duplicate_image(image, ondisk_duplicate=False)
+
+        # Set file format to the image
+        image.file_format = self.file_format
 
         # Save image
         override = bpy.context.copy()
         override['edit_image'] = image
         if is_bl_newer_than(4):
             with bpy.context.temp_override(**override):
-                bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
-        else: bpy.ops.image.save_as(override, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
+                bpy.ops.image.save_as(save_as_render=True, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
+        else: bpy.ops.image.save_as(override, save_as_render=True, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
 
         # Delete copied image
         if self.copy:
             remove_datablock(bpy.data.images, image)
+
+        # Back to original scene
+        bpy.context.window.scene = ori_scene
+
+        # Delete temporary scene
+        remove_datablock(bpy.data.scenes, tmpscene)
 
         return {'FINISHED'}
 

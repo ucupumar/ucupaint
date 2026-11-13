@@ -1271,7 +1271,7 @@ class BaseBakeBakeTargetOperator():
     uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
     uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
-    def invoke_op(self, context, event, fill_uv_coll=True):
+    def invoke_op(self, context, event, fill_uv_coll=True, yp=None):
         ypup = get_user_preferences()
         if ypup.default_bake_device != 'DEFAULT':
             self.bake_device = ypup.default_bake_device
@@ -1287,6 +1287,20 @@ class BaseBakeBakeTargetOperator():
                         self.uv_map_coll.add().name = uv.name
                 if self.uv_map == '' or self.uv_map not in uv_layers:
                     self.uv_map = get_default_uv_name(obj)
+
+            # Check UDIM
+            if yp and self.uv_map != '' and get_user_preferences().enable_auto_udim_detection:
+                # Check if bake target node exists
+                baked_exists = False
+                for bt in yp.bake_targets:
+                    if bt.baked_node != '':
+                        baked_exists = True
+                        break
+
+                # Check UDIM if there's no baked node exists
+                if not baked_exists:
+                    objs = get_all_objects_with_same_materials(get_active_material())
+                    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
         return context.window_manager.invoke_props_dialog(self, width=300)
 
@@ -1570,7 +1584,7 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
 
                 fill_uv_coll = True
 
-            return self.invoke_op(context, event, fill_uv_coll=fill_uv_coll)
+            return self.invoke_op(context, event, fill_uv_coll=fill_uv_coll, yp=yp)
         return self.execute(context)
 
     def draw(self, context):
