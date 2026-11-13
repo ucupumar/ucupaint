@@ -489,7 +489,7 @@ def remove_unpacked_image_path(image, filepath, default_dir, default_dir_found, 
     if not default_dir_found:
         os.rmdir(default_dir)
 
-def save_image_27x(image, path, tmpscene):
+def save_image(image, path, tmpscene, override=None, copy=False, relative=True):
     # Need to pack first to save the image
     if image.is_dirty:
         pack_image(image)
@@ -506,11 +506,19 @@ def save_image_27x(image, path, tmpscene):
         default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
 
     # Save image
-    image.save_render(path, scene=tmpscene)
+    if is_bl_newer_than(2, 80):
+        if override == None: override = bpy.context.copy()
+        override['edit_image'] = image
+        if is_bl_newer_than(4):
+            with bpy.context.temp_override(**override):
+                bpy.ops.image.save_as(save_as_render=True, copy=copy, filepath=path, relative_path=True)
+        else: bpy.ops.image.save_as(override, save_as_render=True, copy=copy, filepath=path, relative_path=True)
+    else:
+        image.save_render(path, scene=tmpscene)
 
     # Set the filepath to the image
     image.filepath = path
-    if bpy.data.filepath != '':
+    if bpy.data.filepath != '' and relative:
         try: image.filepath = bpy.path.relpath(path)
         except: pass
 
@@ -657,7 +665,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
             images = copied_images
 
         # Context copy
-        override = bpy.context.copy()
+        override = bpy.context.copy() if is_bl_newer_than(2, 80) else None
 
         for image in images:
 
@@ -701,13 +709,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
             path = os.path.join(self.directory, filename)
 
             # Save image
-            if is_bl_newer_than(2, 80):
-                override['edit_image'] = image
-                if is_bl_newer_than(4):
-                    with bpy.context.temp_override(**override):
-                        bpy.ops.image.save_as(save_as_render=True, copy=self.copy, filepath=path, relative_path=True)
-                else: bpy.ops.image.save_as(override, save_as_render=True, copy=self.copy, filepath=path, relative_path=True)
-            else: save_image_27x(image, path, tmpscene)
+            save_image(image, path, tmpscene, override=override, copy=self.copy)
 
         # Remove copied images
         if self.copy:
@@ -1074,15 +1076,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
         image.file_format = self.file_format
 
         # Save image
-        if is_bl_newer_than(2, 80):
-            override = bpy.context.copy()
-            override['edit_image'] = image
-            if is_bl_newer_than(4):
-                with bpy.context.temp_override(**override):
-                    bpy.ops.image.save_as(save_as_render=True, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
-            else: bpy.ops.image.save_as(override, save_as_render=True, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
-        else:
-            save_image_27x(image, self.filepath, tmpscene)
+        save_image(image, self.filepath, tmpscene, copy=self.copy, relative=self.relative)
 
         # Delete copied image
         if self.copy:
