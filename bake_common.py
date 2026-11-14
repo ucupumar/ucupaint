@@ -2806,8 +2806,9 @@ def do_image_post_process(image, bprops, alpha_enabled=False, bake_device='CPU',
 
     # AA process
     if bprops.aa_level > 1:
+        width, height = get_btprops_width_height(bprops)
         image, _ = resize_image(
-            image, bprops.width, bprops.height, 
+            image, width, height, 
             image.colorspace_settings.name,
             alpha_aware=alpha_enabled, bake_device=bake_device
         )
@@ -2882,6 +2883,12 @@ def copy_vcol_channels(source, target, source_idx, target_idx):
     # Moves the alpha of the temp vertex color to the target vertex color
     target_nvcol2D[:, target_idx] = temp_nvcol2D[:, source_idx]
     target.data.foreach_set('color', target_nvcol)   
+
+def get_btprops_width_height(btprops):
+    width = btprops.width if btprops.use_custom_resolution else int(btprops.image_resolution)
+    height = btprops.height if btprops.use_custom_resolution else int(btprops.image_resolution)
+
+    return width, height
 
 def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bake_device='CPU', use_osl=False):
 
@@ -2987,8 +2994,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         objs, obook = prepare_objs_before_baking(mat, yp, objs, btprops.uv_map, btprops.force_bake_all_polygons)
 
     # Width and height
-    width = btprops.width if btprops.use_custom_resolution else int(btprops.image_resolution)
-    height = btprops.height if btprops.use_custom_resolution else int(btprops.image_resolution)
+    width, height = get_btprops_width_height(btprops)
 
     # AA setup
     margin = btprops.margin * btprops.aa_level

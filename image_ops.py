@@ -489,6 +489,51 @@ def remove_unpacked_image_path(image, filepath, default_dir, default_dir_found, 
     if not default_dir_found:
         os.rmdir(default_dir)
 
+def save_image(image, path, tmpscene, override=None, copy=False, relative=True):
+    # Need to pack first to save the image
+    if image.is_dirty:
+        pack_image(image)
+
+    # Some images need to set to srgb when saving
+    ori_colorspace = image.colorspace_settings.name
+    if not image.is_float and image.colorspace_settings.name != get_srgb_name():
+        image.colorspace_settings.name = get_srgb_name()
+    
+    # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
+    unpacked_to_disk = False
+    if not is_bl_newer_than(2, 81) and bpy.data.filepath != '' and image.packed_file:
+        unpacked_to_disk = True
+        default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
+
+    # Save image
+    #if is_bl_newer_than(2, 80):
+    #    if override == None: override = bpy.context.copy()
+    #    override['edit_image'] = image
+    #    if is_bl_newer_than(4):
+    #        with bpy.context.temp_override(**override):
+    #            bpy.ops.image.save_as(save_as_render=True, copy=copy, filepath=path, relative_path=True)
+    #    else: bpy.ops.image.save_as(override, save_as_render=True, copy=copy, filepath=path, relative_path=True)
+    #else:
+    image.save_render(path, scene=tmpscene)
+
+    # Set the filepath to the image
+    image.filepath = path
+    if bpy.data.filepath != '' and relative:
+        try: image.filepath = bpy.path.relpath(path)
+        except: pass
+
+    # Set back colorspace settings
+    if image.colorspace_settings.name != ori_colorspace:
+        image.colorspace_settings.name = ori_colorspace
+
+    # Remove temporarily unpacked image
+    if unpacked_to_disk:
+        remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
+
+    # Remove packed flag
+    if is_bl_newer_than(2, 81) and image.packed_file:
+        image.unpack(method='REMOVE')
+
 class YSaveAllBakedImages(bpy.types.Operator):
     """Save All Baked Images to directory"""
     bl_idname = "wm.y_save_all_baked_images"
@@ -503,15 +548,15 @@ class YSaveAllBakedImages(bpy.types.Operator):
         # But this will be anyway a directory path.
     )
 
-    whitespace_conversion : EnumProperty(
-        name = 'Whitespaces Conversion',
-        description = 'Replace whitespaces from saved filenames',
+    whitespace_replacement : EnumProperty(
+        name = 'Replace Whitespaces',
+        description = 'Replace whitespaces for saved filenames',
         items = (
             ('KEEP', 'Keep Whitespaces', 'Keep the whitespaces'),
             ('REMOVE', 'Remove Whitespaces', 'Remove all whitespaces'),
-            ('UNDERSCORES', 'Convert to Underscores', 'Convert whitespaces to underscores'),
-            ('DASHES', 'Convert to Dashes', 'Convert whitespaces to dashes'),
-            ('DOTS', 'Convert to Dots', 'Convert whitespaces to dots'),
+            ('UNDERSCORES', 'Replace with Underscores ( _ )', 'Replace whitespaces with underscores ( _ )'),
+            ('DASHES', 'Replace with Dashes ( - )', 'Replace whitespaces with dashes ( - )'),
+            ('DOTS', 'Replace with Dots ( . )', 'Replace whitespaces with dots ( . )'),
         ),
         default = 'KEEP'
     )
@@ -553,7 +598,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         split = split_layout(self.layout, 0.4)
         split.label(text='Whitespaces:')
-        split.prop(self, 'whitespace_conversion', text='')
+        split.prop(self, 'whitespace_replacement', text='')
 
         self.layout.prop(self, 'copy')
 
@@ -581,8 +626,12 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
         settings = tmpscene.render.image_settings
-        ori_scene = bpy.context.window.scene
-        bpy.context.window.scene = tmpscene
+        if is_bl_newer_than(2, 80):
+            ori_scene = bpy.context.window.scene
+            bpy.context.window.scene = tmpscene
+        else:
+            ori_scene = bpy.context.screen.scene
+            bpy.context.screen.scene = tmpscene
 
         # Blender 2.80 has filmic as default color settings, change it to standard
         if is_bl_newer_than(2, 80):
@@ -620,7 +669,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
             images = copied_images
 
         # Context copy
-        override = bpy.context.copy()
+        override = bpy.context.copy() if is_bl_newer_than(2, 80) else None
 
         for image in images:
 
@@ -652,29 +701,21 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 if ext != format_extensions[settings.file_format]:
                     filename = filename.replace(ext, format_extensions[settings.file_format])
 
-            if self.whitespace_conversion == 'REMOVE':
+            if self.whitespace_replacement == 'REMOVE':
                 filename = filename.replace(' ', '')
-            elif self.whitespace_conversion == 'UNDERSCORES':
+            elif self.whitespace_replacement == 'UNDERSCORES':
                 filename = filename.replace(' ', '_')
-            elif self.whitespace_conversion == 'DASHES':
+            elif self.whitespace_replacement == 'DASHES':
                 filename = filename.replace(' ', '-')
-            elif self.whitespace_conversion == 'DOTS':
+            elif self.whitespace_replacement == 'DOTS':
                 filename = filename.replace(' ', '.')
 
             path = os.path.join(self.directory, filename)
 
-            # Save image
-            override['edit_image'] = image
-            if is_bl_newer_than(4):
-                with bpy.context.temp_override(**override):
-                    bpy.ops.image.save_as(save_as_render=True, copy=self.copy, filepath=path, relative_path=True)
-            else: bpy.ops.image.save_as(override, save_as_render=True, copy=self.copy, filepath=path, relative_path=True)
+            print(image.name, image.file_format, settings.file_format)
 
-            # Set the filepath to the image
-            image.filepath = path
-            if bpy.data.filepath != '':
-                try: image.filepath = bpy.path.relpath(path)
-                except: pass
+            # Save image
+            save_image(image, path, tmpscene, override=override, copy=self.copy)
 
         # Remove copied images
         if self.copy:
@@ -687,7 +728,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
             ori_image.name = original_names[i]
 
         # Back to original scene
-        bpy.context.window.scene = ori_scene
+        if is_bl_newer_than(2, 80):
+            bpy.context.window.scene = ori_scene
+        else: bpy.context.screen.scene = ori_scene
 
         # Delete temporary scene
         remove_datablock(bpy.data.scenes, tmpscene)
@@ -1004,10 +1047,14 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
             self.report({'ERROR'}, 'Unpacking image atlas is not supported yet!')
             return {'CANCELLED'}
 
-        ori_scene = bpy.context.window.scene
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
         settings = tmpscene.render.image_settings
-        bpy.context.window.scene = tmpscene
+        if is_bl_newer_than(2, 80):
+            ori_scene = bpy.context.window.scene
+            bpy.context.window.scene = tmpscene
+        else:
+            ori_scene = bpy.context.screen.scene
+            bpy.context.screen.scene = tmpscene
 
         # Blender 2.80 has filmic as default color settings, change it to standard
         if is_bl_newer_than(2, 80):
@@ -1035,19 +1082,16 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
         image.file_format = self.file_format
 
         # Save image
-        override = bpy.context.copy()
-        override['edit_image'] = image
-        if is_bl_newer_than(4):
-            with bpy.context.temp_override(**override):
-                bpy.ops.image.save_as(save_as_render=True, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
-        else: bpy.ops.image.save_as(override, save_as_render=True, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
+        save_image(image, self.filepath, tmpscene, copy=self.copy, relative=self.relative)
 
         # Delete copied image
         if self.copy:
             remove_datablock(bpy.data.images, image)
 
         # Back to original scene
-        bpy.context.window.scene = ori_scene
+        if is_bl_newer_than(2, 80):
+            bpy.context.window.scene = ori_scene
+        else: bpy.context.screen.scene = ori_scene
 
         # Delete temporary scene
         remove_datablock(bpy.data.scenes, tmpscene)
