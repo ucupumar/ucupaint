@@ -554,9 +554,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
         items = (
             ('KEEP', 'Keep Whitespaces', 'Keep the whitespaces'),
             ('REMOVE', 'Remove Whitespaces', 'Remove all whitespaces'),
-            ('UNDERSCORES', 'Replace with Underscores ( _ )', 'Replace whitespaces with underscores ( _ )'),
-            ('DASHES', 'Replace with Dashes ( - )', 'Replace whitespaces with dashes ( - )'),
-            ('DOTS', 'Replace with Dots ( . )', 'Replace whitespaces with dots ( . )'),
+            ('UNDERSCORES', 'Replace with Underscores (_)', 'Replace whitespaces with underscores (_)'),
+            ('HYPHENS', 'Replace with Hyphens (-)', 'Replace whitespaces with hyphens (-)'),
+            ('DOTS', 'Replace with Dots (.)', 'Replace whitespaces with dots (.)'),
         ),
         default = 'KEEP'
     )
@@ -705,7 +705,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 filename = filename.replace(' ', '')
             elif self.whitespace_replacement == 'UNDERSCORES':
                 filename = filename.replace(' ', '_')
-            elif self.whitespace_replacement == 'DASHES':
+            elif self.whitespace_replacement == 'HYPHENS':
                 filename = filename.replace(' ', '-')
             elif self.whitespace_replacement == 'DOTS':
                 filename = filename.replace(' ', '.')
