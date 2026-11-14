@@ -256,6 +256,8 @@ icon_synonyms = {
     'rgb_channel' : 'NODE_SOCKET_RGBA',
     'value_channel' : 'NODE_SOCKET_FLOAT',
     'vector_channel' : 'NODE_SOCKET_VECTOR',
+    'external' : 'NODE_SOCKET_RGBA',
+    'external_mask' : 'NODE_SOCKET_FLOAT',
 }
 
 icon_synonyms_27x = {
@@ -271,6 +273,8 @@ icon_synonyms_27x = {
     'input' : 'INFO',
     'object_index' : 'OBJECT_DATA',
     'rename' : 'GREASEPENCIL',
+    'external' : 'INFO',
+    'external_mask' : 'INFO',
 }
 
 NEED_CUSTOM_ICON_HACK = is_bl_newer_than(3, 2)

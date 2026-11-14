@@ -398,6 +398,16 @@ def add_new_layer(
         # Set linear node of layer channel
         subtree.check_layer_channel_linear_node(ch, layer, root_ch)
 
+    # External input layer
+    if layer.type == 'EXTERNAL':
+        ensure_external_input_id(layer, yp.layers)
+        ori_halt_update = yp.halt_update
+        yp.halt_update = True
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i]
+            ch.socket_input_name = get_layer_external_input_name(layer, root_ch)
+        yp.halt_update = ori_halt_update
+
     # Add modifier
     if add_modifier:
         modifier_common.add_new_modifier(layer, modifier_type)
@@ -420,6 +430,7 @@ def add_new_layer(
 
     # Check layer IO
     input_outputs.check_all_layer_channel_io_and_nodes(layer, tree)
+    input_outputs.check_external_inputs(yp)
     input_outputs.check_start_end_root_ch_nodes(group_tree)
 
     # Rearrange node inside layers
@@ -493,7 +504,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     source = source_tree.nodes.get(layer.source)
 
     # Save source to cache
-    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'} and layer.type != new_type:
+    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS', 'EXTERNAL'} and layer.type != new_type:
         setattr(layer, 'cache_' + layer.type.lower(), source.name)
         # Remove uv input link
         if any(source.inputs) and any(source.inputs[0].links):
@@ -504,7 +515,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
     # Try to get available cache
     cache = None
-    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
+    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS', 'EXTERNAL'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
         cache = tree.nodes.get(getattr(layer, 'cache_' + new_type.lower()))
 
     if cache:
@@ -540,6 +551,19 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     # Change layer type
     ori_type = layer.type
     layer.type = new_type
+
+    # External input layer
+    ori_halt_update = yp.halt_update
+    yp.halt_update = True
+    if layer.type == 'EXTERNAL':
+        ensure_external_input_id(layer, yp.layers)
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i]
+            ch.socket_input_name = get_layer_external_input_name(layer, root_ch)
+    elif ori_type == 'EXTERNAL':
+        for ch in layer.channels:
+            ch.socket_input_name = 'Color'
+    yp.halt_update = ori_halt_update
 
     # Check modifiers tree
     modifier_common.check_layer_modifier_tree(layer)
@@ -640,7 +664,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         reconnect_layer_nodes(lay)
         rearrange_layer_nodes(lay)
 
-    if layer.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
+    if layer.type in {'BACKGROUND', 'GROUP', 'EXTERNAL'} or ori_type in {'GROUP', 'EXTERNAL'}:
+        input_outputs.check_external_inputs(yp)
         reconnect_yp_nodes(layer.id_data)
         rearrange_yp_nodes(layer.id_data)
 
@@ -741,11 +766,15 @@ def remove_layer(yp, index, remove_on_disk=False):
     wm.ypui.layer_ui.expand_masks = False
     wm.ypui.layer_ui.expand_vector = False
     for i, ch in enumerate(layer.channels):
+        if i >= len(wm.ypui.layer_ui.channels): break
         wm.ypui.layer_ui.channels[i].expand_content = False
     wm.ypui.need_update = True
 
     # Delete the layer
     yp.layers.remove(index)
+
+    # Remove obsolete external input sockets
+    input_outputs.check_external_inputs(yp)
 
 def update_driver_targets(obj, target_map):
     # Update driver target object references based on a given object map.

@@ -318,6 +318,7 @@ layer_type_items = (
     ('EDGE_DETECT', 'Edge Detect', ''),
     ('AO', 'Ambient Occlusion', ''),
     ('PREV_LAYERS', 'Previous Layers', ''),
+    ('EXTERNAL', 'External Input', ''),
 )
 
 mask_type_items = (
@@ -339,6 +340,7 @@ mask_type_items = (
     ('MODIFIER', 'Modifier', ''),
     ('GABOR', 'Gabor', ''),
     ('AO', 'Ambient Occlusion', ''),
+    ('EXTERNAL', 'External Input', ''),
 )
 
 channel_override_type_items = (
@@ -387,6 +389,7 @@ layer_type_labels = {
     'EDGE_DETECT' : 'Edge Detect',
     'AO' : 'Ambient Occlusion',
     'PREV_LAYERS' : 'Previous Layers',
+    'EXTERNAL' : 'External Input',
 }
 
 mask_type_labels = {
@@ -408,6 +411,7 @@ mask_type_labels = {
     'MODIFIER' : 'Modifier',
     'GABOR' : 'Gabor',
     'AO' : 'Ambient Occlusion',
+    'EXTERNAL' : 'External Input',
 }
 
 bake_type_items = (
@@ -620,6 +624,7 @@ layer_node_bl_idnames = {
     'MODIFIER' : 'ShaderNodeGroup',
     'AO' : 'ShaderNodeAmbientOcclusion',
     'PREV_LAYERS' : 'NodeGroupInput',
+    'EXTERNAL' : 'NodeGroupInput',
 }
 
 io_suffix = {
@@ -652,6 +657,60 @@ io_names = {
     'Reflection' : 'Texcoord Reflection',
     'Decal' : 'Texcoord Object',
 }
+
+EXTERNAL_INPUT_PREFIX = 'External '
+EXTERNAL_MASK_PREFIX = 'External Mask '
+
+def is_external_bundle_supported():
+    return hasattr(bpy.types, 'NodeSocketBundle') and hasattr(bpy.types, 'NodeSeparateBundle')
+
+def is_external_input_connected(yp, name):
+    node = get_active_ypaint_node()
+    if not node or node.node_tree != yp.id_data: return False
+    inp = node.inputs.get(name)
+    return inp != None and len(inp.links) > 0
+
+def is_external_input_name(name):
+    return name.startswith(EXTERNAL_INPUT_PREFIX) or name.startswith(EXTERNAL_MASK_PREFIX)
+
+def get_layer_external_input_name(layer, root_ch):
+    return EXTERNAL_INPUT_PREFIX + layer.external_input_id + ' ' + root_ch.name
+
+def get_layer_external_alpha_input_name(layer, root_ch):
+    return get_layer_external_input_name(layer, root_ch) + io_suffix['ALPHA']
+
+def get_layer_external_bundle_input_name(layer, root_ch=None):
+    return EXTERNAL_INPUT_PREFIX + layer.external_input_id + ' Bundle'
+
+def get_external_bundle_field_name(root_ch, alpha=False):
+    return root_ch.name + (io_suffix['ALPHA'] if alpha else '')
+
+def get_mask_external_input_name(layer, mask):
+    return EXTERNAL_MASK_PREFIX + layer.external_input_id + ' ' + mask.external_input_id
+
+def get_external_input_default(root_ch):
+    if root_ch.special_type == 'ALPHA':
+        return 1.0
+    if root_ch.type == 'RGB':
+        return (1.0, 1.0, 1.0, 1.0)
+    if root_ch.type == 'VECTOR':
+        if root_ch.special_type == 'NORMAL':
+            return (0.5, 0.5, 1.0)
+        return (0.0, 0.0, 0.0)
+    return 0.0
+
+def get_external_input_description(layer, root_ch=None, mask=None):
+    if mask:
+        return "External input for mask '" + mask.name + "' of layer '" + layer.name + "'"
+    if root_ch:
+        return "External input for layer '" + layer.name + "' channel '" + root_ch.name + "'"
+    return "External input"
+
+def ensure_external_input_id(entity, items):
+    used = [i.external_input_id for i in items if i != entity and i.external_input_id != '']
+    if entity.external_input_id == '' or entity.external_input_id in used:
+        entity.external_input_id = get_unique_name(entity.name if entity.name != '' else 'External', used)
+    return entity.external_input_id
 
 math_method_items = (
     ("ADD", "Add", ""),
@@ -3541,7 +3600,7 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PREV_LAYERS'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PREV_LAYERS', 'EXTERNAL'}
 
 def is_udim_supported():
     return is_bl_newer_than(3, 3)
@@ -5558,7 +5617,7 @@ def is_uv_input_needed(layer, uv_name):
             return True
 
         if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
+            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS', 'EXTERNAL'}:
                 return True
 
             for i, ch in enumerate(layer.channels):
@@ -5571,7 +5630,7 @@ def is_uv_input_needed(layer, uv_name):
             if not get_mask_enabled(mask): continue
             if mask.use_baked and mask.baked_source != '' and mask.baked_uv_name == uv_name:
                 return True
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'}: continue
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO', 'EXTERNAL'}: continue
             if (not mask.use_baked or mask.baked_source == '') and mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
                 return True
 
@@ -6305,7 +6364,7 @@ def get_all_baked_channel_images(tree):
 def is_layer_using_vector(layer, exclude_baked=False):
     yp = layer.id_data.yp
 
-    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'PREV_LAYERS', 'EXTERNAL'}:
         return True
 
     for i, ch in enumerate(layer.channels):
@@ -6321,7 +6380,7 @@ def is_layer_using_vector(layer, exclude_baked=False):
     return False
 
 def is_mask_using_vector(mask):
-    if mask.use_baked or mask.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
+    if mask.use_baked or mask.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'EXTERNAL'}:
         return True
 
     return False
@@ -6577,7 +6636,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             and root_ch.special_type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
             and socket_input_name == 'Color' 
-            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP', 'PREV_LAYERS'}
+            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP', 'PREV_LAYERS', 'EXTERNAL'}
         ):
             return GAMMA
 
@@ -6610,7 +6669,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             and root_ch.special_type not in {'NORMAL', 'HEIGHT', 'VDISP'}
             and root_ch.colorspace == 'SRGB' 
             and (socket_input_name == 'Color' or layer.type in {'HEMI', 'EDGE_DETECT'})
-            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP', 'PREV_LAYERS'}
+            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP', 'PREV_LAYERS', 'EXTERNAL'}
         ):
             return 1.0 / GAMMA
 
@@ -8410,14 +8469,25 @@ def get_mask_input_socket(mask, source=None):
 def get_available_source_outputs(source, entity_type):
     # Some entity types only need to acces some of the source outputs
     valid_socket_names = []
+    use_valid_socket_names = False
     if entity_type == 'VCOL':
         valid_socket_names = ['Color', 'Alpha']
+        use_valid_socket_names = True
     elif entity_type == 'BACKFACE':
         valid_socket_names = ['Backfacing']
+        use_valid_socket_names = True
     elif entity_type == 'AO':
         valid_socket_names = ['Color']
+        use_valid_socket_names = True
+    elif entity_type == 'EXTERNAL' and source and source.type == 'GROUP_INPUT':
+        # External layers/masks use their own dedicated input sockets
+        valid_socket_names = [
+            outp.name for outp in source.outputs
+            if outp.name.startswith(EXTERNAL_INPUT_PREFIX) or outp.name.startswith(EXTERNAL_MASK_PREFIX)
+        ]
+        use_valid_socket_names = True
 
-    outps = [outp for outp in source.outputs if outp.enabled and (not valid_socket_names or outp.name in valid_socket_names)]
+    outps = [outp for outp in source.outputs if outp.enabled and (not use_valid_socket_names or outp.name in valid_socket_names)]
 
     return outps
 
