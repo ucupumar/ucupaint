@@ -506,15 +506,15 @@ def save_image(image, path, tmpscene, override=None, copy=False, relative=True):
         default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
 
     # Save image
-    if is_bl_newer_than(2, 80):
-        if override == None: override = bpy.context.copy()
-        override['edit_image'] = image
-        if is_bl_newer_than(4):
-            with bpy.context.temp_override(**override):
-                bpy.ops.image.save_as(save_as_render=True, copy=copy, filepath=path, relative_path=True)
-        else: bpy.ops.image.save_as(override, save_as_render=True, copy=copy, filepath=path, relative_path=True)
-    else:
-        image.save_render(path, scene=tmpscene)
+    #if is_bl_newer_than(2, 80):
+    #    if override == None: override = bpy.context.copy()
+    #    override['edit_image'] = image
+    #    if is_bl_newer_than(4):
+    #        with bpy.context.temp_override(**override):
+    #            bpy.ops.image.save_as(save_as_render=True, copy=copy, filepath=path, relative_path=True)
+    #    else: bpy.ops.image.save_as(override, save_as_render=True, copy=copy, filepath=path, relative_path=True)
+    #else:
+    image.save_render(path, scene=tmpscene)
 
     # Set the filepath to the image
     image.filepath = path
@@ -529,6 +529,10 @@ def save_image(image, path, tmpscene, override=None, copy=False, relative=True):
     # Remove temporarily unpacked image
     if unpacked_to_disk:
         remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
+
+    # Remove packed flag
+    if is_bl_newer_than(2, 81) and image.packed_file:
+        image.unpack(method='REMOVE')
 
 class YSaveAllBakedImages(bpy.types.Operator):
     """Save All Baked Images to directory"""
@@ -707,6 +711,8 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 filename = filename.replace(' ', '.')
 
             path = os.path.join(self.directory, filename)
+
+            print(image.name, image.file_format, settings.file_format)
 
             # Save image
             save_image(image, path, tmpscene, override=override, copy=self.copy)
