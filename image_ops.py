@@ -544,15 +544,15 @@ class YSaveAllBakedImages(bpy.types.Operator):
         # But this will be anyway a directory path.
     )
 
-    whitespace_conversion : EnumProperty(
-        name = 'Whitespaces Conversion',
-        description = 'Replace whitespaces from saved filenames',
+    whitespace_replacement : EnumProperty(
+        name = 'Replace Whitespaces',
+        description = 'Replace whitespaces for saved filenames',
         items = (
             ('KEEP', 'Keep Whitespaces', 'Keep the whitespaces'),
             ('REMOVE', 'Remove Whitespaces', 'Remove all whitespaces'),
-            ('UNDERSCORES', 'Convert to Underscores', 'Convert whitespaces to underscores'),
-            ('DASHES', 'Convert to Dashes', 'Convert whitespaces to dashes'),
-            ('DOTS', 'Convert to Dots', 'Convert whitespaces to dots'),
+            ('UNDERSCORES', 'Replace with Underscores ( _ )', 'Replace whitespaces with underscores ( _ )'),
+            ('DASHES', 'Replace with Dashes ( - )', 'Replace whitespaces with dashes ( - )'),
+            ('DOTS', 'Replace with Dots ( . )', 'Replace whitespaces with dots ( . )'),
         ),
         default = 'KEEP'
     )
@@ -594,7 +594,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         split = split_layout(self.layout, 0.4)
         split.label(text='Whitespaces:')
-        split.prop(self, 'whitespace_conversion', text='')
+        split.prop(self, 'whitespace_replacement', text='')
 
         self.layout.prop(self, 'copy')
 
@@ -697,13 +697,13 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 if ext != format_extensions[settings.file_format]:
                     filename = filename.replace(ext, format_extensions[settings.file_format])
 
-            if self.whitespace_conversion == 'REMOVE':
+            if self.whitespace_replacement == 'REMOVE':
                 filename = filename.replace(' ', '')
-            elif self.whitespace_conversion == 'UNDERSCORES':
+            elif self.whitespace_replacement == 'UNDERSCORES':
                 filename = filename.replace(' ', '_')
-            elif self.whitespace_conversion == 'DASHES':
+            elif self.whitespace_replacement == 'DASHES':
                 filename = filename.replace(' ', '-')
-            elif self.whitespace_conversion == 'DOTS':
+            elif self.whitespace_replacement == 'DOTS':
                 filename = filename.replace(' ', '.')
 
             path = os.path.join(self.directory, filename)
