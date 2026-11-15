@@ -496,7 +496,8 @@ def save_image(image, path, tmpscene, override=None, copy=False, relative=True):
 
     # Some images need to set to srgb when saving
     ori_colorspace = image.colorspace_settings.name
-    if not image.is_float and image.colorspace_settings.name != get_srgb_name():
+    #if not image.is_float and image.colorspace_settings.name != get_srgb_name():
+    if image.colorspace_settings.name != get_srgb_name():
         image.colorspace_settings.name = get_srgb_name()
     
     # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
@@ -711,8 +712,6 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 filename = filename.replace(' ', '.')
 
             path = os.path.join(self.directory, filename)
-
-            print(image.name, image.file_format, settings.file_format)
 
             # Save image
             save_image(image, path, tmpscene, override=override, copy=self.copy)
@@ -984,7 +983,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
             yp = get_active_ypaint_node().node_tree.yp
 
             name = context.image.name
-            name += '.<UDIM>' if '.<UDIM>.' in filename else ''
+            name += '.<UDIM>' if '.<UDIM>.' in filename and context.image.source == 'TILED' else ''
 
             # Remove addon title from the file names
             if yp.use_baked and name.startswith(get_addon_title() + ' '):
