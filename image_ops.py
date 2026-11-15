@@ -489,14 +489,15 @@ def remove_unpacked_image_path(image, filepath, default_dir, default_dir_found, 
     if not default_dir_found:
         os.rmdir(default_dir)
 
-def save_image(image, path, tmpscene, override=None, copy=False, relative=True):
+def save_image(image, path, tmpscene, copy=False, relative=True):
     # Need to pack first to save the image
     if image.is_dirty:
         pack_image(image)
 
     # Some images need to set to srgb when saving
     ori_colorspace = image.colorspace_settings.name
-    if not image.is_float and image.colorspace_settings.name != get_srgb_name():
+    #if not image.is_float and image.colorspace_settings.name != get_srgb_name():
+    if image.colorspace_settings.name != get_srgb_name():
         image.colorspace_settings.name = get_srgb_name()
     
     # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
@@ -507,7 +508,7 @@ def save_image(image, path, tmpscene, override=None, copy=False, relative=True):
 
     # Save image
     #if is_bl_newer_than(2, 80):
-    #    if override == None: override = bpy.context.copy()
+    #    override = bpy.context.copy()
     #    override['edit_image'] = image
     #    if is_bl_newer_than(4):
     #        with bpy.context.temp_override(**override):
@@ -626,12 +627,6 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
         settings = tmpscene.render.image_settings
-        if is_bl_newer_than(2, 80):
-            ori_scene = bpy.context.window.scene
-            bpy.context.window.scene = tmpscene
-        else:
-            ori_scene = bpy.context.screen.scene
-            bpy.context.screen.scene = tmpscene
 
         # Blender 2.80 has filmic as default color settings, change it to standard
         if is_bl_newer_than(2, 80):
@@ -667,9 +662,6 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 copied_images.append(image_copy)
 
             images = copied_images
-
-        # Context copy
-        override = bpy.context.copy() if is_bl_newer_than(2, 80) else None
 
         for image in images:
 
@@ -712,10 +704,8 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
             path = os.path.join(self.directory, filename)
 
-            print(image.name, image.file_format, settings.file_format)
-
             # Save image
-            save_image(image, path, tmpscene, override=override, copy=self.copy)
+            save_image(image, path, tmpscene, copy=self.copy)
 
         # Remove copied images
         if self.copy:
@@ -726,11 +716,6 @@ class YSaveAllBakedImages(bpy.types.Operator):
         for i, ori_image_name in enumerate(original_image_names):
             ori_image = bpy.data.images.get(ori_image_name)
             ori_image.name = original_names[i]
-
-        # Back to original scene
-        if is_bl_newer_than(2, 80):
-            bpy.context.window.scene = ori_scene
-        else: bpy.context.screen.scene = ori_scene
 
         # Delete temporary scene
         remove_datablock(bpy.data.scenes, tmpscene)
@@ -984,7 +969,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
             yp = get_active_ypaint_node().node_tree.yp
 
             name = context.image.name
-            name += '.<UDIM>' if '.<UDIM>.' in filename else ''
+            name += '.<UDIM>' if '.<UDIM>.' in filename and context.image.source == 'TILED' else ''
 
             # Remove addon title from the file names
             if yp.use_baked and name.startswith(get_addon_title() + ' '):
@@ -1049,12 +1034,6 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
 
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
         settings = tmpscene.render.image_settings
-        if is_bl_newer_than(2, 80):
-            ori_scene = bpy.context.window.scene
-            bpy.context.window.scene = tmpscene
-        else:
-            ori_scene = bpy.context.screen.scene
-            bpy.context.screen.scene = tmpscene
 
         # Blender 2.80 has filmic as default color settings, change it to standard
         if is_bl_newer_than(2, 80):
@@ -1087,11 +1066,6 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
         # Delete copied image
         if self.copy:
             remove_datablock(bpy.data.images, image)
-
-        # Back to original scene
-        if is_bl_newer_than(2, 80):
-            bpy.context.window.scene = ori_scene
-        else: bpy.context.screen.scene = ori_scene
 
         # Delete temporary scene
         remove_datablock(bpy.data.scenes, tmpscene)

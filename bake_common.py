@@ -5563,6 +5563,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 # Get overwrite image again to avoid pointer error
                 overwrite_img = bpy.data.images.get(overwrite_image_name)
 
+                # Check if overwrite_img is saved to disk
+                overwrite_on_disk = overwrite_img.packed_file == None and overwrite_img.filepath != ''
+
                 active_id = yp.active_layer_index
 
                 if overwrite_img != image:
@@ -5572,6 +5575,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     else: entities = replace_image(overwrite_img, image, yp, bprops.uv_map)
                 elif segment: entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
                 else: entities = get_entities_with_specific_image(yp, image)
+
+                # Remove packed file if it's actually from disk
+                if overwrite_on_disk and image.packed_file:
+                    image.unpack(method='REMOVE')
 
                 for ent in entities:
                     if new_segment_created:
@@ -5695,8 +5702,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
             # If image already exists on source
             old_image = None
+            old_on_disk = False
             if source.image and image != source.image:
                 old_image = source.image
+                old_on_disk = old_image.packed_file == None and old_image.filepath != ''
                 source_name = old_image.name
                 current_name = image.name
 
@@ -5707,6 +5716,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             # Set image to source
             source.image = image
             source.interpolation = bprops.interpolation
+
+            # Remove packed if replaced image is from disk
+            if old_on_disk and image.packed_file:
+                image.unpack(method='REMOVE')
 
             # Remove image if it's not used anymore
             if old_image: safe_remove_image(old_image)
