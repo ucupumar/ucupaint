@@ -795,6 +795,7 @@ def remember_before_bake(yp=None, mat=None):
 
     # Remember world settings
     if scene.world:
+        book['ori_world_name'] = scene.world.name
         book['ori_distance'] = scene.world.light_settings.distance
 
     # Remember ypui
@@ -1186,6 +1187,7 @@ def prepare_bake_settings(
         source_objs=[], bake_device='CPU', use_denoising=False, margin_type='ADJACENT_FACES', 
         use_cage=False, cage_object_name='', 
         normal_space='TANGENT', use_osl=False,
+        unlink_world=True
     ):
 
     scene = bpy.context.scene
@@ -1435,6 +1437,10 @@ def prepare_bake_settings(
                 uv_layers.active = uv
                 uv.active_render = True
 
+    # In some scene, world can cause bake to fail, so unlink the world before baking
+    if unlink_world:
+        scene.world = None
+
 def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene = book['scene']
     obj = book['obj']
@@ -1495,6 +1501,12 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
 
     if is_bl_newer_than(2, 80) and 'material_override' in book:
         bpy.context.view_layer.material_override = book['material_override']
+
+    # Recover world
+    if 'ori_world_name' in book:
+        world = bpy.data.worlds.get(book['ori_world_name'])
+        if world and scene.world != world:
+            scene.world = world
 
     # Recover world settings
     if scene.world:
