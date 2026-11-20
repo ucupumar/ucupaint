@@ -537,7 +537,8 @@ class YNewLayer(bpy.types.Operator):
             ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
             ('VCOL', get_vertex_color_label(), '', 'GROUP_VCOL', 1),
             ('COLOR_ID', 'Color ID', '', 'COLOR', 2),
-            ('EDGE_DETECT', 'Edge Detect', '', 'MESH_CUBE', 3)
+            ('EDGE_DETECT', 'Edge Detect', '', 'MESH_CUBE', 3),
+            ('EXTERNAL', 'External Input', '', 'NODE_SOCKET_FLOAT', 4)
         ),
         default = 'IMAGE'
     )
@@ -827,6 +828,9 @@ class YNewLayer(bpy.types.Operator):
             elif self.modifier_type == 'INVERT':
                 name = 'Invert'
             items = yp.layers
+        elif self.type == 'EXTERNAL':
+            name = 'Input'
+            items = yp.layers
         else:
             name = layer_type_labels[self.type]
             items = yp.layers
@@ -842,7 +846,7 @@ class YNewLayer(bpy.types.Operator):
             self.mask_image_resolution = ypup.default_image_resolution
 
         # Make sure add mask is inactive
-        if self.type not in {'COLOR', 'BACKGROUND'}: #, 'GROUP'}:
+        if self.type not in {'COLOR', 'BACKGROUND', 'EXTERNAL'}: #, 'GROUP'}:
             self.add_mask = False
 
         # Set spread fix by default on vertex color layer
@@ -1058,7 +1062,7 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             BaseOperator.draw_base_image_settings(self, layout, split_val)
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS', 'EXTERNAL'}:
             row = split_layout(layout, split_val)
             right_aligned_label(row, text='Mapping:')
 
@@ -1190,6 +1194,11 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'EDGE_DETECT' or (self.add_mask and self.mask_type == 'EDGE_DETECT'):
             col = layout.column(align=True)
             col.label(text='Realtime Edge Detect can look different in baked/rendered view!', icon='ERROR')
+
+        if self.type == 'EXTERNAL':
+            col = layout.column(align=True)
+            col.label(text='This layer exposes input sockets on the Ucupaint node group.', icon='INFO')
+            col.label(text='Connect a texture/color to them in the Shader Editor.', icon='BLANK1')
 
     def execute(self, context):
 
@@ -3904,7 +3913,8 @@ class YSetLayerChannelInput(bpy.types.Operator):
         return self.execute(context)
 
     def execute(self, context):
-        ch = context.channel
+        ch = getattr(context, 'channel', None)
+        if not ch: ch = getattr(context, 'parent', None)
         layer = context.layer
 
         if self.socket_name == '':
@@ -3912,6 +3922,7 @@ class YSetLayerChannelInput(bpy.types.Operator):
             ch.override_type = 'DEFAULT'
             if not ch.enable: ch.enable = True
         else:
+            if not ch.enable: ch.enable = True
             ch.override = False
             ch.socket_input_name = self.socket_name
 
@@ -4166,6 +4177,11 @@ class YDuplicateLayer(bpy.types.Operator):
             # Copy layer props
             copy_id_props(l, new_layer, ['name'])
 
+            # External input needs a new unique id
+            new_layer.external_input_id = ''
+            for mask in new_layer.masks:
+                mask.external_input_id = ''
+
             # Duplicate groups
             new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', group_node.label)
             new_group_node.node_tree = group_node.node_tree
@@ -4174,7 +4190,8 @@ class YDuplicateLayer(bpy.types.Operator):
             source_node = tree.nodes.get(l.group_node)
             for inp in new_group_node.inputs:
                 source_inp = source_node.inputs.get(inp.name)
-                if source_inp: inp.default_value = source_inp.default_value
+                if source_inp and hasattr(inp, 'default_value') and hasattr(source_inp, 'default_value'):
+                    inp.default_value = source_inp.default_value
 
             # Rename masks
             mask_names = [m.name for m in l.masks]
@@ -4202,6 +4219,13 @@ class YDuplicateLayer(bpy.types.Operator):
             ondisk_duplicate = self.ondisk_duplicate or self.duplicate_blank,
             set_new_decal_position = self.set_new_decal_position
         )
+
+        # Refresh external input sockets of duplicated layers
+        for l in created_layers:
+            if l.type == 'EXTERNAL' or any(m.type == 'EXTERNAL' for m in l.masks):
+                check_all_layer_channel_io_and_nodes(l)
+                reconnect_layer_nodes(l)
+                rearrange_layer_nodes(l)
 
         # Move duplicated layer to current index
         for i, idx in enumerate(created_ids):
@@ -4354,6 +4378,11 @@ def copy_layers(yp_source, yp_dest, layer_name='', packed_duplicate=True, paste_
         # Copy layer props
         copy_id_props(ls, new_layer, ['name'])
 
+        # External input needs a new unique id
+        new_layer.external_input_id = ''
+        for mask in new_layer.masks:
+            mask.external_input_id = ''
+
         if not matching:
             # Clear out layer channel props
             new_layer.channels.clear()
@@ -4397,7 +4426,8 @@ def copy_layers(yp_source, yp_dest, layer_name='', packed_duplicate=True, paste_
         source_node = tree_source.nodes.get(ls.group_node)
         for inp in new_group_node.inputs:
             source_inp = source_node.inputs.get(inp.name)
-            if source_inp: inp.default_value = source_inp.default_value
+            if source_inp and hasattr(inp, 'default_value') and hasattr(source_inp, 'default_value'):
+                inp.default_value = source_inp.default_value
 
         pasted_layer_names.append(new_layer.name)
 
@@ -5168,6 +5198,7 @@ def update_layer_name(self, context):
 
     src = get_layer_source(self)
     change_layer_name(yp, context.object, src, self, yp.layers)
+    update_external_input_labels(yp)
 
 def update_layer_channel_override_vcol_name(self, context):
     yp = self.id_data.yp
@@ -5987,6 +6018,9 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
         items = layer_type_items,
         default = 'IMAGE'
     )
+
+    external_input_id : StringProperty(default='')
+    external_bundle : StringProperty(default='')
 
     intensity_value : FloatProperty(
         name = 'Layer Opacity', 

@@ -2291,6 +2291,41 @@ def draw_base_layer_ui(context, layout, yp, node):
                     rcrow.prop(inputs[input_index + 1], 'default_value', text='')
                 else: row.label(text='', icon='LINKED')
 
+def is_external_socket_connected(yp, socket_name):
+    node = get_active_ypaint_node()
+    if not node or node.node_tree != yp.id_data: return False
+    inp = node.inputs.get(socket_name)
+    return inp != None and len(inp.links) > 0
+
+def draw_external_input_info(layout, layer, root_ch=None, mask=None, alpha=False, bundle=False):
+    if mask:
+        socket_name = get_mask_external_input_name(layer, mask)
+    elif bundle:
+        socket_name = get_layer_external_bundle_input_name(layer, root_ch)
+    elif alpha:
+        socket_name = get_layer_external_alpha_input_name(layer, root_ch)
+    else:
+        socket_name = get_layer_external_input_name(layer, root_ch)
+
+    yp = layer.id_data.yp
+    connected = is_external_socket_connected(yp, socket_name)
+
+    row = layout.row(align=True)
+    if bundle:
+        row.label(text='External Bundle:')
+    elif alpha:
+        row.label(text='External Alpha Socket:')
+    else:
+        row.label(text='External Socket:')
+    row.label(text=socket_name, icon_value=lib.get_icon('external_mask' if mask else 'external'))
+
+    row = layout.row(align=True)
+    row.label(text='')
+    if connected:
+        row.label(text='Connected in the Shader Editor', icon='LINKED')
+    else:
+        row.label(text='Not connected yet, connect it in the Shader Editor', icon='BLANK1')
+
 def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
     obj = context.object
     yp = layer.id_data.yp
@@ -2321,6 +2356,9 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         label += layer.name
     elif layer.type == 'GROUP':
         icon_value = lib.get_icon('group')
+        label += layer.name
+    elif layer.type == 'EXTERNAL':
+        icon_value = lib.get_icon('external')
         label += layer.name
     elif layer.type == 'HEMI':
         icon_value = lib.get_icon('hemi')
@@ -2410,6 +2448,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             icon_value = lib.get_icon('background')
         elif layer.type == 'GROUP':
             icon_value = lib.get_icon('group')
+        elif layer.type == 'EXTERNAL':
+            icon_value = lib.get_icon('external')
         elif layer.type == 'HEMI':
             icon_value = lib.get_icon('hemi')
         elif layer.type in {'EDGE_DETECT', 'AO'}:
@@ -2426,7 +2466,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     #else:
     split.menu("NODE_MT_y_layer_type_menu", text=menu_label, icon_value=icon_value)
 
-    if lui.expand_source and layer.type not in {'BACKGROUND', 'GROUP', 'PREV_LAYERS'}:
+    if lui.expand_source and layer.type not in {'BACKGROUND', 'GROUP', 'PREV_LAYERS', 'EXTERNAL'}:
         row = rcol.row(align=True)
         row.label(text='', icon='BLANK1')
         #bbox = row.box()
@@ -2479,6 +2519,38 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             brow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
             brow.prop(layer, 'use_baked', text='Use Baked', toggle=True)
 
+            icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
+            brow.operator("wm.y_remove_baked_entity", text='', icon=icon)
+
+    elif lui.expand_source and layer.type == 'EXTERNAL':
+        row = rcol.row(align=True)
+        row.label(text='', icon='BLANK1')
+        rrow = row.column()
+
+        if is_external_bundle_supported():
+            draw_external_input_info(rrow, layer, bundle=True)
+
+            enabled_names = [yp.channels[i].name for i, ch in enumerate(layer.channels) if ch.enable]
+            if len(enabled_names) > 0:
+                brow = rrow.row(align=True)
+                brow.label(text='Channels: ' + ', '.join(enabled_names))
+        else:
+            for i, ch in enumerate(layer.channels):
+                if not ch.enable: continue
+                root_ch = yp.channels[i]
+
+                draw_external_input_info(rrow, layer, root_ch=root_ch)
+                if root_ch.type == 'RGB' and root_ch.special_type != 'VDISP':
+                    draw_external_input_info(rrow, layer, root_ch=root_ch, alpha=True)
+
+        brow = rrow.row(align=True)
+        brow.context_pointer_set('entity', layer)
+        brow.context_pointer_set('layer', layer)
+        if layer.baked_source == '':
+            brow.operator("wm.y_bake_entity_to_image", text='Bake External Layer as Image', icon_value=lib.get_icon('bake'))
+        else:
+            brow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
+            brow.prop(layer, 'use_baked', text='Use Baked', toggle=True)
             icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
             brow.operator("wm.y_remove_baked_entity", text='', icon=icon)
 
@@ -2709,6 +2781,12 @@ def get_layer_channel_input_label(layer, ch, source=None):
         root_ch = yp.channels[get_layer_channel_index(layer, ch)]
         label = 'Group ' if layer.type == 'GROUP' else 'Previous '
         label += root_ch.name
+    elif layer.type == 'EXTERNAL':
+        root_ch = yp.channels[get_layer_channel_index(layer, ch)]
+        if is_external_bundle_supported():
+            label = 'External Bundle (' + root_ch.name + ')'
+        else:
+            label = 'External ' + root_ch.name
     else:
         label = 'Layer'
 
@@ -2936,13 +3014,23 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
             elif root_ch.special_type == 'HEIGHT':
                 rrrow = ssplit.row(align=True)
+                rrrow.context_pointer_set('parent', ch)
+                rrrow.context_pointer_set('channel', ch)
+                rrrow.context_pointer_set('layer', layer)
 
-                draw_input_prop(rrrow, ch, 'bump_distance', layer=layer)
+                if layer.type == 'EXTERNAL' and not ch.override:
+                    # Show the actual source socket instead of the scale value
+                    label = get_layer_channel_input_label(layer, ch)
+                    rrrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
+                else:
+                    draw_input_prop(rrrow, ch, 'bump_distance', layer=layer)
 
-                if ch.override and ch.override_type == 'DEFAULT':
-                    draw_input_prop(rrrow, ch, 'override_value', layer=layer)
-
-                rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
+                    if ch.override and ch.override_type == 'DEFAULT':
+                        draw_input_prop(rrrow, ch, 'override_value', layer=layer)
+                        rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
+                    else:
+                        label = get_layer_channel_input_label(layer, ch)
+                        rrrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
 
                 if ch.enable and ch.override:
                     if ch.override_type == 'IMAGE':
@@ -3427,6 +3515,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         row = srow.row(align=True)
         label = get_layer_channel_input_label(layer, ch, source)
         row.context_pointer_set('parent', ch)
+        row.context_pointer_set('channel', ch)
+        row.context_pointer_set('layer', layer)
         if ch.override and ch.override_type == 'DEFAULT' and not ch.expand_source:
             split = split_layout(row, 0.55, align=True)
             split.menu("NODE_MT_y_layer_channel_input_menu", text=label)
@@ -3669,6 +3759,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 mask_icon = 'backface'
             elif mask.type == 'MODIFIER':
                 mask_icon = 'modifier'
+            elif mask.type == 'EXTERNAL':
+                mask_icon = 'external_mask'
             else:
                 mask_icon = 'texture'
 
@@ -3801,6 +3893,19 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 draw_inbetween_modifier_mask_props(mask, mask_source, rbcol)
             elif mask.type == 'VCOL':
                 draw_vcol_props(rbcol, entity=mask, show_divide_rgb_alpha=False, show_source_input=True)
+            elif mask.type == 'EXTERNAL':
+                draw_external_input_info(rbcol, layer, mask=mask)
+
+                brow = rrcol.row(align=True)
+                brow.context_pointer_set('entity', mask)
+                brow.context_pointer_set('layer', layer)
+                if mask.baked_source == '':
+                    brow.operator("wm.y_bake_entity_to_image", text='Bake External Mask as Image', icon_value=lib.get_icon('bake'))
+                else:
+                    brow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
+                    brow.prop(mask, 'use_baked', text='Use Baked', toggle=True)
+                    icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
+                    brow.operator("wm.y_remove_baked_entity", text='', icon=icon)
             else: draw_tex_props(mask_source, rbcol, entity=mask, show_source_input=True)
 
             rrcol.context_pointer_set('entity', mask)
@@ -3809,7 +3914,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 rrrow.label(text='', icon='BLANK1')
                 rrrow.operator("wm.y_bake_entity_to_image", text='Bake '+mask_type_labels[mask.type]+' as Image', icon_value=lib.get_icon('bake'))
 
-            elif mask.baked_source != '':
+            elif mask.baked_source != '' and mask.type != 'EXTERNAL':
 
                 baked_source = mask_tree.nodes.get(mask.baked_source)
                 if baked_source and baked_source.image:
@@ -3831,11 +3936,11 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
                 brow.operator("wm.y_remove_baked_entity", text='', icon=icon)
 
-            if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
+            if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'EXTERNAL'}:
                 rrcol.separator()
 
         # Vector row
-        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
+        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'EXTERNAL'}:
 
             srow = split_layout(rrcol, 0.35, align=False)
             srow.active = not mask.use_baked
@@ -4377,14 +4482,14 @@ def draw_layers_ui(context, layout, node):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PREV_LAYERS'} and layer.uv_name != '':
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PREV_LAYERS', 'EXTERNAL'} and layer.uv_name != '':
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
                     #entities.append(layer.name)
 
             for mask in layer.masks:
-                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'} and mask.uv_name != '':
+                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'EXTERNAL'} and mask.uv_name != '':
                     uv_layer = uv_layers.get(mask.uv_name)
                     if not uv_layer and mask.uv_name not in uv_missings:
                         uv_missings.append(mask.uv_name)
@@ -5718,6 +5823,7 @@ def layer_listing(layout, layer, show_expand=False):
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon(icon_name))
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
         elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
+        elif layer.type == 'EXTERNAL': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('external'))
         else: 
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
     else:
@@ -5745,6 +5851,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('group'))
+            elif layer.type == 'EXTERNAL':
+                row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('external'))
             else: 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('texture'))
         else:
@@ -5768,6 +5876,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.label(text='', icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
                 row.label(text='', icon_value=lib.get_icon('group'))
+            elif layer.type == 'EXTERNAL':
+                row.label(text='', icon_value=lib.get_icon('external'))
             else: 
                 row.label(text='', icon_value=lib.get_icon('texture'))
 
@@ -6201,6 +6311,8 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                     row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('backface'))
                 elif mask.type == 'MODIFIER':
                     row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('modifier'))
+                elif mask.type == 'EXTERNAL':
+                    row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('external_mask'))
                 else:
                     row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
 
@@ -7058,6 +7170,7 @@ class YNewLayerMenu(bpy.types.Menu):
             col.menu("NODE_MT_y_new_adjustment_layer_menu", text='Adjustment', icon_value=lib.get_icon('modifier'))
             col.separator()
             col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
+            col.operator("wm.y_new_layer", icon_value=lib.get_icon('external'), text='External Input').type = 'EXTERNAL'
         else:
             row = self.layout.row()
             col = row.column()
@@ -7068,6 +7181,7 @@ class YNewLayerMenu(bpy.types.Menu):
             col.separator()
 
             col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
+            col.operator("wm.y_new_layer", icon_value=lib.get_icon('external'), text='External Input').type = 'EXTERNAL'
             col.separator()
 
             draw_new_vcol_layer_menu(col)
@@ -7197,7 +7311,7 @@ class YListItemOptionMenu(bpy.types.Menu):
         draw_expandable_list_options(self.layout)
 
 def has_layer_input_options(layer):
-    return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE', 'EDGE_DETECT', 'AO'} and not 
+    return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE', 'EDGE_DETECT', 'AO', 'EXTERNAL'} and not
         (is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}))
 
 class YLayerChannelInputMenu(bpy.types.Menu):
@@ -7210,7 +7324,8 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         return get_active_ypaint_node()
 
     def draw(self, context):
-        ch = context.channel
+        ch = getattr(context, 'channel', None)
+        if not ch: ch = getattr(context, 'parent', None)
         yp = ch.id_data.yp
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
         if m: 
@@ -7233,7 +7348,12 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         if color_ch and color_ch.enable and not color_ch.unpair_alpha and alpha_ch == ch:
             icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
 
-            if color_ch.socket_input_name == 'Alpha' and not color_ch.override and layer.type != 'GROUP':
+            if layer.type == 'EXTERNAL':
+                if is_external_bundle_supported():
+                    label = 'External Bundle (Alpha)'
+                else:
+                    label = 'External ' + root_ch.name
+            elif color_ch.socket_input_name == 'Alpha' and not color_ch.override and layer.type != 'GROUP':
                 label = ' Solid Value (1.0)'
             else:
                 label = 'Layer' if layer.type != 'GROUP' else 'Group'
@@ -7246,14 +7366,31 @@ class YLayerChannelInputMenu(bpy.types.Menu):
                     label += ' ('+source.attribute_name+')'
 
             op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-            op.socket_name = get_channel_input_socket_name(layer, ch)
+            if layer.type == 'EXTERNAL':
+                if is_external_bundle_supported():
+                    op.socket_name = get_layer_external_bundle_input_name(layer)
+                else:
+                    op.socket_name = get_layer_external_input_name(layer, root_ch)
+            else:
+                op.socket_name = get_channel_input_socket_name(layer, ch)
         else:
-            if layer.type in {'GROUP', 'PREV_LAYERS'}:
-                label = 'Group ' if layer.type == 'GROUP' else 'Previous '
+            if layer.type in {'GROUP', 'PREV_LAYERS', 'EXTERNAL'}:
+                if layer.type == 'GROUP': label = 'Group '
+                elif layer.type == 'PREV_LAYERS': label = 'Previous '
+                else: label = 'External '
                 label += root_ch.name
+                if layer.type == 'EXTERNAL' and is_external_bundle_supported():
+                    label = 'External Bundle (' + root_ch.name + ')'
                 icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
                 op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-                op.socket_name = ch.socket_input_name
+
+                if layer.type == 'EXTERNAL':
+                    if is_external_bundle_supported():
+                        op.socket_name = get_layer_external_bundle_input_name(layer)
+                    else:
+                        op.socket_name = get_layer_external_input_name(layer, root_ch)
+                else:
+                    op.socket_name = ch.socket_input_name
             else:
                 source = get_layer_source(layer)
                 for outp in get_available_source_outputs(source, layer.type):
@@ -7801,6 +7938,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
             col.menu("NODE_MT_y_add_texture_layer_mask_menu", text='Texture', icon_value=lib.get_icon('texture'))
             col.separator()
             col.menu("NODE_MT_y_add_generated_layer_mask_menu", text='Geometry', icon_value=lib.get_icon('edge_detect'))
+            col.operator("wm.y_new_layer_mask", text='External Input', icon_value=lib.get_icon('external_mask')).type = 'EXTERNAL'
             col.menu("NODE_MT_y_add_bake_as_layer_mask_menu", text='Bake as Mask', icon_value=lib.get_icon('bake'))
             col.menu("NODE_MT_y_add_adjustment_layer_mask_menu", text='Adjustment', icon_value=lib.get_icon('modifier'))
         else:
@@ -7821,6 +7959,9 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
             col.separator()
             draw_new_generated_layer_mask_menu(col)
+
+            col.separator()
+            new_mask_button(col, 'wm.y_new_layer_mask', 'External Input', lib_icon='external_mask', otype='EXTERNAL')
 
             col = row.column(align=True)
             col.label(text='Bake as Mask:')
@@ -8176,6 +8317,9 @@ class YLayerTypeMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if layer.type == 'GROUP' else 'RADIOBUT_OFF'
         col.operator('wm.y_replace_layer_type', text='Group', icon=icon).type = 'GROUP'
 
+        icon = 'RADIOBUT_ON' if layer.type == 'EXTERNAL' else 'RADIOBUT_OFF'
+        col.operator('wm.y_replace_layer_type', text='External Input', icon=icon).type = 'EXTERNAL'
+
         icon = 'RADIOBUT_ON' if layer.type == 'PREV_LAYERS' else 'RADIOBUT_OFF'
         col.operator("wm.y_replace_layer_type", icon=icon, text='Adjustment (Previous Layers)').type = 'PREV_LAYERS'
 
@@ -8283,6 +8427,11 @@ class YMaskTypeMenu(bpy.types.Menu):
         op = col.operator('wm.y_replace_mask_type', text=folder_emoji+label) #, icon_value=lib.get_icon('vertex_color'))
         op.type = 'VCOL'
         op.load_item = True
+
+        col.separator()
+
+        icon = 'RADIOBUT_ON' if mask.type == 'EXTERNAL' else 'RADIOBUT_OFF'
+        col.operator('wm.y_replace_mask_type', text='External Input', icon=icon).type = 'EXTERNAL'
 
         col.separator()
 

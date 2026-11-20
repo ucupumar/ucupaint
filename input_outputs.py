@@ -124,6 +124,211 @@ def create_output(tree, name, socket_type, valid_outputs, index, dirty=False, de
 
     return dirty
 
+def get_external_input_specs(layer, yp):
+    if layer.type == 'EXTERNAL' or any(m.type == 'EXTERNAL' for m in layer.masks):
+        ensure_external_input_id(layer, yp.layers)
+
+    specs = []
+
+    if layer.type == 'EXTERNAL':
+        bundle_supported = is_external_bundle_supported()
+
+        if bundle_supported:
+            # One bundle per external layer, containing all enabled channels
+            if any(ch.enable for ch in layer.channels):
+                specs.append({
+                    'name': get_layer_external_bundle_input_name(layer),
+                    'socket_type': 'NodeSocketBundle',
+                    'default_value': None,
+                    'min_value': None,
+                    'max_value': None,
+                    'hide_value': False,
+                    'description': "External input bundle for layer '" + layer.name + "'",
+                })
+        else:
+            # Fallback for Blender versions without bundle sockets
+            for i, ch in enumerate(layer.channels):
+                if not ch.enable: continue
+                root_ch = yp.channels[i]
+                is_color_ch = root_ch.type == 'RGB' and root_ch.special_type != 'VDISP'
+
+                specs.append({
+                    'name': get_layer_external_input_name(layer, root_ch),
+                    'socket_type': channel_socket_input_bl_idnames[root_ch.type],
+                    'default_value': get_external_input_default(root_ch),
+                    'min_value': 0.0 if root_ch.type == 'VALUE' else None,
+                    'max_value': 1.0 if root_ch.type == 'VALUE' else None,
+                    'hide_value': root_ch.special_type == 'NORMAL',
+                    'description': get_external_input_description(layer, root_ch),
+                })
+
+                if is_color_ch:
+                    specs.append({
+                        'name': get_layer_external_alpha_input_name(layer, root_ch),
+                        'socket_type': 'NodeSocketFloatFactor',
+                        'default_value': 1.0,
+                        'min_value': 0.0,
+                        'max_value': 1.0,
+                        'hide_value': False,
+                        'description': get_external_input_description(layer, root_ch) + ' (Alpha)',
+                    })
+
+    for mask in layer.masks:
+        ensure_external_input_id(mask, layer.masks)
+        if mask.type == 'EXTERNAL':
+            specs.append({
+                'name': get_mask_external_input_name(layer, mask),
+                'socket_type': 'NodeSocketFloatFactor',
+                'default_value': 1.0,
+                'min_value': 0.0,
+                'max_value': 1.0,
+                'hide_value': False,
+                'description': get_external_input_description(layer, mask=mask),
+            })
+
+    return specs
+
+def append_external_inputs(tree, specs, valid_inputs, input_index, dirty, float_factor_input_names):
+    for spec in specs:
+        dirty = create_input(
+            tree, spec['name'], spec['socket_type'], valid_inputs, input_index, dirty,
+            min_value=spec['min_value'], max_value=spec['max_value'],
+            default_value=spec['default_value'], hide_value=spec['hide_value'],
+            description=spec['description']
+        )
+        if spec['socket_type'] == 'NodeSocketFloatFactor':
+            float_factor_input_names.append(spec['name'])
+        input_index += 1
+
+    return dirty, input_index
+
+def check_external_inputs(yp):
+    group_tree = yp.id_data
+
+    specs = []
+    for layer in yp.layers:
+        specs.extend(get_external_input_specs(layer, yp))
+
+    expected_names = [spec['name'] for spec in specs]
+
+    # Create missing external sockets
+    for spec in specs:
+        inp = get_tree_input_by_name(group_tree, spec['name'])
+        if inp: continue
+
+        inp = new_tree_input(group_tree, spec['name'], spec['socket_type'], description=spec['description'])
+        if spec['default_value'] != None: inp.default_value = spec['default_value']
+        if spec['min_value'] != None and hasattr(inp, 'min_value'): inp.min_value = spec['min_value']
+        if spec['max_value'] != None and hasattr(inp, 'max_value'): inp.max_value = spec['max_value']
+        if spec['hide_value'] and hasattr(inp, 'hide_value'): inp.hide_value = True
+
+    # Remove obsolete external sockets
+    for inp in get_tree_inputs(group_tree):
+        if is_external_input_name(inp.name) and inp.name not in expected_names:
+            remove_tree_input(group_tree, inp)
+
+    update_external_input_labels(yp)
+
+def update_external_input_labels(yp):
+    group_tree = yp.id_data
+
+    def set_description(tree, name, description):
+        if not tree: return
+        item = get_tree_input_by_name(tree, name)
+        if item and hasattr(item, 'description'):
+            try: item.description = description
+            except: pass
+
+    for layer in yp.layers:
+        layer_node = group_tree.nodes.get(layer.group_node)
+        layer_tree = layer_node.node_tree if layer_node else None
+
+        if layer.type == 'EXTERNAL':
+            if is_external_bundle_supported():
+                name = get_layer_external_bundle_input_name(layer)
+                desc = "External input bundle for layer '" + layer.name + "'"
+                set_description(group_tree, name, desc)
+                set_description(layer_tree, name, desc)
+            else:
+                for i, ch in enumerate(layer.channels):
+                    if not ch.enable: continue
+                    root_ch = yp.channels[i]
+                    name = get_layer_external_input_name(layer, root_ch)
+                    desc = get_external_input_description(layer, root_ch)
+                    set_description(group_tree, name, desc)
+                    set_description(layer_tree, name, desc)
+
+                    if root_ch.type == 'RGB' and root_ch.special_type != 'VDISP':
+                        alpha_name = get_layer_external_alpha_input_name(layer, root_ch)
+                        alpha_desc = desc + ' (Alpha)'
+                        set_description(group_tree, alpha_name, alpha_desc)
+                        set_description(layer_tree, alpha_name, alpha_desc)
+
+        for mask in layer.masks:
+            if mask.type == 'EXTERNAL':
+                name = get_mask_external_input_name(layer, mask)
+                desc = get_external_input_description(layer, mask=mask)
+                set_description(group_tree, name, desc)
+                set_description(layer_tree, name, desc)
+
+def rename_tree_input(tree, old_name, new_name):
+    if not tree or old_name == new_name: return
+    item = get_tree_input_by_name(tree, old_name)
+    if item:
+        try: item.name = new_name
+        except: pass
+
+def update_external_inputs_for_channel_rename(yp, channel, old_name):
+    channel_idx = get_channel_index(channel)
+
+    for layer in yp.layers:
+        if layer.type != 'EXTERNAL': continue
+        if channel_idx < 0 or channel_idx >= len(layer.channels): continue
+
+        ensure_external_input_id(layer, yp.layers)
+        ch = layer.channels[channel_idx]
+        layer_tree = get_tree(layer)
+
+        if is_external_bundle_supported():
+            bundle_name = get_layer_external_bundle_input_name(layer)
+
+            # Rename the fields inside the layer bundle
+            bundle_node = layer_tree.nodes.get(layer.external_bundle) if layer_tree else None
+            if bundle_node:
+                for item in bundle_node.bundle_items:
+                    if item.name == old_name:
+                        try: item.name = channel.name
+                        except: pass
+                    elif item.name == old_name + io_suffix['ALPHA']:
+                        try: item.name = channel.name + io_suffix['ALPHA']
+                        except: pass
+
+            ori_halt_update = yp.halt_update
+            yp.halt_update = True
+            ch.socket_input_name = bundle_name
+            yp.halt_update = ori_halt_update
+            continue
+
+        old_socket_name = EXTERNAL_INPUT_PREFIX + layer.external_input_id + ' ' + old_name
+        new_socket_name = get_layer_external_input_name(layer, channel)
+
+        rename_tree_input(yp.id_data, old_socket_name, new_socket_name)
+        layer_node = yp.id_data.nodes.get(layer.group_node)
+        if layer_node:
+            rename_tree_input(layer_node.node_tree, old_socket_name, new_socket_name)
+
+        if channel.type == 'RGB' and channel.special_type != 'VDISP':
+            old_alpha_socket_name = old_socket_name + io_suffix['ALPHA']
+            new_alpha_socket_name = new_socket_name + io_suffix['ALPHA']
+            rename_tree_input(yp.id_data, old_alpha_socket_name, new_alpha_socket_name)
+            if layer_node:
+                rename_tree_input(layer_node.node_tree, old_alpha_socket_name, new_alpha_socket_name)
+
+        ori_halt_update = yp.halt_update
+        yp.halt_update = True
+        ch.socket_input_name = new_socket_name
+        yp.halt_update = ori_halt_update
+
 def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
     yp = group_tree.yp
@@ -337,6 +542,14 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                     create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
                     output_index += 1
 
+    # External layer/mask inputs
+    for layer in yp.layers:
+        specs = get_external_input_specs(layer, yp)
+        if not specs: continue
+        _, input_index = append_external_inputs(
+            group_tree, specs, valid_inputs, input_index, False, float_factor_input_names
+        )
+
     # Check start and end nodes
     check_start_end_root_ch_nodes(group_tree)
 
@@ -393,6 +606,129 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
 
+def get_external_bundle_field_specs(layer, yp):
+    specs = []
+
+    for i, ch in enumerate(layer.channels):
+        if not ch.enable: continue
+        root_ch = yp.channels[i]
+
+        if root_ch.type == 'RGB':
+            specs.append((get_external_bundle_field_name(root_ch), 'RGBA'))
+            if root_ch.special_type != 'VDISP':
+                specs.append((get_external_bundle_field_name(root_ch, alpha=True), 'FLOAT'))
+        elif root_ch.type == 'VECTOR':
+            specs.append((get_external_bundle_field_name(root_ch), 'VECTOR'))
+        else:
+            specs.append((get_external_bundle_field_name(root_ch), 'FLOAT'))
+
+    return specs
+
+def update_external_bundle_items(bundle, field_specs):
+    desired_types = {name: socket_type for name, socket_type in field_specs}
+
+    # Remove fields that are no longer needed or have the wrong type
+    for i in reversed(range(len(bundle.bundle_items))):
+        item = bundle.bundle_items[i]
+        if item.name not in desired_types or item.socket_type != desired_types[item.name]:
+            bundle.bundle_items.remove(item)
+
+    # Add missing fields
+    existing_names = [item.name for item in bundle.bundle_items]
+    for name, socket_type in field_specs:
+        if name not in existing_names:
+            bundle.bundle_items.new(socket_type, name)
+
+    # Keep a stable channel order
+    for target_idx, (name, socket_type) in enumerate(field_specs):
+        cur_idx = -1
+        for i, item in enumerate(bundle.bundle_items):
+            if item.name == name:
+                cur_idx = i
+                break
+        if cur_idx != -1 and cur_idx != target_idx:
+            bundle.bundle_items.move(cur_idx, target_idx)
+
+def ensure_external_alpha_default(layer, node=None):
+    if not node: node = get_active_ypaint_node()
+    if not node or node.node_tree != layer.id_data: return
+    yp = layer.id_data.yp
+
+    bundle_input = node.inputs.get(get_layer_external_bundle_input_name(layer))
+    if not bundle_input: return
+
+    for link in bundle_input.links:
+        source = link.from_node
+        if source.bl_idname != 'NodeCombineBundle': continue
+
+        defaulted = set(filter(None, str(source.get('yp_alpha_defaulted_fields', '')).split('|')))
+        changed = False
+
+        for i, ch in enumerate(layer.channels):
+            if not ch.enable or i >= len(yp.channels): continue
+            root_ch = yp.channels[i]
+            if root_ch.type != 'RGB' or root_ch.special_type == 'VDISP': continue
+
+            field_name = get_external_bundle_field_name(root_ch, alpha=True)
+            if field_name in defaulted:
+                if source.inputs.get(field_name): continue
+                defaulted.discard(field_name)
+
+            alpha_input = source.inputs.get(field_name)
+            if not alpha_input:
+                source.bundle_items.new('FLOAT', field_name)
+                alpha_input = source.inputs.get(field_name)
+            if not alpha_input: continue
+
+            if len(alpha_input.links) == 0 and alpha_input.default_value == 0.0:
+                alpha_input.default_value = 1.0
+
+            defaulted.add(field_name)
+            changed = True
+
+        if changed:
+            source['yp_alpha_defaulted_fields'] = '|'.join(sorted(defaulted))
+
+def check_external_bundle_nodes(layer, tree):
+    yp = layer.id_data.yp
+    bundle_supported = is_external_bundle_supported()
+
+    if layer.type != 'EXTERNAL':
+        remove_node(tree, layer, 'external_bundle')
+        return
+
+    if not bundle_supported or layer.use_baked:
+        remove_node(tree, layer, 'external_bundle')
+
+        # Fallback for Blender versions without bundle sockets
+        for i, ch in enumerate(layer.channels):
+            if i >= len(yp.channels): continue
+            expected_name = get_layer_external_input_name(layer, yp.channels[i])
+            if ch.socket_input_name != expected_name:
+                ori_halt_update = yp.halt_update
+                yp.halt_update = True
+                ch.socket_input_name = expected_name
+                yp.halt_update = ori_halt_update
+        return
+
+    field_specs = get_external_bundle_field_specs(layer, yp)
+    if not field_specs:
+        remove_node(tree, layer, 'external_bundle')
+        return
+
+    bundle = check_new_node(tree, layer, 'external_bundle', 'NodeSeparateBundle', 'External Bundle')
+    update_external_bundle_items(bundle, field_specs)
+
+    bundle_name = get_layer_external_bundle_input_name(layer)
+    for ch in layer.channels:
+        if ch.socket_input_name == bundle_name: continue
+        ori_halt_update = yp.halt_update
+        yp.halt_update = True
+        ch.socket_input_name = bundle_name
+        yp.halt_update = ori_halt_update
+
+    ensure_external_alpha_default(layer)
+
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False, hard_reset=False): #, check_uvs=False): #, has_parent=False):
 
     #print("Checking layer IO. Layer: " + layer.name + ' Specific Channel: ' + str(specific_ch))
@@ -409,6 +745,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
 
     # Check layer tree io
     check_layer_tree_ios(layer, tree, remove_props=remove_props, hard_reset=hard_reset)
+
+    # Check external bundle splitter nodes
+    check_external_bundle_nodes(layer, tree)
 
     # Check texcoord nodes
     Decal.check_entity_decal_nodes(layer, tree)
@@ -900,6 +1239,13 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         name = io_names[texcoord]
         dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
         input_index += 1
+
+    # External layer/mask inputs
+    specs = get_external_input_specs(layer, yp)
+    if specs:
+        dirty, input_index = append_external_inputs(
+            tree, specs, valid_inputs, input_index, dirty, float_factor_input_names
+        )
 
     if is_layer_preview_mode_enabled(yp):
         dirty = create_output(tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index, dirty)
