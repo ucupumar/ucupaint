@@ -945,6 +945,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     # Get layer source
     source = get_layer_source(layer, tree)
+    if not source: return
 
     texcoord = nodes.get(layer.texcoord)
     blur_vector = nodes.get(layer.blur_vector)
