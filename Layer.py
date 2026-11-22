@@ -2133,6 +2133,7 @@ def get_nodes_and_links_from_mat_asset(asset_mat, yp=None, cur_mat=None):
         tree = shader_node.node_tree
 
         gout = get_tree_output_node(tree)
+        gin = get_tree_input_node(tree)
         if not gout: return None, None, None
         bsdf = get_closest_bsdf_backward(gout)
         if not bsdf: return None, None, None
@@ -2153,10 +2154,18 @@ def get_nodes_and_links_from_mat_asset(asset_mat, yp=None, cur_mat=None):
         #        if mbsdf.type == bsdf.type:
         #            cur_bsdf = mbsdf
 
+        bump_node = None
+
         for inp in bsdf.inputs:
             if len(inp.links) > 0:
                 link = inp.links[0]
 
+                # Check if normal socket contains only bump data
+                if inp.bl_idname == 'NodeSocketVector' and inp.name == 'Normal':
+                    if link.from_node.type == 'BUMP':
+                        bump_node = link.from_node
+                    else: bump_node = get_closest_bump_node_backward(bsdf, inp)
+                    
                 # Create new output based from input
                 socket_type = inp.bl_idname
                 if socket_type.startswith('NodeSocketFloat'):
@@ -2181,6 +2190,7 @@ def get_nodes_and_links_from_mat_asset(asset_mat, yp=None, cur_mat=None):
             source_sockets[inp.name].has_link = len(inp.links) > 0
 
         # Check for displacement
+        height_outp = None
         disp_outp = shader_node.outputs.get('Displacement')
         if disp_outp and disp_outp.type == 'VECTOR':
             disp = get_closest_displacement_node_backward(gout)
@@ -2191,10 +2201,95 @@ def get_nodes_and_links_from_mat_asset(asset_mat, yp=None, cur_mat=None):
 
                     # Create new height socket
                     soc = tree.interface.new_socket('Height', in_out='OUTPUT', socket_type='NodeSocketFloat') 
+                    height_outp = gout.inputs.get(soc.name)
 
-                    # Connect to the new output
-                    outp = gout.inputs.get(soc.name)
-                    if outp: tree.links.new(link.from_socket, outp)
+                    # Connect to the height output
+                    tree.links.new(link.from_socket, height_outp)
+
+        # Add height socket if bump map is found and height socket doesn't exist yet
+        if bump_node and not height_outp:
+            height = None
+
+            # Create height output
+            height_soc = bump_node.inputs.get('Height')
+            if height_soc and len(height_soc.links) > 0:
+                soc = tree.interface.new_socket('Height', in_out='OUTPUT', socket_type='NodeSocketFloat') 
+                height_outp = gout.inputs.get(soc.name)
+
+                link = height_soc.links[0]
+                height = link.from_socket
+            else:
+                height_val = tree.nodes.new('ShaderNodeValue')
+                if height_soc:
+                    height_val.outputs[0].default_value = height_soc.default_value
+                height_val.location.x = bump_node.location.x
+                height_val.location.y = bump_node.location.y - 150
+                height = height_val.outputs[0]
+
+            # Create height calculation node
+            height_calc = tree.nodes.new('ShaderNodeMath')
+            height_calc.name = height_calc.label = 'Height Calculation'
+            height_calc.operation = 'MULTIPLY'
+            height_calc.location.x = bump_node.location.x
+            height_calc.location.y = bump_node.location.y + 200
+
+            tree.links.new(height, height_calc.inputs[0])
+            height = height_calc.outputs[0]
+
+            # Check for height distance
+            height_distance = bump_node.inputs.get('Distance')
+            if height_distance:
+                if len(height_distance.links) > 0:
+                    link = height_distance.links[0]
+                    tree.links.new(link.from_socket, height_calc.inputs[1])
+                else:
+                    height_calc.inputs[1].default_value = height_distance.default_value
+
+            # Get normal socket
+            normal_soc = gout.inputs.get('Normal')
+            if normal_soc:
+                # Create height/normal boolean input
+                toggle_interface = tree.interface.new_socket(
+                    name="Height as Normal",
+                    in_out='INPUT',
+                    socket_type='NodeSocketBool'
+                )
+                toggle_inp = gin.outputs.get(toggle_interface.name)
+
+                # Create height/normal toggle node
+                toggle_node = simple_replace_new_node(
+                    tree, 'Height as Normal', 'ShaderNodeGroup', 'Height as Normal', 
+                    lib.HEIGHT_AS_NORMAL_TOGGLE,
+                )
+                toggle_node.location.x = bump_node.location.x
+                toggle_node.location.y = bump_node.location.y - 200
+
+                tree.links.new(toggle_inp, toggle_node.inputs[0])
+                tree.links.new(height, toggle_node.inputs['Height'])
+                height = toggle_node.outputs['Height']
+
+                # Connect default normal
+                normal_bump_soc = bump_node.inputs.get('Normal')
+                if normal_bump_soc and len(normal_bump_soc.links) > 0:
+                    link = normal_bump_soc.links[0]
+                    tree.links.new(link.from_socket, toggle_node.inputs['Default Normal'])
+                else:
+                    geometries = [n for n in tree.nodes if n.type == 'NEW_GEOMETRY']
+                    geometry = geometries[0] if any(geometries) else None
+                    if not geometry:
+                        geometry = tree.nodes.new('ShaderNodeNewGeometry')
+                        geometry.location.x = toggle_node.location.x
+                        geometry.location.y = toggle_node.location.y - 250
+                    tree.links.new(geometry.outputs['Normal'], toggle_node.inputs['Default Normal'])
+
+                # Connect normal socket
+                if len(normal_soc.links) > 0:
+                    link = normal_soc.links[0]
+                    tree.links.new(link.from_socket, toggle_node.inputs['Normal'])
+                tree.links.new(toggle_node.outputs['Normal'], normal_soc)
+
+            if height:
+                tree.links.new(height, height_outp)
 
         # Remove bsdf and displacement socket
         items = [item for item in list(tree.interface.items_tree) if (

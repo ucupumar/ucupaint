@@ -1760,6 +1760,11 @@ def get_tree_output_node(tree):
     outp = outps[0] if outps else None
     return outp
 
+def get_tree_input_node(tree):
+    inps = [n for n in tree.nodes if n.type == 'GROUP_INPUT']
+    inp = inps[0] if inps else None
+    return inp
+
 def get_material_output(mat, create_one=False):
     if mat != None and mat.node_tree:
         output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
@@ -8047,6 +8052,19 @@ def get_closest_yp_node_backward(node):
                 if n: return n
 
     return None
+
+def get_closest_bump_node_backward(node, inp=None):
+    inputs = [inp] if inp != None else node.inputs
+
+    for inp in inputs:
+        for link in inp.links:
+            if link.from_node.type == 'BUMP':
+                return link.from_node
+            else:
+                n = get_closest_bump_node_backward(link.from_node)
+                if n: return n
+
+    return None 
 
 def get_closest_displacement_node_backward(node):
     inputs = node.inputs
