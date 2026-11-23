@@ -228,7 +228,7 @@ GLTF_SETTINGS = 'glTF Settings'
 BL278_BSDF = 'bsdf278'
 
 # For custom nodes
-HEIGHT_AS_NORMAL_TOGGLE = '~yPL Height as Normal Toggle'
+BUMP_AS_HEIGHT_TOGGLE = '~yPL Bump as Height Toggle'
 
 channel_custom_icon_dict = {
     'RGB' : 'rgb_channel',

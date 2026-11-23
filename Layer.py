@@ -2250,16 +2250,17 @@ def get_nodes_and_links_from_mat_asset(asset_mat, yp=None, cur_mat=None):
             if normal_soc:
                 # Create height/normal boolean input
                 toggle_interface = tree.interface.new_socket(
-                    name="Height as Normal",
+                    name="Use Bump as Height",
                     in_out='INPUT',
                     socket_type='NodeSocketBool'
                 )
+                shader_node.inputs.get(toggle_interface.name).default_value = True
                 toggle_inp = gin.outputs.get(toggle_interface.name)
 
                 # Create height/normal toggle node
                 toggle_node = simple_replace_new_node(
-                    tree, 'Height as Normal', 'ShaderNodeGroup', 'Height as Normal', 
-                    lib.HEIGHT_AS_NORMAL_TOGGLE,
+                    tree, 'Bump as Height', 'ShaderNodeGroup', 'Bump as Height', 
+                    lib.BUMP_AS_HEIGHT_TOGGLE,
                 )
                 toggle_node.location.x = bump_node.location.x
                 toggle_node.location.y = bump_node.location.y - 200
