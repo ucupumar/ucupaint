@@ -1316,3 +1316,14 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                     img_nodes[j].image = img_nodes[i].image
                     already_copied_ids.append(j)
 
+def any_height_input_layer(yp):
+
+    for layer in yp.layers:
+        if layer.type not in {'INPUT_BUNDLE'}: continue
+        height_ch = get_height_channel(layer)
+        if not height_ch or height_ch.override: return False
+
+        if get_channel_enabled(height_ch):
+            return True
+
+    return False

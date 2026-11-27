@@ -1789,8 +1789,7 @@ def blur_image(image, filter_type='GAUSS', size=10):
     rgb = blur.outputs[0]
     tree.links.new(rgb, composite.inputs[0])
 
-    if image.source == 'TILED':
-        tilenums = [tile.number for tile in image.tiles]
+    if image.source == 'TILED': tilenums = [tile.number for tile in image.tiles]
     else: tilenums = [1001]
 
     # Get temporary filepath
@@ -2844,7 +2843,7 @@ def get_bake_target_default_color(node, bt, any_linear_ch):
                     color.append(0.5)
                 else: color.append(1.0)
 
-            elif root_ch.special_type == 'HEIGHT' and (root_ch.use_height_normalize or bt.height_normalize):
+            elif root_ch.special_type == 'HEIGHT' and (root_ch.use_height_normalize or bt.height_normalize) and not layer_common.any_height_input_layer(yp):
                 color.append(0.5)
 
             elif root_ch.type == 'VALUE':
@@ -2896,6 +2895,151 @@ def copy_vcol_channels(source, target, source_idx, target_idx):
     target_nvcol2D[:, target_idx] = temp_nvcol2D[:, source_idx]
     target.data.foreach_set('color', target_nvcol)   
 
+def normalize_image(image, value_span=1.0, channels=[]):
+    T = time.time()
+    print('NORMALIZE: Doing Normalize pass on', image.name + '...')
+
+    # Preparing settings
+    book = prepare_composite_settings(use_hdr=image.is_float)
+    scene = bpy.context.scene
+
+    # Set up compositor
+    tree = get_compositor_node_tree(scene)
+    composite = get_compositor_output_node(tree)
+
+    if not any(channels): channels = [0, 1, 2]
+
+    # Load image
+    image_node = tree.nodes.new('CompositorNodeImage')
+    image_node.image = image
+
+    # Separate and Combine Color
+    sep = tree.nodes.new('CompositorNodeSeparateColor')
+    comb = tree.nodes.new('CompositorNodeCombineColor')
+
+    # Connect
+    tree.links.new(image_node.outputs[0], sep.inputs['Image'])
+
+    # Multiply add nodes
+    maths = []
+    for i in range(4):
+        if i in channels:
+            m = tree.nodes.new('ShaderNodeMath')
+            m.operation = 'MULTIPLY_ADD'
+            m.inputs[1].default_value = 1 / (value_span) #*2) # Multiplier
+            m.inputs[2].default_value = 0.5 # Addend
+            maths.append(m)
+
+            tree.links.new(sep.outputs[i], m.inputs[0])
+            tree.links.new(m.outputs[0], comb.inputs[i])
+        else:
+            tree.links.new(sep.outputs[i], comb.inputs[i])
+
+    tree.links.new(comb.outputs[0], composite.inputs[0])
+
+    if image.source == 'TILED': tilenums = [tile.number for tile in image.tiles]
+    else: tilenums = [1001]
+
+    # Get temporary filepath
+    ext = 'exr' if image.is_float else 'png'
+    filepath = os.path.join(tempfile.gettempdir(), 'TEST_RENDER__.' + ext)
+
+    for tilenum in tilenums:
+
+        # Swap tile to 1001 to access the data
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+        # Set render resolution
+        scene.render.resolution_x = image.size[0]
+        scene.render.resolution_y = image.size[1]
+
+        # Render image!
+        bpy.ops.render.render()
+
+        # Save the image
+        render_result = next(img for img in bpy.data.images if img.type == "RENDER_RESULT")
+        render_result.save_render(filepath)
+        temp_image = bpy.data.images.load(filepath)
+
+        # Copy image pixels
+        copy_image_pixels(temp_image, image)
+
+        # Remove temp image
+        remove_datablock(bpy.data.images, temp_image)
+        os.remove(filepath)
+
+        # Swap back the tile
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+    # Recover settings
+    recover_composite_settings(book)
+
+    print('NORMALIZE:', image.name, 'normalize pass is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+    return image
+
+def get_image_channel_span_value(image, channel_idx=0):
+
+    if image.source == 'TILED': tilenums = [tile.number for tile in image.tiles]
+    else: tilenums = [1001]
+
+    max_val = 0.0
+    min_val = 0.0
+
+    value_span = 0.0
+
+    for tilenum in tilenums:
+
+        # Swap tile to 1001 to access the data
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+        # TODO: UDIM image process
+        width, height = image.size
+        channels = image.channels
+        
+        # Copy pixel buffer into a NumPy array
+        pixels = numpy.empty(width * height * channels, dtype=numpy.float32)
+        image.pixels.foreach_get(pixels)
+        
+        # Reshape to (Height, Width, Channels)
+        pixels_reshaped = pixels.reshape((height, width, channels))
+        
+        # Get the minimum and maximum value in that channel
+        max_val = numpy.max(pixels_reshaped[:, :, channel_idx])
+        min_val = numpy.min(pixels_reshaped[:, :, channel_idx])
+
+        # Get value span based on minmax value
+        span = max(abs(min_val), abs(max_val)) * 2
+        if span > value_span:
+            value_span = span
+
+        # Swap back the tile
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+    return value_span
+
+def normalize_height_image_by_pixel(bt, image):
+    yp = bt.id_data.yp
+
+    # Get bake target channel that point to height channel
+    ids_to_use = []
+    for i, letter in enumerate(rgba_letters):
+        btc = getattr(bt, letter)
+        root_ch = yp.channels.get(btc.channel_name)
+        if root_ch and root_ch.special_type == 'HEIGHT':
+            ids_to_use.append(i)
+    if not any(ids_to_use): return
+
+    idx_to_use = ids_to_use[0]
+    height_span = get_image_channel_span_value(image, idx_to_use)
+
+    normalize_image(image, value_span=height_span, channels=ids_to_use)
+
+    return height_span
+
 def get_btprops_width_height(btprops):
     width = btprops.width if btprops.use_custom_resolution else int(btprops.image_resolution)
     height = btprops.height if btprops.use_custom_resolution else int(btprops.image_resolution)
@@ -2923,6 +3067,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # Normal and height channel
     normal_root_ch = get_root_normal_channel(yp)
     height_root_ch = get_root_height_channel(yp)
+    height_ch_idx = get_channel_index(height_root_ch)
 
     any_linear_ch = any([c for c in channels if c.colorspace == 'LINEAR' or c.special_type == 'NORMAL'])
     any_normal_ch = any([c for c in channels if c.special_type == 'NORMAL'])
@@ -3049,8 +3194,11 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     #            reconnect_layer_nodes(lay)
     #            rearrange_layer_nodes(lay)
 
+    # Flag to bake max height from pixels
+    normalize_height_using_pixel_values = any_height_ch and bt.height_normalize and layer_common.any_height_input_layer(yp)
+
     # Check for hdr
-    use_hdr = bt.hdr
+    use_hdr = bt.hdr or normalize_height_using_pixel_values
 
     # Linear channel will use non color
     # And also make sure color with alpha doesn't use noncolor
@@ -3251,7 +3399,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
 
         # Normalize height option
         if bt.height_normalize:
-            height_root_ch.use_height_normalize = True
+            height_root_ch.use_height_normalize = not normalize_height_using_pixel_values
 
         if height_root_ch.use_height_normalize:
             inp_height = node.inputs.get(height_root_ch.name)
@@ -3540,17 +3688,23 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         baked_node.attribute_name = vcol_name
 
     # Max height pass
+    max_height_value = 1.0
+    if any_height_ch and normalize_height_using_pixel_values and img:
+        max_height_value = normalize_height_image_by_pixel(bt, img)
+
     if any_height_ch and height_root_ch and height_root_ch.use_height_normalize:
         # Bake maximum height / height scale
         max_height_value = get_bake_max_height(height_root_ch, mat, node, tex, emit)
-        max_value_node = check_new_node(tree, bt, 'max_value_node', 'ShaderNodeValue', 'Max '+height_root_ch.name+' Value')
-        max_value_node.outputs[0].default_value = max_height_value
 
         # Recover default height scale value
         inp_height = node.inputs.get(height_root_ch.name)
         inp_scale = node.inputs.get(height_root_ch.name + io_suffix['SCALE'])
         if len(inp_height.links) == 0 and inp_height.default_value == 0.0 and inp_scale: 
             inp_scale.default_value = ori_default_height_scale
+
+    if any_height_ch and ((height_root_ch and height_root_ch.use_height_normalize) or normalize_height_using_pixel_values):
+        max_value_node = check_new_node(tree, bt, 'max_value_node', 'ShaderNodeValue', 'Max '+height_root_ch.name+' Value')
+        max_value_node.outputs[0].default_value = max_height_value
 
     # Remove nodes
     simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img and img != None)
