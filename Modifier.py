@@ -464,8 +464,10 @@ def update_math_method(self, context):
     if self.type == 'MATH':
         math = tree.nodes.get(self.math)
         math.node_tree.nodes.get('Math.R').operation = self.math_meth
-        math.node_tree.nodes.get('Math.G').operation = self.math_meth
-        math.node_tree.nodes.get('Math.B').operation = self.math_meth
+        mg = math.node_tree.nodes.get('Math.G')
+        if mg: mg.operation = self.math_meth
+        mb = math.node_tree.nodes.get('Math.B')
+        if mb: mb.operation = self.math_meth
         math.node_tree.nodes.get('Math.A').operation = self.math_meth
 
 def update_multiplier_val_input(self, context):
