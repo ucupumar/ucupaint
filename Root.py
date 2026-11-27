@@ -2677,6 +2677,8 @@ def update_channel_name(self, context):
     if yp.halt_reconnect or yp.halt_update:
         return
 
+    old_channel_name = self.original_name
+
     # Make sure there's no duplicate name
     if any([ch for ch in yp.channels if ch != self and self.name == ch.name]):
         self.halt_update = True
@@ -2695,6 +2697,9 @@ def update_channel_name(self, context):
 
     # Update channel's original name
     self.original_name = self.name
+
+    # Update external inputs using this channel
+    update_external_inputs_for_channel_rename(yp, self, old_channel_name)
 
     get_tree_input_by_index(group_tree, input_index).name = self.name
     get_tree_output_by_index(group_tree, output_index).name = self.name
@@ -4042,6 +4047,31 @@ class YPaintObjectProps(bpy.types.PropertyGroup):
 #    parallax_curvature_span : FloatProperty(default=1.0)
 
 @persistent
+def ypaint_external_alpha_default_update(scene, depsgraph=None):
+    group_node = get_active_ypaint_node()
+    if not group_node: return
+
+    yp = group_node.node_tree.yp
+    if not any(layer.type == 'EXTERNAL' for layer in yp.layers): return
+
+    for layer in yp.layers:
+        if layer.type != 'EXTERNAL': continue
+
+        bundle_input = group_node.inputs.get(get_layer_external_bundle_input_name(layer))
+        source_name = ''
+        if bundle_input and len(bundle_input.links) > 0:
+            source_name = bundle_input.links[0].from_node.name
+
+        source_changed = layer.get('yp_external_bundle_source', '') != source_name
+        if source_changed:
+            layer['yp_external_bundle_source'] = source_name
+
+        ensure_external_alpha_default(layer, node=group_node)
+
+        if source_changed:
+            reconnect_layer_nodes(layer)
+
+@persistent
 def ypaint_hacks_and_scene_updates(scene):
     # Get active yp node
     group_node = get_active_ypaint_node()
@@ -4383,6 +4413,7 @@ def register():
         # Paint slot hack is no longer necessary with Blender 5.1
         if not is_bl_newer_than(5, 1):
             bpy.app.handlers.depsgraph_update_post.append(ypaint_mismatch_paint_slot_hack)
+        bpy.app.handlers.depsgraph_update_post.append(ypaint_external_alpha_default_update)
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_object_changes_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
@@ -4404,6 +4435,7 @@ def unregister():
     if is_bl_newer_than(2, 80):
         if not is_bl_newer_than(5, 1):
             bpy.app.handlers.depsgraph_update_post.remove(ypaint_mismatch_paint_slot_hack)
+        bpy.app.handlers.depsgraph_update_post.remove(ypaint_external_alpha_default_update)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
         bpy.app.handlers.scene_update_pre.remove(ypaint_object_changes_update)

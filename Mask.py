@@ -98,6 +98,10 @@ def remove_mask(layer, mask, obj, refresh_list=True):
     # Remove mask
     layer.masks.remove(mask_index)
 
+    # Remove obsolete external input sockets
+    from . import input_outputs
+    input_outputs.check_external_inputs(yp)
+
     # Update list items
     if refresh_list:
         ListItem.refresh_list_items(yp)
@@ -114,7 +118,7 @@ def is_mask_type_cacheable(mask_type, modifier_type=''):
     if mask_type == 'MODIFIER':
         return modifier_type in {'RAMP', 'CURVE'}
 
-    return mask_type not in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'EDGE_DETECT', 'BACKFACE', 'AO'}
+    return mask_type not in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'EDGE_DETECT', 'BACKFACE', 'AO', 'EXTERNAL'}
 
 def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_type='INVERT'):
 
@@ -237,6 +241,16 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     ori_type = mask.type
     mask.type = new_type
 
+    # External input mask
+    ori_halt_update = yp.halt_update
+    yp.halt_update = True
+    if mask.type == 'EXTERNAL':
+        ensure_external_input_id(mask, layer.masks)
+        mask.socket_input_name = get_mask_external_input_name(layer, mask)
+    elif ori_type == 'EXTERNAL':
+        mask.socket_input_name = 'Color'
+    yp.halt_update = ori_halt_update
+
     # Change mask modifier type
     if mask.type == 'MODIFIER':
         mask.modifier_type = modifier_type
@@ -356,6 +370,8 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     #rearrange_layer_nodes(layer)
 
     #if mask.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
+    from . import input_outputs
+    input_outputs.check_external_inputs(yp)
     reconnect_yp_nodes(mask.id_data)
     rearrange_yp_nodes(mask.id_data)
 
@@ -683,7 +699,7 @@ class YNewLayerMask(bpy.types.Operator):
             row.label(text='')
             row.prop(self, 'hemi_use_prev_normal')
 
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'EXTERNAL'}:
 
             row = split_layout(layout, split_val)
             right_aligned_label(row, 'Mapping:')
@@ -734,6 +750,11 @@ class YNewLayerMask(bpy.types.Operator):
         elif self.type == 'BACKFACE':
             col = layout.column(align=True)
             col.label(text='Backface mask can\'t be baked!', icon='ERROR')
+
+        elif self.type == 'EXTERNAL':
+            col = layout.column(align=True)
+            col.label(text='This mask exposes an input socket on the Ucupaint node group.', icon='INFO')
+            col.label(text='Connect a value/color to it in the Shader Editor.', icon='BLANK1')
 
     def execute(self, context):
         if hasattr(self, 'auto_cancel') and self.auto_cancel: return {'CANCELLED'}
@@ -1911,7 +1932,7 @@ def update_mask_uv_name(self, context):
     tree = get_tree(layer)
     mask = self
 
-    if mask.type in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'} or mask.texcoord_type != 'UV':
+    if mask.type in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO', 'EXTERNAL'} or mask.texcoord_type != 'UV':
         return
 
     # Cannot use temp uv as standard uv
@@ -2027,6 +2048,7 @@ def update_mask_name(self, context):
 
     if self.type == 'IMAGE' and self.segment_name != '': return
     change_layer_name(yp, context.object, src, self, layer.masks)
+    update_external_input_labels(yp)
 
 def update_mask_blend_type(self, context):
 
@@ -2227,6 +2249,8 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
         items = mask_type_items,
         default = 'IMAGE'
     )
+
+    external_input_id : StringProperty(default='')
 
     texcoord_type : EnumProperty(
         name = 'Mask Coordinate Type',

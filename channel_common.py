@@ -19,6 +19,13 @@ def check_yp_channel_nodes(yp, reconnect=False):
             for i in range(num_difference):
                 # Add new channel
                 c = layer.channels.add()
+                if layer.type == 'EXTERNAL':
+                    ensure_external_input_id(layer, yp.layers)
+                    root_ch = yp.channels[len(layer.channels)-1]
+                    ori_halt_update = yp.halt_update
+                    yp.halt_update = True
+                    c.socket_input_name = get_layer_external_input_name(layer, root_ch)
+                    yp.halt_update = ori_halt_update
         elif num_difference < 0:
             for i in range(abs(num_difference)):
                 last_idx = len(layer.channels)-1
@@ -813,7 +820,7 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
 
     # Automatically enable new layer channel for group and background layers
     for layer in yp.layers:
-        if layer.type in {'GROUP', 'BACKGROUND'}:
+        if layer.type in {'GROUP', 'BACKGROUND', 'EXTERNAL'}:
             layer.channels[yp.active_channel_index].enable = True
 
     return ''
